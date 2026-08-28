@@ -1,0 +1,7 @@
+# Git diff evidence for PKG-CORE-014
+#
+# Captured state: unborn main; repository project files are untracked.
+# `git diff` has no baseline and therefore emits no patch for untracked files.
+# This is not an empty implementation claim. The full current implementation
+# is included in implementation-files.md, and the full relevant test block is
+# included in tests.md.
