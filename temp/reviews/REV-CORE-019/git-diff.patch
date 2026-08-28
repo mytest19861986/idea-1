@@ -1,0 +1,56 @@
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-CORE-019.md b/docs/ai/TASK_CONTRACTS/PKG-CORE-019.md
+new file mode 100644
+index 0000000..302ee48
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-CORE-019.md
+@@ -0,0 +1,13 @@
++# PKG-CORE-019 — Source coverage-gap assessment
++
++## Objective
++
++Identify required market segments that are not covered by active sources, without mutating source lifecycle state or selecting sources automatically.
++
++## Invariants
++
++- Only sources whose status is `ACTIVE` contribute coverage.
++- Candidate, paused, retired, and malformed source records cannot satisfy a coverage requirement.
++- Segment names are trimmed; blank requested segments are ignored and duplicates are collapsed.
++- The result is a sorted immutable list, making it safe to use as an auditable planning input.
++- This assessment creates no source, changes no source status, and performs no network collection.
+diff --git a/src/source-registry/coverage.mjs b/src/source-registry/coverage.mjs
+new file mode 100644
+index 0000000..b99fb15
+--- /dev/null
++++ b/src/source-registry/coverage.mjs
+@@ -0,0 +1,6 @@
++export function findCoverageGaps(sources, requiredSegments) {
++  if (!Array.isArray(sources) || !Array.isArray(requiredSegments)) throw new TypeError("sources and requiredSegments must be arrays");
++  const covered = new Set(sources.filter((source) => source?.status === "ACTIVE").flatMap((source) => Array.isArray(source.segments) ? source.segments : []).filter((segment) => typeof segment === "string" && segment.trim()).map((segment) => segment.trim()));
++  const requested = new Set(requiredSegments.map((segment) => typeof segment === "string" ? segment.trim() : "").filter(Boolean));
++  return Object.freeze([...requested].filter((segment) => !covered.has(segment)).sort());
++}
+diff --git a/test/source-registry.test.mjs b/test/source-registry.test.mjs
+index 4501225..2ea4e67 100644
+--- a/test/source-registry.test.mjs
++++ b/test/source-registry.test.mjs
+@@ -17,6 +17,7 @@
+ import { DeliveryLedger } from "../src/delivery/ledger.mjs";
+ import { assessSourceHealth } from "../src/source-registry/health.mjs";
+ import { rankOpportunities } from "../src/analysis/ranking.mjs";
+ import { normalizeClaim } from "../src/analysis/claims.mjs";
++import { findCoverageGaps } from "../src/source-registry/coverage.mjs";
+ import { mkdtemp, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+@@ -233,3 +234,11 @@ test("claim classification keeps evidence-backed facts separate from AI hypothe
+   assert.throws(() => normalizeClaim({ text: "Unproven", type: "FACT" }), /require evidence/);
+   assert.throws(() => normalizeClaim({ text: "Model says yes", type: "AI_ANALYSIS", verified: true }), /cannot self-declare/);
+ });
++
++test("coverage gaps report missing active-source segments without changing sources", () => {
++  const sources = [{ status: "ACTIVE", segments: ["saudi-b2b"] }, { status: "CANDIDATE", segments: ["sea-consumer"] }];
++  const gaps = findCoverageGaps(sources, ["saudi-b2b", "sea-consumer", " eu-saas ", "", "eu-saas"]);
++  assert.deepEqual(gaps, ["eu-saas", "sea-consumer"]);
++  assert.equal(Object.isFrozen(gaps), true);
++  assert.throws(() => findCoverageGaps({}, []), /arrays/);
++});
