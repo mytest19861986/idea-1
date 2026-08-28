@@ -2,7 +2,7 @@
 
 ## Status
 
-Foundation in progress. The configured remote is `https://github.com/mytest19861986/idea-1.git` and currently has no commits or refs.
+Foundation in progress. The configured remote is `https://github.com/mytest19861986/idea-1.git`; the initial baseline is committed and pushed.
 
 ## Product objective
 
@@ -10,9 +10,9 @@ Build a global opportunity intelligence platform that discovers and evaluates in
 
 ## Repository truth (2026-08-28)
 
-- Local branch: `main` (unborn; no commits)
+- Local branch: `main`, baseline commit `49cc11a5db9feb28f79386cccd6050d0544ca7a4`
 - Remote: `origin` → `https://github.com/mytest19861986/idea-1.git`
-- Existing source, configuration, tests, CI, infrastructure, and secrets: none observed
+- Dependency-free source modules and a Node test suite are present; CI, deployment infrastructure, production database integration, external AI integration, and external delivery adapters remain absent
 - Available local tooling: Git plus bundled Node.js and pnpm supplied by the workspace runtime
 - System PATH does not expose `node` or `npm`; project commands must use the bundled runtime until a project toolchain is configured
 

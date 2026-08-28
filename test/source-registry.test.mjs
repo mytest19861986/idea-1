@@ -17,6 +17,7 @@ import { DeliveryLedger } from "../src/delivery/ledger.mjs";
 import { assessSourceHealth } from "../src/source-registry/health.mjs";
 import { rankOpportunities } from "../src/analysis/ranking.mjs";
 import { normalizeClaim } from "../src/analysis/claims.mjs";
+import { findCoverageGaps } from "../src/source-registry/coverage.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -232,4 +233,12 @@ test("claim classification keeps evidence-backed facts separate from AI hypothes
   assert.deepEqual(normalizeClaim({ text: "May fit the market", type: "AI_HYPOTHESIS" }), { text: "May fit the market", type: "AI_HYPOTHESIS", evidenceIds: [], verified: false });
   assert.throws(() => normalizeClaim({ text: "Unproven", type: "FACT" }), /require evidence/);
   assert.throws(() => normalizeClaim({ text: "Model says yes", type: "AI_ANALYSIS", verified: true }), /cannot self-declare/);
+});
+
+test("coverage gaps report missing active-source segments without changing sources", () => {
+  const sources = [{ status: "ACTIVE", segments: ["saudi-b2b"] }, { status: "CANDIDATE", segments: ["sea-consumer"] }];
+  const gaps = findCoverageGaps(sources, ["saudi-b2b", "sea-consumer", " eu-saas ", "", "eu-saas"]);
+  assert.deepEqual(gaps, ["eu-saas", "sea-consumer"]);
+  assert.equal(Object.isFrozen(gaps), true);
+  assert.throws(() => findCoverageGaps({}, []), /arrays/);
 });

@@ -36,3 +36,7 @@
 ## Next action
 
 Commit and push the prepared review evidence when Git author identity is supplied; PostgreSQL integration remains environment-blocked. No external delivery adapter may be added yet.
+
+## Uncommitted work
+
+- `PKG-CORE-019` adds a planning-only coverage-gap assessment. It reports required segments that are not covered by sources in the `ACTIVE` lifecycle state, and does not mutate the registry or collect network data.

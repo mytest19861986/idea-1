@@ -18,6 +18,7 @@ No credential, token, database URL, Telegram credential, AI-provider key, sessio
 - Source activation and publication authorization are explicit state transitions.
 - Delivery request/result contracts have no network side effect.
 - Local persistence limitation is documented; it is not represented as production-safe.
+- External reviewers receive only explicit, committed repository artifacts via SHA-pinned Raw URLs; no credentials, local paths, mutable URLs, or uncommitted files may be represented as review evidence.
 
 ## Open security work
 
