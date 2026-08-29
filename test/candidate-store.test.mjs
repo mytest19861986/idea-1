@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryDiscoveryCandidateStore } from "../src/discovery/candidate-store.mjs";
 
-test("InMemoryDiscoveryCandidateStore enforces mandatory ISO timestamp 'at'", () => {
+test("InMemoryDiscoveryCandidateStore enforces mandatory ISO timestamp 'at' on all mutations", () => {
   const store = new InMemoryDiscoveryCandidateStore();
   const candidate = {
     schemaVersion: 1,
@@ -16,6 +16,31 @@ test("InMemoryDiscoveryCandidateStore enforces mandatory ISO timestamp 'at'", ()
 
   assert.throws(() => store.putCandidate(candidate), /at must be a non-empty string/);
   assert.throws(() => store.putCandidate(candidate, { at: "not-a-timestamp" }), /at must be a valid ISO 8601 timestamp/);
+
+  // Store successfully first
+  store.putCandidate(candidate, { at: "2026-08-30T01:00:00Z" });
+
+  // Test appendAttribution timestamp validation
+  const attr = { sourceId: "src2", canonicalUrl: "https://example.com/item/1" };
+  assert.throws(() => store.appendAttribution(candidate.discoveryId, attr), /at must be a non-empty string/);
+  assert.throws(() => store.appendAttribution(candidate.discoveryId, attr, { at: "invalid" }), /at must be a valid ISO 8601 timestamp/);
+});
+
+test("InMemoryDiscoveryCandidateStore enforces discoveryId canonical formula consistency", () => {
+  const store = new InMemoryDiscoveryCandidateStore();
+  const invalidIdCandidate = {
+    schemaVersion: 1,
+    discoveryId: "wrong-id-format", // Not matching disc:src1:https://example.com/p
+    idempotencyKey: "key-1",
+    sourceId: "src1",
+    canonicalUrl: "https://example.com/p",
+    title: "Item"
+  };
+
+  assert.throws(
+    () => store.putCandidate(invalidIdCandidate, { at: "2026-08-30T01:00:00Z" }),
+    /must match canonical format/
+  );
 });
 
 test("STORE-I001: Same candidate exact replay is idempotent", () => {
@@ -28,7 +53,8 @@ test("STORE-I001: Same candidate exact replay is idempotent", () => {
     canonicalUrl: "https://example.com/item/1",
     title: "Item 1",
     is_confidential: false,
-    contentReference: "https://item1.example.com"
+    contentReference: "https://item1.example.com",
+    metadata: { tag: "saas", rating: 5 }
   };
 
   const res1 = store.putCandidate(candidate, { at: "2026-08-30T01:00:00Z" });
@@ -41,7 +67,7 @@ test("STORE-I001: Same candidate exact replay is idempotent", () => {
   assert.deepStrictEqual(res1.record, res2.record, "Replayed candidate must match original stored candidate");
 });
 
-test("STORE-I002: Same idempotency key with conflicting payload is rejected", () => {
+test("STORE-I002: Same idempotency key with conflicting payload (title or metadata) is rejected", () => {
   const store = new InMemoryDiscoveryCandidateStore();
   const candidate1 = {
     schemaVersion: 1,
@@ -50,6 +76,7 @@ test("STORE-I002: Same idempotency key with conflicting payload is rejected", ()
     sourceId: "src1",
     canonicalUrl: "https://example.com/item/1",
     title: "Original Title",
+    metadata: { tier: "free" },
     is_confidential: false
   };
 
@@ -60,15 +87,30 @@ test("STORE-I002: Same idempotency key with conflicting payload is rejected", ()
     sourceId: "src1",
     canonicalUrl: "https://example.com/item/1",
     title: "Conflicting Material Title",
+    metadata: { tier: "free" },
+    is_confidential: false
+  };
+
+  const candidate3 = {
+    schemaVersion: 1,
+    discoveryId: "disc:src1:https://example.com/item/1",
+    idempotencyKey: "key-123",
+    sourceId: "src1",
+    canonicalUrl: "https://example.com/item/1",
+    title: "Original Title",
+    metadata: { tier: "enterprise" }, // Conflicting metadata
     is_confidential: false
   };
 
   store.putCandidate(candidate1, { at: "2026-08-30T01:00:00Z" });
-  const resConflict = store.putCandidate(candidate2, { at: "2026-08-30T01:05:00Z" });
 
-  assert.strictEqual(resConflict.ok, false);
-  assert.strictEqual(resConflict.status, "CONFLICT_REJECTED");
-  assert.match(resConflict.reason, /Material payload conflict/);
+  const resConflictTitle = store.putCandidate(candidate2, { at: "2026-08-30T01:05:00Z" });
+  assert.strictEqual(resConflictTitle.ok, false);
+  assert.strictEqual(resConflictTitle.status, "CONFLICT_REJECTED");
+
+  const resConflictMeta = store.putCandidate(candidate3, { at: "2026-08-30T01:06:00Z" });
+  assert.strictEqual(resConflictMeta.ok, false);
+  assert.strictEqual(resConflictMeta.status, "CONFLICT_REJECTED");
 });
 
 test("STORE-I003: Idempotency key collision across different discovery IDs is rejected", () => {
@@ -147,7 +189,7 @@ test("STORE-I004 & STORE-I007: Append-only multi-source attribution preserves pr
   assert.strictEqual(history[1].sourceId, "src-secondary");
 });
 
-test("STORE-I006: Confidentiality round-trip preserves isolation and rejects public downgrades", () => {
+test("STORE-I006: Confidentiality round-trip preserves isolation and explicitly fires CONFIDENTIALITY_DOWNGRADE_REJECTED", () => {
   const store = new InMemoryDiscoveryCandidateStore();
   const confidentialCandidate = {
     schemaVersion: 1,
@@ -175,7 +217,8 @@ test("STORE-I006: Confidentiality round-trip preserves isolation and rejects pub
 
   const resPublic = store.putCandidate(publicAttempt, { at: "2026-08-30T01:05:00Z" });
   assert.strictEqual(resPublic.ok, false);
-  assert.strictEqual(resPublic.status, "CONFLICT_REJECTED");
+  assert.strictEqual(resPublic.status, "CONFIDENTIALITY_DOWNGRADE_REJECTED");
+  assert.match(resPublic.reason, /Cannot downgrade confidential candidate to public/);
 });
 
 test("Lookup APIs (getCandidateById, getCandidateBySourceIdentity, findByIdempotencyKey) work accurately", () => {

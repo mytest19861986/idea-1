@@ -1,7 +1,8 @@
-import { deepFreeze, validateIsoTimestamp } from "./discovery-intake.mjs";
+import { deepFreeze, validateIsoTimestamp, computeDeterministicDiscoveryId } from "./discovery-intake.mjs";
 
 /**
  * Validates candidate discovery record structure for storage.
+ * Enforces identity formatting consistency with canonical discoveryId formula.
  * @param {object} candidate
  */
 function assertCandidateRecord(candidate) {
@@ -11,22 +12,58 @@ function assertCandidateRecord(candidate) {
   if (candidate.schemaVersion !== 1) {
     throw new TypeError(`unsupported schemaVersion: ${candidate.schemaVersion}`);
   }
-  if (typeof candidate.discoveryId !== "string" || !candidate.discoveryId.trim()) {
-    throw new TypeError("discoveryId is required");
-  }
   if (typeof candidate.sourceId !== "string" || !candidate.sourceId.trim()) {
     throw new TypeError("sourceId is required");
   }
   if (typeof candidate.canonicalUrl !== "string" || !candidate.canonicalUrl.trim()) {
     throw new TypeError("canonicalUrl is required");
   }
+  if (typeof candidate.discoveryId !== "string" || !candidate.discoveryId.trim()) {
+    throw new TypeError("discoveryId is required");
+  }
+
+  const expectedDiscoveryId = computeDeterministicDiscoveryId(candidate.sourceId, candidate.canonicalUrl);
+  if (candidate.discoveryId !== expectedDiscoveryId) {
+    throw new TypeError(`discoveryId '${candidate.discoveryId}' must match canonical format '${expectedDiscoveryId}'`);
+  }
+
   if (typeof candidate.idempotencyKey !== "string" || !candidate.idempotencyKey.trim()) {
     throw new TypeError("idempotencyKey is required");
   }
 }
 
 /**
- * Checks if two candidate payloads are materially identical.
+ * Checks deep structural equality for material candidate payloads.
+ * @param {any} a
+ * @param {any} b
+ * @returns {boolean}
+ */
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (a === null || typeof a !== "object" || b === null || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+
+  for (const k of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (!deepEqual(a[k], b[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * Checks if two candidate payloads are materially identical across all fields including metadata & summary.
  * @param {object} a
  * @param {object} b
  * @returns {boolean}
@@ -34,10 +71,13 @@ function assertCandidateRecord(candidate) {
 function isMaterialPayloadEqual(a, b) {
   if (a.discoveryId !== b.discoveryId) return false;
   if (a.sourceId !== b.sourceId) return false;
+  if (a.sourceType !== b.sourceType) return false;
   if (a.canonicalUrl !== b.canonicalUrl) return false;
   if (a.title !== b.title) return false;
+  if ((a.summary || "") !== (b.summary || "")) return false;
   if (Boolean(a.is_confidential) !== Boolean(b.is_confidential)) return false;
   if (a.contentReference !== b.contentReference) return false;
+  if (!deepEqual(a.metadata, b.metadata)) return false;
   return true;
 }
 
@@ -56,9 +96,9 @@ export class InMemoryDiscoveryCandidateStore {
    * - STORE-I001: Idempotent replay on identical payload.
    * - STORE-I002: Rejection on material conflict for same idempotency key.
    * - STORE-I003: Immutable identity.
-   * - STORE-I005: Prevents claim promotion.
-   * - STORE-I006: Prevents confidentiality downgrade.
+   * - STORE-I006: Prevents confidentiality downgrade with explicit status.
    * - STORE-I007: Preserves provenance.
+   * - STORE-I008: Source-agnostic generic candidate storage.
    *
    * @param {object} candidateRecord
    * @param {object} options
@@ -76,27 +116,7 @@ export class InMemoryDiscoveryCandidateStore {
     if (this.#candidates.has(discoveryId)) {
       const existing = this.#candidates.get(discoveryId);
 
-      // Conflict Check: Identity mutation or material conflict
-      if (!isMaterialPayloadEqual(existing, candidateRecord)) {
-        const conflictReason = "Material payload conflict with existing stored candidate";
-        const conflictEvent = deepFreeze({
-          eventType: "DISCOVERY_STORAGE_CONFLICT_REJECTED",
-          discoveryId,
-          idempotencyKey,
-          reason: conflictReason,
-          actor,
-          timestamp: at
-        });
-        this.#auditEvents.push(conflictEvent);
-        return deepFreeze({
-          ok: false,
-          status: "CONFLICT_REJECTED",
-          reason: conflictReason,
-          auditEvent: conflictEvent
-        });
-      }
-
-      // Confidentiality downgrade check: If existing is confidential, public reference attempt is rejected
+      // 1. Confidentiality downgrade check: specific and high-priority audit route
       if (existing.is_confidential && !candidateRecord.is_confidential) {
         const downgradeReason = "Cannot downgrade confidential candidate to public";
         const conflictEvent = deepFreeze({
@@ -116,7 +136,27 @@ export class InMemoryDiscoveryCandidateStore {
         });
       }
 
-      // STORE-I001: Idempotent replay
+      // 2. Conflict Check: Identity mutation or material conflict (including metadata and summary)
+      if (!isMaterialPayloadEqual(existing, candidateRecord)) {
+        const conflictReason = "Material payload conflict with existing stored candidate";
+        const conflictEvent = deepFreeze({
+          eventType: "DISCOVERY_STORAGE_CONFLICT_REJECTED",
+          discoveryId,
+          idempotencyKey,
+          reason: conflictReason,
+          actor,
+          timestamp: at
+        });
+        this.#auditEvents.push(conflictEvent);
+        return deepFreeze({
+          ok: false,
+          status: "CONFLICT_REJECTED",
+          reason: conflictReason,
+          auditEvent: conflictEvent
+        });
+      }
+
+      // 3. STORE-I001: Idempotent replay on identical payload
       const replayEvent = deepFreeze({
         eventType: "DISCOVERY_CANDIDATE_REPLAYED",
         discoveryId,
@@ -215,7 +255,7 @@ export class InMemoryDiscoveryCandidateStore {
    * @returns {object|null}
    */
   getCandidateBySourceIdentity(sourceId, canonicalUrl) {
-    const discoveryId = `disc:${sourceId}:${canonicalUrl}`;
+    const discoveryId = computeDeterministicDiscoveryId(sourceId, canonicalUrl);
     return this.#candidates.get(discoveryId) ?? null;
   }
 
