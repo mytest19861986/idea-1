@@ -24,4 +24,4 @@ Required persistent concepts are `DeliveryRequestRecord`, `DeliveryIdempotencyRe
 
 ## PKG-DB-DEL-001 blocker
 
-The existing delivery-request contract does not include the required `publicationRevision` component. A PostgreSQL adapter must not invent that value or weaken the production uniqueness key. This contract gap and the absence of a disposable PostgreSQL environment block implementation and integration verification; they do not make the local JSON adapter production-safe.
+The delivery contract now requires a positive-integer `publicationRevision`, and its local ledger identity is `(opportunityId, publicationRevision, channel, idempotencyKey)`. PostgreSQL implementation and integration verification remain blocked solely by the absence of a disposable PostgreSQL environment, client dependency, migration design, and approved connection configuration. The local JSON adapter is not production-safe.

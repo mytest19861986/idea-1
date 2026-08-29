@@ -1,8 +1,8 @@
 # API Contracts
 
-## Delivery persistence gap
+## Delivery persistence boundary
 
-The current in-process delivery request has no public HTTP representation and carries no `publicationRevision`. Before production delivery persistence is implemented, the delivery request contract must explicitly provide a revision identity that is stable across retry attempts.
+The current in-process delivery request is not an HTTP API, but it carries a required positive-integer `publicationRevision`. The revision is stable across retry attempts and participates in delivery idempotency. A future public adapter must preserve that identity rather than infer it.
 
 ## Current state
 
