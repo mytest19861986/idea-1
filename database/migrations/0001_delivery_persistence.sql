@@ -12,6 +12,14 @@ CREATE TABLE delivery_requests (
   CONSTRAINT delivery_requests_idempotency_key UNIQUE (opportunity_id, publication_revision, channel, idempotency_key)
 );
 
+CREATE TABLE delivery_claims (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  delivery_request_id BIGINT NOT NULL UNIQUE REFERENCES delivery_requests(id) ON DELETE RESTRICT,
+  claim_state TEXT NOT NULL CHECK (claim_state IN ('CLAIMED', 'FINALIZED')),
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp(),
+  finalized_at TIMESTAMPTZ
+);
+
 CREATE TABLE delivery_attempts (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   delivery_request_id BIGINT NOT NULL REFERENCES delivery_requests(id) ON DELETE RESTRICT,
