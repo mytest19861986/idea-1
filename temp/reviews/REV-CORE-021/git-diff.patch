@@ -1,0 +1,80 @@
+Exit code: 0
+Wall time: 0.2 seconds
+Output:
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-CORE-021.md b/docs/ai/TASK_CONTRACTS/PKG-CORE-021.md
+new file mode 100644
+index 0000000..43d38c4
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-CORE-021.md
+@@ -0,0 +1,12 @@
++# PKG-CORE-021 — Observable domain-event contract
++
++## Objective
++
++Create a safe, deterministic event envelope for observable application lifecycle events without introducing a logging backend or exposing payload data.
++
++## Invariants
++
++- Every event has an explicit type, occurred-at timestamp, and correlation ID.
++- Only scalar metadata values are accepted; nested objects, credentials, and arbitrary payload bodies are rejected.
++- Metadata keys that suggest secret material are rejected.
++- The event envelope is immutable and has no I/O side effect.
+diff --git a/src/observability/event.mjs b/src/observability/event.mjs
+new file mode 100644
+index 0000000..0e50360
+--- /dev/null
++++ b/src/observability/event.mjs
+@@ -0,0 +1,35 @@
++const secretKeyPattern = /(password|secret|token|authorization|cookie|credential|api[-_]?key)/i;
++
++function requireText(value, field) {
++  if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} must be a non-empty string`);
++  return value.trim();
++}
++
++function normalizeOccurredAt(value) {
++  const date = new Date(value);
++  if (Number.isNaN(date.valueOf())) throw new TypeError("occurredAt must be a valid timestamp");
++  return date.toISOString();
++}
++
++function normalizeMetadata(value) {
++  if (value === undefined) return Object.freeze({});
++  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError("metadata must be an object");
++  const metadata = {};
++  for (const [key, item] of Object.entries(value)) {
++    if (!key.trim() || secretKeyPattern.test(key)) throw new TypeError("metadata key is not allowed");
++    if (!["string", "number", "boolean"].includes(typeof item) || (typeof item === "number" && !Number.isFinite(item))) throw new TypeError("metadata values must be finite scalars");
++    metadata[key] = item;
++  }
++  return Object.freeze(Object.fromEntries(Object.entries(metadata).sort(([left], [right]) => left.localeCompare(right))));
++}
++
++export function createObservableEvent(input) {
++  if (!input || typeof input !== "object") throw new TypeError("input must be an object");
++  return Object.freeze({
++    schemaVersion: 1,
++    type: requireText(input.type, "type").toUpperCase(),
++    correlationId: requireText(input.correlationId, "correlationId"),
++    occurredAt: normalizeOccurredAt(input.occurredAt),
++    metadata: normalizeMetadata(input.metadata)
++  });
++}
+diff --git a/test/observability.test.mjs b/test/observability.test.mjs
+new file mode 100644
+index 0000000..8357c39
+--- /dev/null
++++ b/test/observability.test.mjs
+@@ -0,0 +1,11 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { createObservableEvent } from "../src/observability/event.mjs";
++
++test("observable events are immutable and reject secret-like or nested metadata", () => {
++  const event = createObservableEvent({ type: "delivery_attempted", correlationId: "delivery-o-1", occurredAt: "2026-08-28T00:00:00Z", metadata: { channel: "WEB", attempt: 1 } });
++  assert.deepEqual(event, { schemaVersion: 1, type: "DELIVERY_ATTEMPTED", correlationId: "delivery-o-1", occurredAt: "2026-08-28T00:00:00.000Z", metadata: { attempt: 1, channel: "WEB" } });
++  assert.equal(Object.isFrozen(event.metadata), true);
++  assert.throws(() => createObservableEvent({ type: "x", correlationId: "y", occurredAt: "2026-08-28T00:00:00Z", metadata: { apiKey: "not-allowed" } }), /not allowed/);
++  assert.throws(() => createObservableEvent({ type: "x", correlationId: "y", occurredAt: "2026-08-28T00:00:00Z", metadata: { payload: {} } }), /finite scalars/);
++});
+
