@@ -6,7 +6,11 @@ The current in-process delivery request is not an HTTP API, but it carries a req
 
 ## Current state
 
-No HTTP server, route, authentication middleware, public API schema, or browser-facing API exists.
+A local, read-only Fastify adapter exists in src/api/server.mjs. It exposes GET /health, GET /api/v1/opportunities, and GET /api/v1/opportunities/:slug.
+
+It consumes parseOpportunityListQuery and toPublicOpportunity from the contract layer; it does not calculate scores or issue database queries. The adapter requires an injected OpportunityReadProvider. The only included implementation is explicit in-memory development/test data; production has no hidden fallback provider.
+
+The adapter has no authentication, mutation route, AI call, Telegram coupling, or network side effect. Its baseline response headers are CSP, nosniff, frame denial, and no-referrer.
 
 Current executable contracts are internal ESM functions only:
 
@@ -16,6 +20,6 @@ Current executable contracts are internal ESM functions only:
 - publication record and authorization primitives;
 - side-effect-free delivery request/result contracts.
 
-## Future HTTP boundary
+## Remaining HTTP boundary
 
-Before introducing an HTTP adapter, define versioned request/response schemas, authentication and authorization policy, request-size limits, rate limits, error representation, idempotency behavior, audit fields, and observability requirements. The HTTP adapter must invoke core contracts rather than redefine their rules.
+Before production exposure, add explicit authentication/authorization policy, request-size and rate limits, audit fields, observability, durable provider integration, process lifecycle, and deployment configuration. The HTTP adapter must continue to invoke core contracts rather than redefine their rules.
