@@ -15,9 +15,15 @@ CREATE TABLE delivery_requests (
 CREATE TABLE delivery_claims (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   delivery_request_id BIGINT NOT NULL UNIQUE REFERENCES delivery_requests(id) ON DELETE RESTRICT,
-  claim_state TEXT NOT NULL CHECK (claim_state IN ('CLAIMED', 'FINALIZED')),
+  claim_state TEXT NOT NULL CHECK (claim_state IN ('CLAIMED', 'RETRYABLE_FAILURE', 'FINALIZED_SUCCESS', 'FINALIZED_FAILURE')),
+  claimed_by TEXT NOT NULL CHECK (btrim(claimed_by) <> ''),
   claimed_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp(),
-  finalized_at TIMESTAMPTZ
+  lease_expires_at TIMESTAMPTZ NOT NULL,
+  finalized_at TIMESTAMPTZ,
+  CONSTRAINT delivery_claims_final_state CHECK (
+    (claim_state IN ('CLAIMED', 'RETRYABLE_FAILURE') AND finalized_at IS NULL) OR
+    (claim_state IN ('FINALIZED_SUCCESS', 'FINALIZED_FAILURE') AND finalized_at IS NOT NULL)
+  )
 );
 
 CREATE TABLE delivery_attempts (

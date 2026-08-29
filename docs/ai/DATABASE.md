@@ -29,3 +29,7 @@ The delivery contract now requires a positive-integer `publicationRevision`, and
 ## Proposed additive migration
 
 `database/migrations/0001_delivery_persistence.sql` is a design artifact only and has not been executed. It creates delivery requests, claims, attempts, and results without assuming an existing opportunity table. Its unique key is `(opportunity_id, publication_revision, channel, idempotency_key)` and its result check prevents mixing delivered references with failure codes. Execution requires an approved disposable PostgreSQL environment and a tested rollback/deployment plan.
+
+### Claim ownership semantics — PKG-DB-DEL-001A
+
+`CLAIM_MODEL=DEDICATED_TABLE`. A transaction first inserts the unique delivery request identity using `INSERT ... ON CONFLICT DO NOTHING`, then inserts or locks its one `delivery_claims` row (`FOR UPDATE`) before granting ownership. `claimed_by`, `claimed_at`, and `lease_expires_at` record ownership; only an expired non-final claim can be reassigned under the same row lock. Final claim states are terminal, so a successful delivery is never externally eligible again. Retryable failures retain the identity but allow a later lease; final failures are terminal. The PostgreSQL unique constraint and row locks—not application memory—prevent two concurrent workers from owning the same identity.
