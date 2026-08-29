@@ -1,5 +1,11 @@
 # AI Pipeline
 
+## Current boundary
+
+No provider integration exists. AI-originated analysis must remain explicitly classified and cannot self-verify.
+
+`normalizeAiExtraction` validates provider-labelled, prompt-versioned extracted claims before they can be used downstream. It is a schema boundary only; provider invocation, prompt storage, persistence, and evaluation remain unimplemented.
+
 ## Current state
 
 No AI provider adapter, extraction prompt, model call, evaluation dataset, response persistence, or AI-driven publication authority exists in the repository.
