@@ -7,3 +7,5 @@ The source registry and delivery idempotency guard use atomic local JSON snapsho
 ## PostgreSQL integration environment is unavailable
 
 `PKG-DB-DEL-001` has `SCHEMA_DESIGNED` and a pure identity harness, but `DB_INTEGRATION_NOT_EXECUTED`. Docker is unavailable and neither `psql` nor `pg_isready` is installed. Future database tests must remain `NOT_RUN_ENVIRONMENT_BLOCKER` until a disposable PostgreSQL environment is provided.
+
+`PKG-DB-DEL-001` is `DESIGN_COMPLETE_ENVIRONMENT_BLOCKED`, not production persistence complete. Its required dependency `CORE-016` remains `IMPLEMENTED_VALIDATED_REVIEW_PENDING`.
