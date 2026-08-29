@@ -2,39 +2,31 @@ import { deepFreeze, validateIsoTimestamp } from "../discovery/discovery-intake.
 
 /**
  * ============================================================================
- * DISCOVERY CORE PERSISTENCE CONTRACT (PKG-PERSIST-011)
- * Invariants: PERSIST-I001 through PERSIST-I020
+ * DISCOVERY CORE PERSISTENCE CONTRACT (PKG-PERSIST-011R)
+ * Invariants: PERSIST-I001 through PERSIST-I020 (Remediated)
  * ============================================================================
  */
 
 /**
  * Interface / Reference Implementation for Discovery Candidate Persistence.
+ * Authoritative Candidate Identity: discovery_id (candidate.id).
+ * Canonical URL is indexed but NOT globally unique across distinct discovery records.
  */
 export class InMemoryCandidatePersistence {
   constructor() {
-    this.candidates = new Map(); // id -> candidate
-    this.canonicalUrlIndex = new Map(); // canonicalUrl -> id
+    this.candidates = new Map(); // discovery_id -> candidate
     this.attributions = []; // Array of attribution records
   }
 
   async saveCandidate(candidate, attribution) {
-    if (!candidate || !candidate.id || !candidate.canonicalUrl) {
-      throw new TypeError("valid candidate with id and canonicalUrl is required");
+    if (!candidate || !candidate.id) {
+      throw new TypeError("valid candidate with id is required");
     }
     if (!attribution || !attribution.sourceId || !attribution.idempotencyKey) {
       throw new TypeError("valid attribution with sourceId and idempotencyKey is required");
     }
 
-    const existingId = this.canonicalUrlIndex.get(candidate.canonicalUrl);
-    if (existingId && existingId !== candidate.id) {
-      return deepFreeze({
-        ok: false,
-        status: "CONFLICT",
-        reason: `Canonical URL ${candidate.canonicalUrl} is already registered under id ${existingId}`
-      });
-    }
-
-    // Existing candidate with same ID
+    // Existing candidate with same discovery_id
     if (this.candidates.has(candidate.id)) {
       const existing = this.candidates.get(candidate.id);
       // Check if attribution is duplicate
@@ -68,10 +60,9 @@ export class InMemoryCandidatePersistence {
       });
     }
 
-    // New candidate insert
+    // New candidate insert (Authoritative ID: discovery_id)
     const frozenCandidate = deepFreeze({ ...candidate });
     this.candidates.set(candidate.id, frozenCandidate);
-    this.canonicalUrlIndex.set(candidate.canonicalUrl, candidate.id);
 
     const firstAttr = deepFreeze({
       attributionId: `attr:${candidate.id}:${attribution.sourceId}:${attribution.idempotencyKey}`,
@@ -89,11 +80,6 @@ export class InMemoryCandidatePersistence {
 
   async findCandidateById(id) {
     return this.candidates.get(id) || null;
-  }
-
-  async findCandidateByCanonicalUrl(canonicalUrl) {
-    const id = this.canonicalUrlIndex.get(canonicalUrl);
-    return id ? this.candidates.get(id) || null : null;
   }
 
   async getAttributionsForCandidate(candidateId) {
@@ -197,6 +183,9 @@ export class InMemoryObservationPersistence {
 
 /**
  * Interface / Reference Implementation for Source Health Snapshot Persistence.
+ * Deterministic Replay Model:
+ * Replay with same sourceId + window + evaluationVersion + formulaVersion returns REPLAYED.
+ * New evaluation window or updated formula/version creates append-only STORED snapshot.
  */
 export class InMemoryHealthSnapshotPersistence {
   constructor() {
@@ -208,7 +197,14 @@ export class InMemoryHealthSnapshotPersistence {
     if (!snapshot || !snapshot.sourceId || !snapshot.evaluatedAt) {
       throw new TypeError("valid health snapshot is required");
     }
-    const snapshotId = snapshot.snapshotId || `snap:${snapshot.sourceId}:${Date.parse(snapshot.evaluatedAt)}`;
+    const evalVer = snapshot.evaluationVersion || "v1";
+    const formVer = snapshot.formulaVersion || "v1";
+    const wStart = snapshot.windowStart || snapshot.evaluatedAt;
+    const wEnd = snapshot.windowEnd || snapshot.evaluatedAt;
+
+    const snapshotId =
+      snapshot.snapshotId ||
+      `snap:${snapshot.sourceId}:${Date.parse(wStart)}:${Date.parse(wEnd)}:${evalVer}:${formVer}`;
     const snapshotWithId = deepFreeze({ ...snapshot, snapshotId });
 
     if (this.snapshots.has(snapshotId)) {
@@ -233,11 +229,13 @@ export class InMemoryHealthSnapshotPersistence {
 
 /**
  * Interface / Reference Implementation for Source Governance Persistence.
+ * Application history is append-only, capturing all application attempts
+ * (APPLIED, REPLAYED, STALE_DECISION, NOT_AUTHORIZED).
  */
 export class InMemoryGovernancePersistence {
   constructor() {
     this.decisions = new Map(); // decisionId -> decision
-    this.applications = new Map(); // decisionId -> application
+    this.applications = []; // Append-only list of application attempts
   }
 
   async saveDecision(decision) {
@@ -263,16 +261,20 @@ export class InMemoryGovernancePersistence {
     if (!this.decisions.has(application.decisionId)) {
       throw new Error(`Governance decision ${application.decisionId} does not exist`);
     }
-    if (this.applications.has(application.decisionId)) {
-      return deepFreeze({ ok: true, status: "REPLAYED", application: this.applications.get(application.decisionId) });
-    }
-    const applicationId = `app:${application.decisionId}`;
+
+    const attemptIndex = this.applications.filter((a) => a.decisionId === application.decisionId).length;
+    const applicationId = application.applicationId || `app:${application.decisionId}:${attemptIndex + 1}`;
     const frozen = deepFreeze({ applicationId, ...application });
-    this.applications.set(application.decisionId, frozen);
-    return deepFreeze({ ok: true, status: "APPLIED", application: frozen });
+    this.applications.push(frozen);
+
+    return deepFreeze({
+      ok: true,
+      status: application.applicationStatus || "APPLIED",
+      application: frozen
+    });
   }
 
-  async getApplicationByDecisionId(decisionId) {
-    return this.applications.get(decisionId) || null;
+  async getApplicationsForDecision(decisionId) {
+    return Object.freeze(this.applications.filter((a) => a.decisionId === decisionId));
   }
 }

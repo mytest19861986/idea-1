@@ -41,6 +41,20 @@ test("PERSIST: candidate persisted yields round-trip deep-equivalent domain reco
   assert.deepStrictEqual(retrieved, candidate);
 });
 
+test("PERSIST: discovery_id is authoritative identity (Finding 1 fix)", async () => {
+  const repo = new InMemoryCandidatePersistence();
+  const cand1 = { id: "cand-1", canonicalUrl: "https://example.com/shared", title: "App 1" };
+  const cand2 = { id: "cand-2", canonicalUrl: "https://example.com/shared", title: "App 2" };
+
+  const r1 = await repo.saveCandidate(cand1, { sourceId: "src-1", idempotencyKey: "k1" });
+  const r2 = await repo.saveCandidate(cand2, { sourceId: "src-2", idempotencyKey: "k2" });
+
+  assert.strictEqual(r1.status, "STORED");
+  assert.strictEqual(r2.status, "STORED");
+  assert.strictEqual((await repo.findCandidateById("cand-1")).id, "cand-1");
+  assert.strictEqual((await repo.findCandidateById("cand-2")).id, "cand-2");
+});
+
 test("PERSIST: same candidate replay is idempotent without duplicates", async () => {
   const repo = new InMemoryCandidatePersistence();
   const candidate = { id: "cand-1", canonicalUrl: "https://example.com/app", title: "Example App" };
@@ -52,18 +66,6 @@ test("PERSIST: same candidate replay is idempotent without duplicates", async ()
   assert.strictEqual(res2.status, "REPLAYED");
   const attributions = await repo.getAttributionsForCandidate("cand-1");
   assert.strictEqual(attributions.length, 1);
-});
-
-test("PERSIST: conflicting canonicalUrl returns CONFLICT", async () => {
-  const repo = new InMemoryCandidatePersistence();
-  const cand1 = { id: "cand-1", canonicalUrl: "https://example.com/shared", title: "App 1" };
-  const cand2 = { id: "cand-2", canonicalUrl: "https://example.com/shared", title: "App 2" };
-
-  await repo.saveCandidate(cand1, { sourceId: "src-1", idempotencyKey: "k1" });
-  const res = await repo.saveCandidate(cand2, { sourceId: "src-2", idempotencyKey: "k2" });
-
-  assert.strictEqual(res.ok, false);
-  assert.strictEqual(res.status, "CONFLICT");
 });
 
 test("PERSIST: multi-source attribution preserves all provenance and appends cleanly", async () => {
@@ -150,33 +152,44 @@ test("PERSIST: source observations prevent double-counting identity on replay", 
   assert.strictEqual(list.length, 1);
 });
 
-test("PERSIST: source health snapshots v1 and v2 both remain stored in history", async () => {
+test("PERSIST: health snapshot deterministic replay vs history (Finding 7 fix)", async () => {
   const healthRepo = new InMemoryHealthSnapshotPersistence();
   const snap1 = {
-    snapshotId: "snap-1",
     sourceId: "src-1",
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluationVersion: "eval-v1",
+    formulaVersion: "form-v1",
     operationalHealth: "HIGH",
     intelligenceContribution: "HIGH",
-    evaluatedAt: "2026-08-30T00:00:00Z"
-  };
-  const snap2 = {
-    snapshotId: "snap-2",
-    sourceId: "src-1",
-    operationalHealth: "DEGRADED",
-    intelligenceContribution: "LOW",
     evaluatedAt: "2026-08-30T01:00:00Z"
   };
 
-  await healthRepo.saveSnapshot(snap1);
-  await healthRepo.saveSnapshot(snap2);
+  const r1 = await healthRepo.saveSnapshot(snap1);
+  const r2 = await healthRepo.saveSnapshot(snap1);
+
+  assert.strictEqual(r1.status, "STORED");
+  assert.strictEqual(r2.status, "REPLAYED");
+
+  const snap2 = {
+    sourceId: "src-1",
+    windowStart: "2026-08-30T01:00:00Z",
+    windowEnd: "2026-08-30T02:00:00Z",
+    evaluationVersion: "eval-v1",
+    formulaVersion: "form-v1",
+    operationalHealth: "DEGRADED",
+    intelligenceContribution: "LOW",
+    evaluatedAt: "2026-08-30T02:00:00Z"
+  };
+
+  const r3 = await healthRepo.saveSnapshot(snap2);
+  assert.strictEqual(r3.status, "STORED");
 
   const history = await healthRepo.getSnapshotsForSource("src-1");
   assert.strictEqual(history.length, 2);
-  assert.strictEqual(history[0].operationalHealth, "HIGH");
-  assert.strictEqual(history[1].operationalHealth, "DEGRADED");
 });
 
-test("PERSIST: governance decision and application separation with exact decisionId linkage", async () => {
+test("PERSIST: governance application history is append-only for all attempts (Finding 6 fix)", async () => {
   const govRepo = new InMemoryGovernancePersistence();
   const decision = {
     decisionId: "gov:dec:src-1:100",
@@ -188,7 +201,7 @@ test("PERSIST: governance decision and application separation with exact decisio
 
   await govRepo.saveDecision(decision);
 
-  const app = {
+  const attempt1 = {
     decisionId: "gov:dec:src-1:100",
     sourceId: "src-1",
     fromState: "ACTIVE",
@@ -198,11 +211,23 @@ test("PERSIST: governance decision and application separation with exact decisio
     actor: "applier"
   };
 
-  const appRes = await govRepo.saveApplication(app);
-  assert.strictEqual(appRes.status, "APPLIED");
+  const attempt2 = {
+    decisionId: "gov:dec:src-1:100",
+    sourceId: "src-1",
+    fromState: "ACTIVE",
+    toState: "DEGRADED",
+    applicationStatus: "REPLAYED",
+    appliedAt: "2026-08-30T00:01:00Z",
+    actor: "applier"
+  };
 
-  const appRetrieved = await govRepo.getApplicationByDecisionId("gov:dec:src-1:100");
-  assert.strictEqual(appRetrieved.toState, "DEGRADED");
+  await govRepo.saveApplication(attempt1);
+  await govRepo.saveApplication(attempt2);
+
+  const history = await govRepo.getApplicationsForDecision("gov:dec:src-1:100");
+  assert.strictEqual(history.length, 2);
+  assert.strictEqual(history[0].applicationStatus, "APPLIED");
+  assert.strictEqual(history[1].applicationStatus, "REPLAYED");
 });
 
 test("PERSIST: SOURCE_CLAIM classification, UNKNOWN values, timestamps, and confidentiality survive round-trip", async () => {

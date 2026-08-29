@@ -1,10 +1,12 @@
 -- ============================================================================
 -- Migration: 001_discovery_core_persistence.sql
--- Package: PKG-PERSIST-011 (Discovery Core Production Persistence Schema)
--- Invariants: PERSIST-I001 through PERSIST-I020
+-- Package: PKG-PERSIST-011R (Discovery Core Production Persistence Schema)
+-- Invariants: PERSIST-I001 through PERSIST-I020 (Remediated)
 -- ============================================================================
 
--- 1. Discovery Candidates
+-- 1. Discovery Candidates (Primary key: discovery_id)
+-- Note: canonical_url is indexed for fast lookup but is NOT globally unique,
+-- preserving authoritative candidate identity via discovery_id (Finding 1 fix).
 CREATE TABLE IF NOT EXISTS discovery_candidates (
     id VARCHAR(128) PRIMARY KEY,
     canonical_url VARCHAR(2048) NOT NULL,
@@ -22,10 +24,10 @@ CREATE TABLE IF NOT EXISTS discovery_candidates (
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_discovery_candidate_canonical_url UNIQUE (canonical_url)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_discovery_candidates_url ON discovery_candidates(canonical_url);
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_domain ON discovery_candidates(canonical_domain);
 CREATE INDEX IF NOT EXISTS idx_discovery_candidates_source ON discovery_candidates(source_record_id);
 
@@ -48,7 +50,7 @@ CREATE TABLE IF NOT EXISTS discovery_candidate_attributions (
 CREATE INDEX IF NOT EXISTS idx_attributions_candidate ON discovery_candidate_attributions(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_attributions_source ON discovery_candidate_attributions(source_id);
 
--- 3. Entity Resolution Decisions History
+-- 3. Entity Resolution Decisions History (Append-Only)
 CREATE TABLE IF NOT EXISTS entity_resolution_decisions (
     decision_id VARCHAR(128) PRIMARY KEY,
     candidate_a_id VARCHAR(128) NOT NULL REFERENCES discovery_candidates(id) ON DELETE RESTRICT,
@@ -87,7 +89,7 @@ CREATE TABLE IF NOT EXISTS entity_cluster_members (
 
 CREATE INDEX IF NOT EXISTS idx_cluster_members_candidate ON entity_cluster_members(candidate_id);
 
--- 6. Source Observations Ledger
+-- 6. Source Observations Ledger (Append-Only)
 CREATE TABLE IF NOT EXISTS source_observations (
     observation_id VARCHAR(128) PRIMARY KEY,
     execution_id VARCHAR(128) NOT NULL,
@@ -105,7 +107,7 @@ CREATE TABLE IF NOT EXISTS source_observations (
 CREATE INDEX IF NOT EXISTS idx_observations_source_time ON source_observations(source_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_observations_execution ON source_observations(execution_id);
 
--- 7. Source Health Snapshots
+-- 7. Source Health Snapshots (Deterministic Snapshot ID & History Ledger)
 CREATE TABLE IF NOT EXISTS source_health_snapshots (
     snapshot_id VARCHAR(128) PRIMARY KEY,
     source_id VARCHAR(128) NOT NULL,
@@ -126,7 +128,7 @@ CREATE TABLE IF NOT EXISTS source_health_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_health_snapshots_source ON source_health_snapshots(source_id, evaluated_at DESC);
 
--- 8. Source Governance Decisions
+-- 8. Source Governance Decisions (Immutable Ledger)
 CREATE TABLE IF NOT EXISTS source_governance_decisions (
     decision_id VARCHAR(128) PRIMARY KEY,
     source_id VARCHAR(128) NOT NULL,
@@ -149,7 +151,9 @@ CREATE TABLE IF NOT EXISTS source_governance_decisions (
 
 CREATE INDEX IF NOT EXISTS idx_gov_decisions_source ON source_governance_decisions(source_id, decision_at DESC);
 
--- 9. Source Governance Applications
+-- 9. Source Governance Applications (Append-Only Attempt History Ledger)
+-- Note: UNIQUE(decision_id) removed to allow recording all application attempts
+-- (e.g. APPLIED, REPLAYED, STALE_DECISION, BLOCKED) in audit trail (Finding 6 fix).
 CREATE TABLE IF NOT EXISTS source_governance_applications (
     application_id VARCHAR(128) PRIMARY KEY,
     decision_id VARCHAR(128) NOT NULL REFERENCES source_governance_decisions(decision_id) ON DELETE RESTRICT,
@@ -160,8 +164,8 @@ CREATE TABLE IF NOT EXISTS source_governance_applications (
     reason VARCHAR(512),
     applied_at TIMESTAMPTZ NOT NULL,
     actor VARCHAR(128) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_gov_application_decision UNIQUE (decision_id)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_gov_applications_decision ON source_governance_applications(decision_id);
 CREATE INDEX IF NOT EXISTS idx_gov_applications_source ON source_governance_applications(source_id, applied_at DESC);
