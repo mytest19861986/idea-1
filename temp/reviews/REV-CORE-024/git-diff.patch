@@ -1,0 +1,84 @@
+Exit code: 0
+Wall time: 0.2 seconds
+Output:
+diff --git a/docs/ai/COLLECTORS.md b/docs/ai/COLLECTORS.md
+index e3bcde7..28fc05d 100644
+--- a/docs/ai/COLLECTORS.md
++++ b/docs/ai/COLLECTORS.md
+@@ -6,6 +6,8 @@ No network collector is implemented. The repository currently accepts manual HTT
+ 
+ Coverage gaps can be assessed from the declared segments of `ACTIVE` sources. The assessment is planning-only: it does not discover, activate, or collect from a source.
+ 
++Collector implementations must return a source-isolated batch through `normalizeCollectorBatch`. That boundary validates the collection time and delegates each item to HTTPS-only normalization; it does not fetch, retry, deduplicate, persist, or activate sources.
++
+ ## Constraints for future collectors
+ 
+ Collectors must respect source access policy, normalize only attributable payloads, prevent unsafe URL admission, emit observable failures, and remain separate from source activation governance. No collector may silently promote a source to active production use.
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-CORE-024.md b/docs/ai/TASK_CONTRACTS/PKG-CORE-024.md
+new file mode 100644
+index 0000000..969593a
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-CORE-024.md
+@@ -0,0 +1,12 @@
++# PKG-CORE-024 — Collector batch boundary
++
++## Objective
++
++Define a source-isolated boundary for collector output batches that feeds the existing collected-item normalization contract without performing collection itself.
++
++## Invariants
++
++- A batch has one explicit source ID and valid collection timestamp.
++- Each raw item is normalized by the existing HTTPS-only collected-item boundary.
++- Empty batches are valid observations; duplicates are retained for the separate deduplication stage.
++- The boundary performs no HTTP request, source activation, persistence write, retry, or lifecycle mutation.
+diff --git a/src/collection/collector-batch.mjs b/src/collection/collector-batch.mjs
+new file mode 100644
+index 0000000..824f2cf
+--- /dev/null
++++ b/src/collection/collector-batch.mjs
+@@ -0,0 +1,25 @@
++import { normalizeCollectedItem } from "./normalize.mjs";
++
++function requireText(value, field) {
++  if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} must be a non-empty string`);
++  return value.trim();
++}
++
++function normalizeCollectedAt(value) {
++  const date = new Date(value);
++  if (Number.isNaN(date.valueOf())) throw new TypeError("collectedAt must be a valid timestamp");
++  return date.toISOString();
++}
++
++export function normalizeCollectorBatch(input) {
++  if (!input || typeof input !== "object") throw new TypeError("input must be an object");
++  if (!Array.isArray(input.items)) throw new TypeError("items must be an array");
++  const sourceId = requireText(input.sourceId, "sourceId");
++  const collectedAt = normalizeCollectedAt(input.collectedAt);
++  return Object.freeze({
++    schemaVersion: 1,
++    sourceId,
++    collectedAt,
++    items: Object.freeze(input.items.map((item) => normalizeCollectedItem(item, { sourceId, collectedAt })))
++  });
++}
+diff --git a/test/collector-batch.test.mjs b/test/collector-batch.test.mjs
+new file mode 100644
+index 0000000..15c0b61
+--- /dev/null
++++ b/test/collector-batch.test.mjs
+@@ -0,0 +1,12 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { normalizeCollectorBatch } from "../src/collection/collector-batch.mjs";
++
++test("collector batches normalize one source without collecting or deduplicating", () => {
++  const batch = normalizeCollectorBatch({ sourceId: "launches", collectedAt: "2026-08-29T00:00:00Z", items: [{ title: "A", url: "https://example.test/a" }, { title: "A again", url: "https://example.test/a" }] });
++  assert.equal(batch.items.length, 2);
++  assert.deepEqual(batch.items.map((item) => item.sourceId), ["launches", "launches"]);
++  assert.equal(Object.isFrozen(batch.items), true);
++  assert.throws(() => normalizeCollectorBatch({ sourceId: "launches", collectedAt: "invalid", items: [] }), /valid timestamp/);
++  assert.throws(() => normalizeCollectorBatch({ sourceId: "launches", collectedAt: "2026-08-29T00:00:00Z", items: [{ title: "Unsafe", url: "http://example.test" }] }), /HTTPS/);
++});
+
