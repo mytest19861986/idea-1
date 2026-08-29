@@ -1,42 +1,33 @@
 # Current State
 
-## Active package
+## Repository truth
 
-`PKG-CORE-017` — deterministic opportunity ranking.
+- Remote `main` is at `0836230e1a7ede919d7fc212eb840112fbf48df9`.
+- The remote contains the source-registry, collection-normalization, analysis, AI-extraction validation, publishing/revision, delivery-contract, and observability primitives described below.
+- Local `main` additionally contains unpushed commits `bcd35c8` (collector batch boundary) and `0ec4b45` (database documentation reconciliation). They must be transferred through a clean remote-based worktree so the local-only CI workflow commit is not included.
 
-## Evidence
+## Implemented, locally validated primitives
 
-- `git ls-remote https://github.com/mytest19861986/idea-1.git` returned successfully with no refs.
-- `git clone https://github.com/mytest19861986/idea-1.git .` completed with Git's empty-repository warning.
-- The worktree is on an unborn `main` branch with no commits.
-- Node and npm are unavailable on the current PATH, but the workspace supplies a bundled Node.js runtime and pnpm executable.
-- A dependency-free source-registry core implements candidate evaluation, constrained lifecycle changes, persistent JSON state, and append-only audit events.
-- Collector normalization converts safe source payloads into versioned internal records.
-- Deduplication separates repeated `(sourceId, externalId)` records deterministically before analysis.
-- Evidence records validate attributable observations: opportunity, source, collected item, HTTPS URL, timestamp, type, strength, and confidence.
-- Traction is an explainable confidence-weighted aggregate, retaining evidence count, source count, and latest observation timestamp.
-- Scoring accepts caller-owned factors and exactly-totaling weights, and returns every weighted contribution for auditability; it defines no default product policy.
-- Localization templates require an explicit locale and complete scalar placeholders, without AI translation or silent locale fallback.
-- Publication-ready records retain localized content, bounded score, timestamp, and sorted attributable citations, but always remain `DRAFT`.
-- An explicit attributable approval can change only a `DRAFT` publication record to `APPROVED`; it emits an audit event but does not dispatch externally.
-- Delivery requests accept only approved records, explicitly target `WEB` or `TELEGRAM`, and require an idempotency key; they still cause no delivery side effect.
-- Delivery results distinguish `DELIVERED` references from explicit `FAILED` codes; result creation performs no retry or channel call.
-- Local delivery idempotency claims are persisted atomically and duplicate `(channel, idempotencyKey)` requests are refused in one process; the documented implementation is not safe for distributed production concurrency.
-- Local quality commands passed: tests (21), lint, typecheck, build, and `git diff --check`.
-- Qwen independent review for `PKG-CORE-014` returned `BLOCKED`: the reviewer had no repository artifact access and could not verify the supplied summary. This is not an approval or a test failure.
-- Source health assessment derives a caller-thresholded descriptive status from collection outcomes without changing source lifecycle state.
-- Opportunity ranking sorts bounded scores deterministically with an explicit stable tie-break and rank.
-- Latest local quality run: tests (23), lint, typecheck, build, and `git diff --check` passed.
+- Dynamic source evaluation, constrained lifecycle transitions, JSON development store, audit trail, source health, and coverage-gap planning.
+- HTTPS-only collected-item normalization, deterministic duplicate separation, and an unpushed source-isolated collector batch boundary.
+- Attributable evidence, traction, deterministic scoring/ranking, trend summary, market assessment, and localization templates.
+- Versioned AI extraction validation; no provider invocation or AI authority exists.
+- Publication records require a positive-integer `publicationRevision`; approval, delivery request/result, and local ledger bind the exact revision. Local JSON delivery persistence is development-only.
+- Observable events reject secret-like keys and nested metadata and perform no I/O.
+- Latest clean remote-based validation: 29 tests PASS; lint, typecheck, and build PASS.
 
-## Constraints
+## Reviews and evidence
 
-- No production deployment, merge, push, destructive Git operation, or secret modification has been performed.
-- No application feature, database, external collector, AI integration, web surface, or Telegram delivery exists yet.
+- Immutable SHA-pinned review bundles exist remotely for `REV-CORE-016` and `REV-CORE-020` through `REV-CORE-023`; each has five Raw URLs verified with HTTP 200.
+- Independent Qwen review is PARKED because no live Chrome tab has the approved exact review-thread URL. No review verdict has been fabricated.
+
+## Constraints and blockers
+
+- No production deployment, merge, database migration, or delivery has occurred.
+- The local CI workflow remains unpushed because the available OAuth credential lacks the `workflow` scope.
+- PostgreSQL integration is environment-blocked: Docker daemon unavailable and `psql`/`pg_isready` absent. No database mutation was attempted.
+- No network collector, AI provider adapter, HTTP/web surface, Telegram delivery adapter, production database adapter, authentication layer, or deployment configuration is implemented.
 
 ## Next action
 
-Commit and push the prepared review evidence when Git author identity is supplied; PostgreSQL integration remains environment-blocked. No external delivery adapter may be added yet.
-
-## Uncommitted work
-
-- `PKG-CORE-019` adds a planning-only coverage-gap assessment. It reports required segments that are not covered by sources in the `ACTIVE` lifecycle state, and does not mutate the registry or collect network data.
+Transfer the isolated local `PKG-CORE-024` and documentation commits through the clean remote-based worktree, then create its independent review evidence. Resume external review only if the approved exact Qwen tab becomes a live tab.
