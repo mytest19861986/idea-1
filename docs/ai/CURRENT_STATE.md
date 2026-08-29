@@ -2,7 +2,7 @@
 
 ## Repository truth
 
-- Remote `main` is at `0836230e1a7ede919d7fc212eb840112fbf48df9`.
+- Remote `main` is at `2775fc2c055d09578949a77622381994ed98bc45`.
 - The remote contains the source-registry, collection-normalization, analysis, AI-extraction validation, publishing/revision, delivery-contract, and observability primitives described below.
 - Local `main` additionally contains unpushed commits `bcd35c8` (collector batch boundary) and `0ec4b45` (database documentation reconciliation). They must be transferred through a clean remote-based worktree so the local-only CI workflow commit is not included.
 
@@ -18,7 +18,7 @@
 
 ## Reviews and evidence
 
-- Immutable SHA-pinned review bundles exist remotely for `REV-CORE-016` and `REV-CORE-020` through `REV-CORE-023`; each has five Raw URLs verified with HTTP 200.
+- Immutable SHA-pinned review bundles exist remotely for `REV-CORE-016` and `REV-CORE-020` through `REV-CORE-024`; each has five Raw URLs verified with HTTP 200.
 - Independent Qwen review is PARKED because no live Chrome tab has the approved exact review-thread URL. No review verdict has been fabricated.
 
 ## Constraints and blockers
