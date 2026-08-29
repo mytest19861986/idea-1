@@ -24,4 +24,8 @@ Required persistent concepts are `DeliveryRequestRecord`, `DeliveryIdempotencyRe
 
 ## PKG-DB-DEL-001 blocker
 
-The delivery contract now requires a positive-integer `publicationRevision`, and its local ledger identity is `(opportunityId, publicationRevision, channel, idempotencyKey)`. PostgreSQL implementation and integration verification remain blocked solely by the absence of a disposable PostgreSQL environment, client dependency, migration design, and approved connection configuration. The local JSON adapter is not production-safe.
+The delivery contract now requires a positive-integer `publicationRevision`, and its local ledger identity is `(opportunityId, publicationRevision, channel, idempotencyKey)`. PostgreSQL implementation and integration verification remain blocked by the absence of a disposable PostgreSQL environment, client dependency, and approved connection configuration. The local JSON adapter is not production-safe.
+
+## Proposed additive migration
+
+`database/migrations/0001_delivery_persistence.sql` is a design artifact only and has not been executed. It creates delivery requests, attempts, and results without assuming an existing opportunity table. Its unique key is `(opportunity_id, publication_revision, channel, idempotency_key)` and its result check prevents mixing delivered references with failure codes. Execution requires an approved disposable PostgreSQL environment and a tested rollback/deployment plan.
