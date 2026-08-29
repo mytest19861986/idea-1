@@ -1,0 +1,91 @@
+Exit code: 0
+Wall time: 0.2 seconds
+Output:
+diff --git a/docs/ai/SCORING.md b/docs/ai/SCORING.md
+index a550992..d438d09 100644
+--- a/docs/ai/SCORING.md
++++ b/docs/ai/SCORING.md
+@@ -1,5 +1,9 @@
+ # Scoring
+ 
++## Trend inputs
++
++Trend summaries are descriptive evidence inputs only. They report change in one caller-named metric and deliberately do not label an outcome as good or bad, supply a scoring weight, or change an opportunity score.
++
+ The core score is an explainable weighted average over caller-supplied normalized factors. It is intentionally policy-free: the domain caller must select factors and weights, and this repository currently defines no production defaults, thresholds, or automatic publishing rule.
+ 
+ Each score result retains the input factor, its explicit weight, and its weighted contribution so later ranking can be audited.
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-CORE-023.md b/docs/ai/TASK_CONTRACTS/PKG-CORE-023.md
+new file mode 100644
+index 0000000..bf66815
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-CORE-023.md
+@@ -0,0 +1,12 @@
++# PKG-CORE-023 — Evidence-based trend summary
++
++## Objective
++
++Derive an auditable directional trend from attributable metric observations without assigning business significance or altering opportunity scores.
++
++## Invariants
++
++- Observations require a metric name, finite numeric value, and valid occurrence timestamp.
++- The caller supplies a single metric; mixed metrics are rejected.
++- Output reports first/latest values, absolute change, relative change, observation count, and ordered time bounds.
++- No hidden threshold, score change, AI inference, persistence, publication, or network side effect exists.
+diff --git a/src/analysis/trends.mjs b/src/analysis/trends.mjs
+new file mode 100644
+index 0000000..701b525
+--- /dev/null
++++ b/src/analysis/trends.mjs
+@@ -0,0 +1,33 @@
++function requireText(value, field) {
++  if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} must be a non-empty string`);
++  return value.trim();
++}
++
++function normalizeObservation(observation) {
++  if (!observation || typeof observation !== "object") throw new TypeError("observation must be an object");
++  if (typeof observation.value !== "number" || !Number.isFinite(observation.value)) throw new TypeError("observation.value must be a finite number");
++  const occurredAt = new Date(observation.occurredAt);
++  if (Number.isNaN(occurredAt.valueOf())) throw new TypeError("observation.occurredAt must be a valid timestamp");
++  return Object.freeze({ metric: requireText(observation.metric, "observation.metric"), value: observation.value, occurredAt: occurredAt.toISOString() });
++}
++
++export function summarizeTrend(observations) {
++  if (!Array.isArray(observations) || observations.length < 2) throw new TypeError("observations must contain at least two items");
++  const normalized = observations.map(normalizeObservation).sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
++  const metric = normalized[0].metric;
++  if (normalized.some((observation) => observation.metric !== metric)) throw new TypeError("observations must use one metric");
++  const first = normalized[0];
++  const latest = normalized.at(-1);
++  const absoluteChange = latest.value - first.value;
++  return Object.freeze({
++    schemaVersion: 1,
++    metric,
++    observationCount: normalized.length,
++    firstOccurredAt: first.occurredAt,
++    latestOccurredAt: latest.occurredAt,
++    firstValue: first.value,
++    latestValue: latest.value,
++    absoluteChange,
++    relativeChange: first.value === 0 ? null : absoluteChange / Math.abs(first.value)
++  });
++}
+diff --git a/test/trends.test.mjs b/test/trends.test.mjs
+new file mode 100644
+index 0000000..2550d02
+--- /dev/null
++++ b/test/trends.test.mjs
+@@ -0,0 +1,10 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { summarizeTrend } from "../src/analysis/trends.mjs";
++
++test("trend summaries are ordered, metric-specific, and threshold-free", () => {
++  const summary = summarizeTrend([{ metric: "weekly_signups", value: 150, occurredAt: "2026-08-15T00:00:00Z" }, { metric: "weekly_signups", value: 100, occurredAt: "2026-08-01T00:00:00Z" }]);
++  assert.deepEqual(summary, { schemaVersion: 1, metric: "weekly_signups", observationCount: 2, firstOccurredAt: "2026-08-01T00:00:00.000Z", latestOccurredAt: "2026-08-15T00:00:00.000Z", firstValue: 100, latestValue: 150, absoluteChange: 50, relativeChange: 0.5 });
++  assert.throws(() => summarizeTrend([{ metric: "a", value: 1, occurredAt: "2026-08-01T00:00:00Z" }, { metric: "b", value: 2, occurredAt: "2026-08-02T00:00:00Z" }]), /one metric/);
++  assert.throws(() => summarizeTrend([{ metric: "a", value: 0, occurredAt: "invalid" }, { metric: "a", value: 1, occurredAt: "2026-08-02T00:00:00Z" }]), /valid timestamp/);
++});
+
