@@ -1,0 +1,114 @@
+Exit code: 0
+Wall time: 0.2 seconds
+Output:
+diff --git a/docs/ai/DOMAIN.md b/docs/ai/DOMAIN.md
+index 759b071..b8ed431 100644
+--- a/docs/ai/DOMAIN.md
++++ b/docs/ai/DOMAIN.md
+@@ -1,5 +1,9 @@
+ # Domain
+ 
++## Market assessment
++
++A market assessment is an attributable planning record for an opportunity. It retains observed competitors, explicit risks and mitigations, and caller-proposed MVP scope. It is not a score, a publication approval, or an automatic product decision.
++
+ ## Source states
+ 
+ Sources progress through constrained lifecycle transitions. Discovery and candidate intake never directly activate a source.
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-CORE-020.md b/docs/ai/TASK_CONTRACTS/PKG-CORE-020.md
+new file mode 100644
+index 0000000..835c2d6
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-CORE-020.md
+@@ -0,0 +1,13 @@
++# PKG-CORE-020 — Attributable market assessment contract
++
++## Objective
++
++Represent competitor observations, delivery risks, and a proposed minimum viable product in one explicit, attributable, deterministic record.
++
++## Invariants
++
++- Competitor observations and risks require one or more evidence IDs; unsupported assertions are rejected.
++- Risk severity is descriptive input (`LOW`, `MEDIUM`, or `HIGH`), not a hidden release decision.
++- The MVP proposal retains caller-supplied problem, proposition, and scope; it does not choose product policy or authorize delivery.
++- Output ordering is stable and all nested records are immutable.
++- The module performs no AI call, network access, persistence write, publication, or delivery action.
+diff --git a/src/analysis/market-assessment.mjs b/src/analysis/market-assessment.mjs
+new file mode 100644
+index 0000000..76795bd
+--- /dev/null
++++ b/src/analysis/market-assessment.mjs
+@@ -0,0 +1,53 @@
++const severityOrder = Object.freeze({ HIGH: 0, MEDIUM: 1, LOW: 2 });
++
++function requireText(value, field) {
++  if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} must be a non-empty string`);
++  return value.trim();
++}
++
++function normalizeEvidenceIds(value, field) {
++  if (!Array.isArray(value)) throw new TypeError(`${field} must be an array`);
++  const evidenceIds = [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))].sort();
++  if (evidenceIds.length === 0) throw new TypeError(`${field} must contain an evidence id`);
++  return Object.freeze(evidenceIds);
++}
++
++function normalizeCompetitor(competitor) {
++  if (!competitor || typeof competitor !== "object") throw new TypeError("competitor must be an object");
++  return Object.freeze({
++    name: requireText(competitor.name, "competitor.name"),
++    observation: requireText(competitor.observation, "competitor.observation"),
++    evidenceIds: normalizeEvidenceIds(competitor.evidenceIds, "competitor.evidenceIds")
++  });
++}
++
++function normalizeRisk(risk) {
++  if (!risk || typeof risk !== "object") throw new TypeError("risk must be an object");
++  const severity = requireText(risk.severity, "risk.severity").toUpperCase();
++  if (!(severity in severityOrder)) throw new TypeError("risk.severity must be LOW, MEDIUM, or HIGH");
++  return Object.freeze({
++    description: requireText(risk.description, "risk.description"),
++    severity,
++    mitigation: requireText(risk.mitigation, "risk.mitigation"),
++    evidenceIds: normalizeEvidenceIds(risk.evidenceIds, "risk.evidenceIds")
++  });
++}
++
++export function createMarketAssessment(input) {
++  if (!input || typeof input !== "object") throw new TypeError("input must be an object");
++  if (!Array.isArray(input.competitors) || !Array.isArray(input.risks)) throw new TypeError("competitors and risks must be arrays");
++  if (!input.mvp || typeof input.mvp !== "object") throw new TypeError("mvp must be an object");
++  const competitors = input.competitors.map(normalizeCompetitor).sort((left, right) => left.name.localeCompare(right.name));
++  const risks = input.risks.map(normalizeRisk).sort((left, right) => severityOrder[left.severity] - severityOrder[right.severity] || left.description.localeCompare(right.description));
++  return Object.freeze({
++    schemaVersion: 1,
++    opportunityId: requireText(input.opportunityId, "opportunityId"),
++    competitors: Object.freeze(competitors),
++    risks: Object.freeze(risks),
++    mvp: Object.freeze({
++      problem: requireText(input.mvp.problem, "mvp.problem"),
++      proposition: requireText(input.mvp.proposition, "mvp.proposition"),
++      scope: Object.freeze(Array.isArray(input.mvp.scope) ? [...new Set(input.mvp.scope.map((item) => requireText(item, "mvp.scope")))].sort() : (() => { throw new TypeError("mvp.scope must be an array"); })())
++    })
++  });
++}
+diff --git a/test/market-assessment.test.mjs b/test/market-assessment.test.mjs
+new file mode 100644
+index 0000000..32c2e6f
+--- /dev/null
++++ b/test/market-assessment.test.mjs
+@@ -0,0 +1,12 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { createMarketAssessment } from "../src/analysis/market-assessment.mjs";
++
++test("market assessment keeps competitor, risk, and MVP claims attributable and deterministic", () => {
++  const assessment = createMarketAssessment({ opportunityId: "o-1", competitors: [{ name: "Beta", observation: "Similar workflow", evidenceIds: ["ev-2"] }, { name: "Alpha", observation: "Adjacent offering", evidenceIds: ["ev-1", "ev-1"] }], risks: [{ description: "Regulatory uncertainty", severity: "high", mitigation: "Validate with counsel", evidenceIds: ["ev-3"] }], mvp: { problem: "Slow research", proposition: "Evidence-backed ranking", scope: ["ranking", "evidence", "ranking"] } });
++  assert.deepEqual(assessment.competitors.map((item) => item.name), ["Alpha", "Beta"]);
++  assert.deepEqual(assessment.risks[0], { description: "Regulatory uncertainty", severity: "HIGH", mitigation: "Validate with counsel", evidenceIds: ["ev-3"] });
++  assert.deepEqual(assessment.mvp.scope, ["evidence", "ranking"]);
++  assert.equal(Object.isFrozen(assessment), true);
++  assert.throws(() => createMarketAssessment({ opportunityId: "o-1", competitors: [], risks: [{ description: "Unsupported", severity: "LOW", mitigation: "Review", evidenceIds: [] }], mvp: { problem: "p", proposition: "q", scope: [] } }), /evidence id/);
++});
+
