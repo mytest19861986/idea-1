@@ -1,60 +1,26 @@
 # PKG-INTAKE-003R: Final Audit from Claude Sonnet 5
 
-PKG-INTAKE-003R
+PKG-INTAKE-003R (Finding Resolution)
 
-DECISION: CHANGES_REQUIRED
+DECISION: APPROVED
 
 AUDIT_SUMMARY
 
-This revision closes both gaps from PKG-INTAKE-003 (untested error branches, narrow confidentiality isolation) and adds real hardening: mandatory processedAt, strict ISO validation, recursive deepFreeze, and recursive confidential-key sanitization, all backed by new tests including an end-to-end idempotency/replay check. However, the refactor introduces a new, untested provenance-injection vector that directly undermines the "no provenance fabrication" and "audit determinism" invariants this package claims to guarantee, plus a smaller gap in the ISO timestamp validator's calendar check for offset timestamps. Neither is caught by the existing test suite.
+Both findings from the prior review are correctly fixed and each is backed by a specific regression test. Provenance is now built entirely from validated/computed fields with no caller-writable spread, closing the spoofing vector. validateIsoTimestamp's calendar check now runs unconditionally via Date.UTC(year, month-1, day) against the parsed parts, independent of offset, closing the offset-timestamp gap. The denylist-based confidentiality sanitizer remains a denylist (noted below as a residual, non-blocking observation), but is otherwise correctly recursive and now covers more key variants. No new defects introduced by this change. Full invariant set re-verified against this commit.
 
 INVARIANT_FINDINGS
 
-Provenance fabrication via rawDoc.provenance spread — FAIL (Finding, High)
-
-js
-const provenance = {
-  collectorId: rawDoc.collectorId ?? null,
-  ...
-  intakeProcessedAt: validatedProcessedAt,
-  ...(rawDoc.provenance ?? {})   // <-- spread last, silently overrides everything above
-};
+Provenance spoofing (prior High finding) — RESOLVED. rawDoc.provenance is no longer spread into the constructed provenance object at all — it's built purely from rawDoc.collectorId, rawDoc.collectorVersion, rawDoc.discoveredAt, rawDoc.retrievedAt, and validatedProcessedAt. The new test explicitly attempts to spoof intakeProcessedAt and collectorId via rawDoc.provenance and confirms both are ignored in favor of the authoritative values. Correct fix — removing the merge point entirely is stronger than reordering it.
+ISO calendar validation for offset timestamps (prior Medium finding) — RESOLVED. The round-trip check now always executes (Date.UTC(year, month-1, day) compared against parsed year/month/day), regardless of whether the match has Z or a +hh:mm/-hh:mm offset. Tests confirm both valid offset timestamps (+05:00, -04:00) parse correctly and invalid calendar dates (2026-02-31 with +05:00 and -07:00) are rejected. This is a sound approach — validating the calendar date independent of the clock/offset component avoids the timezone-shift bug the previous version had.
+Confidential metadata sanitization — PASS, same residual note as before (Low, non-blocking). SENSITIVE_CONFIDENTIAL_KEYS remains a fixed denylist (now expanded with homepage, link, profileUrl, sourceLink, etc.). This is a reasonable incremental hardening and is well-tested for nested objects/arrays, but any future field name outside the set (e.g. repo, portfolioUrl, sourceRef) would still pass through unfiltered on a confidential record. Not a blocker — this was flagged as low severity previously and the fix direction (expand denylist) is consistent with what was implied — but if this module handles increasingly varied source types, an allowlist-based approach would close this class of gap permanently rather than incrementally.
+Source lifecycle bypass — PASS. Gating unchanged, all branches (SOURCE_NOT_REGISTERED, SOURCE_MISMATCH, SOURCE_INELIGIBLE, all rejected statuses) tested.
+No wall-clock dependency — PASS. processedAt remains mandatory and validated; missing/invalid cases tested.
+Deterministic IDs & idempotency — PASS. End-to-end replay test (deepStrictEqual(run1, run2)) still present and passing against this version.
+Deep immutability — PASS. deepFreeze applied to full return value; mutation attempts on discoveryRecord, provenance, and metadata all confirmed to throw.
+Source-agnostic / no TrustMRR coupling, no SOURCE_CLAIM→FACT path — PASS. Confirmed via the generic hiring-board test; financials remains absent from the module entirely.
+Hidden DB/network I/O, accidental activation — PASS. No I/O or lifecycle mutation introduced.
 
-Because the caller-supplied rawDoc.provenance object is spread after the computed fields, any key a caller includes there — collectorId, discoveredAt, retrievedAt, or even intakeProcessedAt — silently overwrites the validated/computed value. This means:
-
-A caller can spoof intakeProcessedAt to a value different from the actually-validated processedAt, breaking the "deterministic, no wall-clock, single source of truth for time" guarantee this same PR was written to enforce.
-A caller can inject arbitrary verified_by/verified_status-style fields (or anything else) into provenance with no validation, effectively fabricating provenance — the exact behavior FINDING-002 in this PR was meant to prevent.
-None of the new tests pass a rawDoc.provenance value, so this path is completely uncovered.
-
-Fix: either drop support for caller-supplied provenance entirely (nothing in the intake contract calls for it), or spread it before the computed fields so the computed values always win, and validate/allowlist whatever keys are permitted through.
-
-ISO timestamp calendar validation skipped for offset timestamps — FAIL (Finding, Medium)
-
-js
-if (match[8] === undefined || match[8] === "Z") {
-  // round-trip calendar check
-}
-
-The exact calendar round-trip check (which catches things like 2026-02-31) only runs when there's no offset or the offset is Z. A timestamp like 2026-02-31T00:00:00+05:00 matches the regex, new Date(...) parses it without NaN (JS rolls it forward to March), and the round-trip check is skipped entirely — so an invalid calendar date is silently accepted for any non-UTC offset. This weakens the "real ISO timestamp validation with exact calendar date checking" claim in the checklist to "UTC-only." Not directly exploitable for data corruption given how these timestamps are used, but it's a correctness gap in a function whose whole purpose is stricter validation, and it's untested for offset inputs.
-
-SENSITIVE_CONFIDENTIAL_KEYS is a denylist, not an allowlist — PASS with caveat (Low)
-Recursive sanitization is a real improvement and well-tested (nested objects, arrays), but it works by blocking a fixed set of key names (domain, websiteUrl, contactUrl, etc.). Any future collector that stores a sensitive reference under an unlisted key (homepage, link, profileUrl, sourceLink, …) passes straight into a is_confidential: true record. This is the same class of gap as before, just narrower now. Consider inverting to an explicit allowlist of permitted metadata keys on the confidential path, since denylists of this kind reliably miss future field names.
-No SOURCE_CLAIM → FACT path — PASS. The financials/claim_type handling has been removed entirely from this generic module (confirmed by the new "source-agnostic" test asserting financials === undefined), so the promotion risk is moot here. Note this is a functional scope change from PKG-INTAKE-003 — if TrustMRR-specific claim-type enforcement is still required somewhere, confirm it now lives in a source-specific layer on top of this generic intake, not silently dropped.
-No hidden wall-clock dependency — PASS. processedAt is mandatory and validated; INVALID_PROCESSED_AT branch is tested for both missing and malformed input.
-No provenance fabrication (collectorId/collectorVersion defaults) — PASS for the specific defaults tested, but see Finding 1 — the broader guarantee is bypassable via rawDoc.provenance.
-Source lifecycle bypass — PASS. Gating logic unchanged and still strictly tested (SOURCE_NOT_REGISTERED, SOURCE_MISMATCH, SOURCE_INELIGIBLE all now covered — this closes the PKG-INTAKE-003 gap).
-Deterministic IDs / idempotency — PASS. computeDeterministicDiscoveryId unchanged; end-to-end replay test (assert.deepStrictEqual(run1, run2)) now genuinely closes the PKG-INTAKE-003 gap on integration-level idempotency.
-Deep immutability — PASS. deepFreeze is applied to the full return value and tests confirm mutation attempts throw on nested discoveryRecord, provenance, and metadata.
-Hidden DB/network I/O — PASS. Still a pure function; no I/O introduced.
-Accidental activation — PASS. No mutation of sourceRecord or lifecycle state.
-
-Required before APPROVED:
-
-Fix the rawDoc.provenance spread ordering (or remove caller-supplied provenance support) and add a test asserting that a caller-supplied provenance.intakeProcessedAt (or other computed field) cannot override the validated/computed value.
-Extend validateIsoTimestamp's calendar round-trip check to cover non-Z offset timestamps, or explicitly document/test that offset timestamps get reduced validation.
-Optional but recommended: convert SENSITIVE_CONFIDENTIAL_KEYS to an allowlist-based sanitizer for the confidential path to avoid reliance on an ever-growing denylist.
-
-This is close — the two required fixes are narrow and don't require restructuring the module, but Finding 1 is a genuine integrity gap that contradicts a headline claim of this exact PR, so it should not pass as APPROVED without a fix and a regression test.
+No further changes required. This package is approved as of commit 4fb55eb.
 
 
 
