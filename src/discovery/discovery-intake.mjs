@@ -4,6 +4,7 @@ const ISO_TIMESTAMP_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:
 
 /**
  * Validates that a string is a strict ISO 8601 timestamp with calendar day correctness.
+ * Validates year, month, and day combinations across all timezone offsets.
  * @param {string} value
  * @param {string} fieldName
  * @returns {string} valid ISO timestamp
@@ -21,17 +22,20 @@ export function validateIsoTimestamp(value, fieldName) {
   const year = parseInt(match[1], 10);
   const month = parseInt(match[2], 10);
   const day = parseInt(match[3], 10);
-  const date = new Date(trimmed);
 
-  if (Number.isNaN(date.valueOf())) {
+  // Exact calendar correctness check across all timezone representations
+  const calendarTest = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendarTest.getUTCFullYear() !== year ||
+    calendarTest.getUTCMonth() + 1 !== month ||
+    calendarTest.getUTCDate() !== day
+  ) {
     throw new TypeError(`${fieldName} represents an impossible or invalid calendar date`);
   }
 
-  // Exact calendar round-trip check
-  if (match[8] === undefined || match[8] === "Z") {
-    if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
-      throw new TypeError(`${fieldName} represents an impossible or invalid calendar date`);
-    }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.valueOf())) {
+    throw new TypeError(`${fieldName} represents an impossible or invalid calendar date`);
   }
 
   return trimmed;
@@ -67,7 +71,13 @@ const SENSITIVE_CONFIDENTIAL_KEYS = new Set([
   "targeturl",
   "target_url",
   "externalurl",
-  "external_url"
+  "external_url",
+  "homepage",
+  "link",
+  "profileurl",
+  "profile_url",
+  "sourcelink",
+  "source_link"
 ]);
 
 /**
@@ -169,10 +179,10 @@ export function computeDeterministicDiscoveryId(sourceId, canonicalUrl) {
  * Enforces:
  * - Deterministic execution with NO internal clock generation (processedAt is strictly required)
  * - Source-agnostic ingestion with zero coupling to source-specific metrics/financials
- * - Strict RawDocument schema and ISO timestamp validation
+ * - Strict RawDocument schema and ISO timestamp validation (universal timezone calendar validation)
  * - Source registration & state gating (APPROVED or ACTIVE only)
  * - Deterministic discovery identity & validated idempotency key
- * - No provenance fabrication (missing collector metadata preserved as null without synthetic defaults)
+ * - Strict provenance integrity (authoritative computed fields; zero provenance spoofing)
  * - Recursive confidential entity isolation (contentReference nullified, is_confidential: true, deep sanitization)
  * - Recursive deep freezing for complete immutability
  *
@@ -282,7 +292,7 @@ export function processDiscoveryIntake(rawDoc, { sourceRecord, processedAt, acto
   const isConfidential = Boolean(rawDoc.metadata?.is_confidential || rawDoc.metadata?.confidential);
   const contentReference = isConfidential ? null : (rawDoc.contentReference || null);
 
-  // 7. Generic Metadata & Provenance Preservation (Zero fabricated defaults)
+  // 7. Generic Metadata Sanitization
   const baseMetadata = isConfidential
     ? sanitizeConfidentialRecursively(rawDoc.metadata)
     : { ...rawDoc.metadata };
@@ -292,16 +302,16 @@ export function processDiscoveryIntake(rawDoc, { sourceRecord, processedAt, acto
     is_confidential: isConfidential
   };
 
+  // 8. Authoritative Provenance Construction (Prevents caller spoofing/fabrication)
   const provenance = {
     collectorId: rawDoc.collectorId ?? null,
     collectorVersion: rawDoc.collectorVersion ?? null,
     discoveredAt: rawDoc.discoveredAt,
     retrievedAt: rawDoc.retrievedAt,
-    intakeProcessedAt: validatedProcessedAt,
-    ...(rawDoc.provenance ?? {})
+    intakeProcessedAt: validatedProcessedAt
   };
 
-  // 8. Build Candidate Discovery Record
+  // 9. Build Candidate Discovery Record
   const discoveryRecord = {
     schemaVersion: 1,
     discoveryId,
@@ -319,7 +329,7 @@ export function processDiscoveryIntake(rawDoc, { sourceRecord, processedAt, acto
     status: "CANDIDATE_DISCOVERY_RECORD"
   };
 
-  // 9. Deterministic Audit Event
+  // 10. Deterministic Audit Event
   const auditEvent = {
     eventType: "DISCOVERY_INTAKE_ACCEPTED",
     discoveryId,

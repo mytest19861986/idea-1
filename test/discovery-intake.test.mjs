@@ -10,12 +10,16 @@ import {
   processDiscoveryIntake
 } from "../src/discovery/discovery-intake.mjs";
 
-test("validateIsoTimestamp strictly validates valid ISO UTC timestamps and rejects invalid strings", () => {
+test("validateIsoTimestamp strictly validates valid ISO UTC and offset timestamps and rejects impossible dates", () => {
   assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00.000Z", "test"), "2026-08-30T01:00:00.000Z");
   assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00Z", "test"), "2026-08-30T01:00:00Z");
+  assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00+05:00", "test"), "2026-08-30T01:00:00+05:00");
+  assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00-04:00", "test"), "2026-08-30T01:00:00-04:00");
 
   assert.throws(() => validateIsoTimestamp("yesterday", "discoveredAt"), /must be a valid ISO 8601 timestamp string/);
   assert.throws(() => validateIsoTimestamp("2026-02-31T00:00:00Z", "discoveredAt"), /represents an impossible or invalid calendar date/);
+  assert.throws(() => validateIsoTimestamp("2026-02-31T00:00:00+05:00", "discoveredAt"), /represents an impossible or invalid calendar date/);
+  assert.throws(() => validateIsoTimestamp("2026-02-31T00:00:00-07:00", "discoveredAt"), /represents an impossible or invalid calendar date/);
   assert.throws(() => validateIsoTimestamp("", "discoveredAt"), /must be a non-empty string/);
   assert.throws(() => validateIsoTimestamp(null, "discoveredAt"), /must be a non-empty string/);
 });
@@ -108,7 +112,7 @@ test("processDiscoveryIntake fails explicitly when processedAt is missing (FINDI
   assert.match(resInvalid.reason, /processedAt must be a valid ISO 8601 timestamp/);
 });
 
-test("processDiscoveryIntake does NOT fabricate collector provenance defaults (FINDING-002: No Synthetic Provenance)", () => {
+test("processDiscoveryIntake prevents provenance spoofing and does NOT fabricate defaults (FINDING-002: Provenance Integrity)", () => {
   const rawDoc = {
     schemaVersion: 1,
     sourceId: "generic-source",
@@ -117,6 +121,10 @@ test("processDiscoveryIntake does NOT fabricate collector provenance defaults (F
     title: "Unversioned Item",
     discoveredAt: "2026-08-30T00:00:00Z",
     retrievedAt: "2026-08-30T00:00:00Z",
+    provenance: {
+      intakeProcessedAt: "1999-01-01T00:00:00Z", // Attempt to spoof intakeProcessedAt
+      collectorId: "spoofed-collector"
+    },
     metadata: {}
   };
 
@@ -126,13 +134,15 @@ test("processDiscoveryIntake does NOT fabricate collector provenance defaults (F
     status: SourceStatus.APPROVED
   };
 
+  const validatedProcessedAt = "2026-08-30T01:00:00.000Z";
   const res = processDiscoveryIntake(rawDoc, {
     sourceRecord,
-    processedAt: "2026-08-30T01:00:00Z"
+    processedAt: validatedProcessedAt
   });
 
   assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.discoveryRecord.provenance.collectorId, null, "Must NOT fabricate 'unknown-collector'");
+  assert.strictEqual(res.discoveryRecord.provenance.intakeProcessedAt, validatedProcessedAt, "Validated processedAt must override caller-supplied spoofed timestamp");
+  assert.strictEqual(res.discoveryRecord.provenance.collectorId, null, "Must preserve rawDoc top-level null without accepting spoofed inner provenance");
   assert.strictEqual(res.discoveryRecord.provenance.collectorVersion, null, "Must NOT fabricate '1.0.0'");
 });
 
@@ -174,8 +184,10 @@ test("sanitizeConfidentialRecursively cleans deeply nested objects and arrays (F
   const inputMetadata = {
     safeField: "value1",
     websiteUrl: "https://leak.example.com",
+    homepage: "https://homepage.example.com",
     nested: {
       domain: "secret-domain.com",
+      profileUrl: "https://secret.example.com/profile",
       safeNested: 123,
       deep: {
         contact_url: "https://secret.example.com/contact"
@@ -190,7 +202,9 @@ test("sanitizeConfidentialRecursively cleans deeply nested objects and arrays (F
   const cleaned = sanitizeConfidentialRecursively(inputMetadata);
   assert.strictEqual(cleaned.safeField, "value1");
   assert.strictEqual(cleaned.websiteUrl, undefined);
+  assert.strictEqual(cleaned.homepage, undefined);
   assert.strictEqual(cleaned.nested.domain, undefined);
+  assert.strictEqual(cleaned.nested.profileUrl, undefined);
   assert.strictEqual(cleaned.nested.safeNested, 123);
   assert.strictEqual(cleaned.nested.deep.contact_url, undefined);
   assert.strictEqual(cleaned.arrayField[0].rawHtmlRef, undefined);
