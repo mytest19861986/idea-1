@@ -1,5 +1,9 @@
 # Domain
 
+## Market assessment
+
+A market assessment is an attributable planning record for an opportunity. It retains observed competitors, explicit risks and mitigations, and caller-proposed MVP scope. It is not a score, a publication approval, or an automatic product decision.
+
 ## Source states
 
 Sources progress through constrained lifecycle transitions. Discovery and candidate intake never directly activate a source.
