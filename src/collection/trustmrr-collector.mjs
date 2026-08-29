@@ -48,7 +48,8 @@ export function buildStartupCanonicalUrl(slug) {
 
 export function isConfidentialListing(rawStartup) {
   if (!rawStartup || typeof rawStartup !== "object") return false;
-  if (rawStartup.for_sale === true && (rawStartup.is_confidential === true || rawStartup.confidential === true)) {
+  // Direct explicit boolean flags (regardless of whether listing is for_sale)
+  if (rawStartup.is_confidential === true || rawStartup.confidential === true) {
     return true;
   }
   const website = (rawStartup.website_url || rawStartup.website || "").trim().toLowerCase();
@@ -75,7 +76,9 @@ export function normalizeTrustMrrStartup(rawStartup, { retrievedAt, discoveredAt
 
   const confidential = isConfidentialListing(rawStartup);
   const canonicalUrl = buildStartupCanonicalUrl(rawStartup.slug);
-  const paymentProvider = rawStartup.payment_provider || rawStartup.verified_by || (rawStartup.verified ? "stripe" : "none");
+
+  // Do not hallucinate "stripe" as default provider; preserve exact source provenance
+  const paymentProvider = rawStartup.payment_provider || rawStartup.verified_by || (rawStartup.verified ? "verified_unspecified_provider" : null);
 
   // Invariant TRUSTMRR-G001: Financials are tagged strictly as SOURCE_CLAIM
   const financials = Object.freeze({

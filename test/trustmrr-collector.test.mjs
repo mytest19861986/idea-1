@@ -46,12 +46,21 @@ const SAMPLE_CONFIDENTIAL_STARTUP = {
   tagline: "Confidential B2B AI SaaS",
   website_url: "https://confidential.trustmrr.com",
   mrr: 12000,
-  for_sale: true,
+  for_sale: false, // Not for sale, but explicitly confidential
   is_confidential: true,
   verified: true,
   payment_provider: "lemonsqueezy",
   categories: ["ai", "marketing"],
   team_size: 2,
+  funding_status: "bootstrapped"
+};
+
+const SAMPLE_UNSPECIFIED_PROVIDER_STARTUP = {
+  slug: "unspecified-app",
+  name: "Unspecified App",
+  website_url: "https://unspecified.example.com",
+  mrr: 1000,
+  verified: true, // verified true but payment_provider omitted
   funding_status: "bootstrapped"
 };
 
@@ -104,7 +113,16 @@ test("document normalization preserves TRUSTMRR-G001 (SOURCE_CLAIM) and provenan
   assert.equal(doc.metadata.confidential, false);
 });
 
-test("confidential listing isolation strictly enforces TRUSTMRR-G003", () => {
+test("unspecified provider does not fabricate stripe fallback", () => {
+  const doc = normalizeTrustMrrStartup(SAMPLE_UNSPECIFIED_PROVIDER_STARTUP, {
+    retrievedAt: RETRIEVED_AT,
+    discoveredAt: DISCOVERED_AT
+  });
+  assert.equal(doc.metadata.paymentProvider, "verified_unspecified_provider");
+  assert.equal(doc.metadata.financials.provenance.verified_by, "verified_unspecified_provider");
+});
+
+test("confidential listing isolation strictly enforces TRUSTMRR-G003 regardless of for_sale flag", () => {
   const isConf = isConfidentialListing(SAMPLE_CONFIDENTIAL_STARTUP);
   assert.equal(isConf, true);
 
