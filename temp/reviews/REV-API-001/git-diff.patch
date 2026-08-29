@@ -1,0 +1,69 @@
+Exit code: 0
+Wall time: 0.3 seconds
+Output:
+diff --git a/docs/ai/KNOWN_ISSUES.md b/docs/ai/KNOWN_ISSUES.md
+index 4e18070..94543b5 100644
+--- a/docs/ai/KNOWN_ISSUES.md
++++ b/docs/ai/KNOWN_ISSUES.md
+@@ -7,3 +7,5 @@ The source registry and delivery idempotency guard use atomic local JSON snapsho
+ ## PostgreSQL integration environment is unavailable
+ 
+ `PKG-DB-DEL-001` has `SCHEMA_DESIGNED` and a pure identity harness, but `DB_INTEGRATION_NOT_EXECUTED`. Docker is unavailable and neither `psql` nor `pg_isready` is installed. Future database tests must remain `NOT_RUN_ENVIRONMENT_BLOCKER` until a disposable PostgreSQL environment is provided.
++
++`PKG-DB-DEL-001` is `DESIGN_COMPLETE_ENVIRONMENT_BLOCKED`, not production persistence complete. Its required dependency `CORE-016` remains `IMPLEMENTED_VALIDATED_REVIEW_PENDING`.
+diff --git a/docs/ai/TASK_CONTRACTS/PKG-API-001.md b/docs/ai/TASK_CONTRACTS/PKG-API-001.md
+new file mode 100644
+index 0000000..bf16356
+--- /dev/null
++++ b/docs/ai/TASK_CONTRACTS/PKG-API-001.md
+@@ -0,0 +1,7 @@
++# PKG-API-001 — Public read API contract
++
++Define versioned, read-only contracts for health and publication-eligible opportunity delivery. No HTTP server, database access, authentication implementation, mutation, AI call, scoring, or Telegram integration is in scope.
++
++Required routes: `GET /health`, `GET /api/v1/opportunities`, and `GET /api/v1/opportunities/:slug`.
++
++Only explicit public read models may cross the boundary. Contracts must include pagination, filters, sorting, errors, fact/inference representation, citations, rate-limit policy, and security-header requirements.
+diff --git a/src/api/read-contract.mjs b/src/api/read-contract.mjs
+new file mode 100644
+index 0000000..a25eb9b
+--- /dev/null
++++ b/src/api/read-contract.mjs
+@@ -0,0 +1,20 @@
++const sorts = new Set(["SCORE_DESC", "PUBLISHED_AT_DESC"]);
++
++function text(value, field) { if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} is required`); return value.trim(); }
++function integer(value, field) { const parsed = Number(value); if (!Number.isInteger(parsed) || parsed < 1) throw new TypeError(`${field} must be a positive integer`); return parsed; }
++
++export function parseOpportunityListQuery(input = {}) {
++  if (!input || typeof input !== "object" || Array.isArray(input)) throw new TypeError("query must be an object");
++  const limit = input.limit === undefined ? 20 : integer(input.limit, "limit");
++  if (limit > 100) throw new RangeError("limit must not exceed 100");
++  const sort = input.sort === undefined ? "SCORE_DESC" : text(input.sort, "sort").toUpperCase();
++  if (!sorts.has(sort)) throw new TypeError("sort is not supported");
++  return Object.freeze({ limit, cursor: input.cursor === undefined ? null : text(input.cursor, "cursor"), sort, topic: input.topic === undefined ? null : text(input.topic, "topic") });
++}
++
++export function toPublicOpportunity(record) {
++  if (!record || typeof record !== "object" || record.publicationState !== "APPROVED") throw new RangeError("only approved records are publicly readable");
++  const citations = Array.isArray(record.citations) ? record.citations : [];
++  if (!record.slug || !record.title || !record.summary || citations.length === 0) throw new TypeError("public record is incomplete");
++  return Object.freeze({ slug: text(record.slug, "slug"), title: text(record.title, "title"), summary: text(record.summary, "summary"), score: record.score, facts: Object.freeze(Array.isArray(record.facts) ? record.facts : []), inferences: Object.freeze(Array.isArray(record.inferences) ? record.inferences : []), citations: Object.freeze(citations.map(({ sourceId, url }) => Object.freeze({ sourceId: text(sourceId, "citation.sourceId"), url: new URL(text(url, "citation.url")).toString() }))) });
++}
+diff --git a/test/api-read-contract.test.mjs b/test/api-read-contract.test.mjs
+new file mode 100644
+index 0000000..c39676b
+--- /dev/null
++++ b/test/api-read-contract.test.mjs
+@@ -0,0 +1,10 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { parseOpportunityListQuery, toPublicOpportunity } from "../src/api/read-contract.mjs";
++test("public API contracts cap pagination and expose only approved attributable models", () => {
++  assert.deepEqual(parseOpportunityListQuery({ limit: "2", sort: "score_desc" }), { limit: 2, cursor: null, sort: "SCORE_DESC", topic: null });
++  assert.throws(() => parseOpportunityListQuery({ limit: 101 }), /100/);
++  const record = { publicationState: "APPROVED", slug: "a", title: "A", summary: "S", score: 1, citations: [{ sourceId: "x", url: "https://x.test" }], facts: ["f"], inferences: ["i"] };
++  assert.equal(toPublicOpportunity(record).slug, "a");
++  assert.throws(() => toPublicOpportunity({ ...record, publicationState: "DRAFT" }), /approved/);
++});
+
