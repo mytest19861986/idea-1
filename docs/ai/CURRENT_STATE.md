@@ -2,8 +2,7 @@
 
 ## Repository truth
 
-- Local main currently contains the unpushed PKG-API-002 working change; the latest committed local revision before that change is aae810fb6d905de8317208e19fb1024d1009a736.
-- Remote main was observed at 8bc61f00b9d24a995f7884e4b1dc74e490d3393a before PKG-API-002 is transferred through the clean remote-based worktree.
+- PKG-API-002 is committed locally as dd2163adf926b785a4adb5f9f248941bd06dc2ca and transferred to remote main as 2dfc4619621d01740bcb747e44a2a1bcae34ca64.
 - The local CI workflow is intentionally not transferred because the available OAuth credential lacks workflow scope.
 
 ## Implemented and locally validated primitives
@@ -21,7 +20,7 @@
 
 - Immutable SHA-pinned review bundles exist for previous package reviews. External review remains PARKED until the approved exact Qwen review-thread tab is live; no verdict is fabricated.
 - PKG-API-001 is implemented, validated, pushed, and review-pending. Its existing bundle remains immutable.
-- PKG-API-002 has not yet been committed, pushed, or independently reviewed.
+- PKG-API-002 is committed and pushed, but has not yet received independent review.
 
 ## Constraints and blockers
 
@@ -31,4 +30,4 @@
 
 ## Next action
 
-Commit and transfer PKG-API-002 through the clean remote-based worktree, create its immutable review evidence, then continue the next independent package while external-review transport remains parked.
+Create the exact immutable review artifact for PKG-API-002 under temp/reviews, commit and push it, verify SHA-pinned Raw URLs, then continue the next independent package while external-review transport remains parked.
