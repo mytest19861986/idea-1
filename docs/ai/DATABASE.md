@@ -21,3 +21,7 @@ Required persistent concepts are `DeliveryRequestRecord`, `DeliveryIdempotencyRe
 - No production migration may run from this repository until a target environment and approval path exist.
 - Migrations must be additive, versioned, reviewable, and tested against a disposable database.
 - Database URLs, credentials, and TLS material are secrets and must never enter source control.
+
+## PKG-DB-DEL-001 blocker
+
+The existing delivery-request contract does not include the required `publicationRevision` component. A PostgreSQL adapter must not invent that value or weaken the production uniqueness key. This contract gap and the absence of a disposable PostgreSQL environment block implementation and integration verification; they do not make the local JSON adapter production-safe.

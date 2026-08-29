@@ -24,9 +24,15 @@ function requiredString(value, name) {
   return value.trim();
 }
 
+function positiveInteger(value, name) {
+  if (!Number.isInteger(value) || value < 1) throw new TypeError(`${name} must be a positive integer`);
+  return value;
+}
+
 function assertRequest(request) {
   if (!request || typeof request !== "object") throw new TypeError("delivery request is required");
   requiredString(request.opportunityId, "request.opportunityId");
+  positiveInteger(request.publicationRevision, "request.publicationRevision");
   requiredString(request.channel, "request.channel");
   requiredString(request.idempotencyKey, "request.idempotencyKey");
   requiredString(request.requestedAt, "request.requestedAt");
@@ -55,10 +61,10 @@ export class DeliveryLedger {
   async claim(request) {
     assertRequest(request);
     const records = await this.initialize();
-    const key = `${request.channel}\u0000${request.idempotencyKey}`;
+    const key = `${request.opportunityId}\u0000${request.publicationRevision}\u0000${request.channel}\u0000${request.idempotencyKey}`;
     const existing = records.find((record) => record.key === key);
     if (existing) return Object.freeze({ accepted: false, claim: structuredClone(existing) });
-    const claim = { key, opportunityId: request.opportunityId, channel: request.channel, idempotencyKey: request.idempotencyKey, requestedAt: request.requestedAt, claimedAt: this.#now() };
+    const claim = { key, opportunityId: request.opportunityId, publicationRevision: request.publicationRevision, channel: request.channel, idempotencyKey: request.idempotencyKey, requestedAt: request.requestedAt, claimedAt: this.#now() };
     records.push(claim);
     await mkdir(dirname(this.#ledgerPath), { recursive: true });
     await writeJsonAtomically(this.#ledgerPath, records);

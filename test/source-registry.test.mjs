@@ -154,7 +154,7 @@ test("localized templates render only explicit locales and complete scalar value
 
 test("publication record is a deterministic draft with attributable sorted citations", () => {
   const record = createPublicationRecord({
-    opportunityId: "o-1", locale: "en", title: "Useful opportunity", summary: "Evidence-backed summary", score: 72.5,
+    opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "Useful opportunity", summary: "Evidence-backed summary", score: 72.5,
     generatedAt: "2026-08-28T00:00:00Z",
     citations: [
       { sourceId: "b", collectedItemId: "2", url: "https://b.test/2" },
@@ -162,7 +162,7 @@ test("publication record is a deterministic draft with attributable sorted citat
     ]
   });
   assert.deepEqual(record, {
-    schemaVersion: 1, publicationState: "DRAFT", opportunityId: "o-1", locale: "en", title: "Useful opportunity", summary: "Evidence-backed summary", score: 72.5,
+    schemaVersion: 1, publicationState: "DRAFT", opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "Useful opportunity", summary: "Evidence-backed summary", score: 72.5,
     generatedAt: "2026-08-28T00:00:00.000Z",
     citations: [
       { sourceId: "a", collectedItemId: "1", url: "https://a.test/1" },
@@ -172,22 +172,23 @@ test("publication record is a deterministic draft with attributable sorted citat
 });
 
 test("publication records fail closed without trustworthy citations", () => {
-  const input = { opportunityId: "o-1", locale: "en", title: "T", summary: "S", score: 1, generatedAt: "2026-08-28T00:00:00Z", citations: [] };
+  const input = { opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "T", summary: "S", score: 1, generatedAt: "2026-08-28T00:00:00Z", citations: [] };
   assert.throws(() => createPublicationRecord(input), /citation/);
   assert.throws(() => createPublicationRecord({ ...input, citations: [{ sourceId: "a", collectedItemId: "1", url: "http://a.test" }] }), /HTTPS/);
 });
 
 test("publication approval is explicit, attributable, and does not dispatch", () => {
-  const draft = createPublicationRecord({ opportunityId: "o-1", locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] });
+  const draft = createPublicationRecord({ opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] });
   const result = approvePublication(draft, { actor: "editor-1", reason: "EDITORIAL_REVIEW", approvedAt: "2026-08-28T01:00:00Z" });
   assert.equal(result.record.publicationState, "APPROVED");
-  assert.deepEqual(result.record.publicationApproval, { actor: "editor-1", reason: "EDITORIAL_REVIEW", approvedAt: "2026-08-28T01:00:00.000Z" });
-  assert.deepEqual(result.event, { type: "PUBLICATION_APPROVED", opportunityId: "o-1", actor: "editor-1", reason: "EDITORIAL_REVIEW", occurredAt: "2026-08-28T01:00:00.000Z" });
+  assert.deepEqual(result.record.publicationApproval, { actor: "editor-1", reason: "EDITORIAL_REVIEW", approvedAt: "2026-08-28T01:00:00.000Z", publicationRevision: 1 });
+  assert.deepEqual(result.event, { type: "PUBLICATION_APPROVED", opportunityId: "o-1", publicationRevision: 1, actor: "editor-1", reason: "EDITORIAL_REVIEW", occurredAt: "2026-08-28T01:00:00.000Z" });
   assert.throws(() => approvePublication(result.record, { actor: "editor-1", reason: "SECOND", approvedAt: "2026-08-28T02:00:00Z" }), /only DRAFT/);
+  assert.throws(() => createDeliveryRequest({ ...result.record, publicationRevision: 2 }, { channel: "WEB", idempotencyKey: "revision-2", requestedAt: "2026-08-28T02:00:00Z" }), /approval must match/);
 });
 
 test("delivery requests require approval and are explicit about the target channel", () => {
-  const draft = createPublicationRecord({ opportunityId: "o-1", locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] });
+  const draft = createPublicationRecord({ opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] });
   assert.throws(() => createDeliveryRequest(draft, { channel: "WEB", idempotencyKey: "web-o-1", requestedAt: "2026-08-28T01:00:00Z" }), /only APPROVED/);
   const approved = approvePublication(draft, { actor: "editor", reason: "REVIEW", approvedAt: "2026-08-28T01:00:00Z" }).record;
   const request = createDeliveryRequest(approved, { channel: "telegram", idempotencyKey: "telegram-o-1", requestedAt: "2026-08-28T02:00:00Z" });
@@ -198,9 +199,9 @@ test("delivery requests require approval and are explicit about the target chann
 });
 
 test("delivery results distinguish delivered references from retryable failures", () => {
-  const approved = approvePublication(createPublicationRecord({ opportunityId: "o-1", locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] }), { actor: "editor", reason: "REVIEW", approvedAt: "2026-08-28T01:00:00Z" }).record;
+  const approved = approvePublication(createPublicationRecord({ opportunityId: "o-1", publicationRevision: 1, locale: "en", title: "T", summary: "S", score: 50, generatedAt: "2026-08-28T00:00:00Z", citations: [{ sourceId: "a", collectedItemId: "1", url: "https://a.test/1" }] }), { actor: "editor", reason: "REVIEW", approvedAt: "2026-08-28T01:00:00Z" }).record;
   const request = createDeliveryRequest(approved, { channel: "WEB", idempotencyKey: "web-o-1", requestedAt: "2026-08-28T02:00:00Z" });
-  assert.deepEqual(createDeliveryResult(request, { status: "delivered", occurredAt: "2026-08-28T02:01:00Z", channelReference: "page-o-1" }), { schemaVersion: 1, opportunityId: "o-1", channel: "WEB", idempotencyKey: "web-o-1", status: "DELIVERED", occurredAt: "2026-08-28T02:01:00.000Z", channelReference: "page-o-1" });
+  assert.deepEqual(createDeliveryResult(request, { status: "delivered", occurredAt: "2026-08-28T02:01:00Z", channelReference: "page-o-1" }), { schemaVersion: 1, opportunityId: "o-1", publicationRevision: 1, channel: "WEB", idempotencyKey: "web-o-1", status: "DELIVERED", occurredAt: "2026-08-28T02:01:00.000Z", channelReference: "page-o-1" });
   assert.deepEqual(createDeliveryResult(request, { status: "FAILED", occurredAt: "2026-08-28T02:01:00Z", failureCode: "NETWORK_TIMEOUT" }).failureCode, "NETWORK_TIMEOUT");
   assert.throws(() => createDeliveryResult(request, { status: "DELIVERED", occurredAt: "2026-08-28T02:01:00Z" }), /channelReference/);
 });
@@ -209,7 +210,7 @@ test("delivery ledger accepts a channel key only once and persists its claim", a
   const directory = await mkdtemp(join(tmpdir(), "delivery-ledger-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const ledger = new DeliveryLedger({ directory, now: () => "2026-08-28T03:00:00.000Z" });
-  const request = { opportunityId: "o-1", channel: "WEB", idempotencyKey: "web-o-1", requestedAt: "2026-08-28T02:00:00.000Z" };
+  const request = { opportunityId: "o-1", publicationRevision: 1, channel: "WEB", idempotencyKey: "web-o-1", requestedAt: "2026-08-28T02:00:00.000Z" };
   const first = await ledger.claim(request);
   const second = await ledger.claim(request);
   assert.equal(first.accepted, true);

@@ -10,6 +10,11 @@ function boundedNumber(value, name) {
   return value;
 }
 
+function positiveInteger(value, name) {
+  if (!Number.isInteger(value) || value < 1) throw new TypeError(`${name} must be a positive integer`);
+  return value;
+}
+
 function isoTimestamp(value, name) {
   const timestamp = requiredString(value, name);
   if (Number.isNaN(Date.parse(timestamp))) throw new TypeError(`${name} must be an ISO-compatible timestamp`);
@@ -41,6 +46,7 @@ export function createPublicationRecord(input) {
     schemaVersion: 1,
     publicationState: "DRAFT",
     opportunityId: requiredString(input.opportunityId, "opportunityId"),
+    publicationRevision: positiveInteger(input.publicationRevision, "publicationRevision"),
     locale: requiredString(input.locale, "locale"),
     title: requiredString(input.title, "title"),
     summary: requiredString(input.summary, "summary"),

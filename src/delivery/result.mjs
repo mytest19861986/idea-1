@@ -11,11 +11,17 @@ function isoTimestamp(value, name) {
   return new Date(timestamp).toISOString();
 }
 
+function positiveInteger(value, name) {
+  if (!Number.isInteger(value) || value < 1) throw new TypeError(`${name} must be a positive integer`);
+  return value;
+}
+
 export { DeliveryStatus };
 
 export function createDeliveryResult(request, input) {
   if (!request || typeof request !== "object") throw new TypeError("delivery request is required");
   requiredString(request.opportunityId, "request.opportunityId");
+  const publicationRevision = positiveInteger(request.publicationRevision, "request.publicationRevision");
   requiredString(request.channel, "request.channel");
   requiredString(request.idempotencyKey, "request.idempotencyKey");
   if (!input || typeof input !== "object") throw new TypeError("delivery result is required");
@@ -24,6 +30,7 @@ export function createDeliveryResult(request, input) {
   const result = {
     schemaVersion: 1,
     opportunityId: request.opportunityId,
+    publicationRevision,
     channel: request.channel,
     idempotencyKey: request.idempotencyKey,
     status,
