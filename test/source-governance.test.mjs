@@ -120,6 +120,41 @@ test("evaluateGovernance: ACTIVE + sustained HIGH-confidence degradation allows 
   assert.strictEqual(dec.hysteresisSatisfied, true);
 });
 
+test("evaluateGovernance: single HIGH-confidence CRITICAL snapshot triggers fast-track auto-transition to PAUSED (Finding 1 fix)", () => {
+  const source = { id: "src-crit", status: SourceStatus.ACTIVE };
+  const snapshots = [
+    makeSnapshot({ sourceId: "src-crit", operationalHealth: HealthLevel.HIGH, evaluatedAt: "2026-08-30T00:30:00Z" }),
+    makeSnapshot({ sourceId: "src-crit", operationalHealth: HealthLevel.CRITICAL, evaluatedAt: "2026-08-30T01:00:00Z" })
+  ];
+
+  const dec = evaluateGovernance(source, snapshots, {
+    decisionAt: "2026-08-30T02:00:00Z",
+    lastTransitionAt: "2026-08-29T12:00:00Z",
+    criticalHysteresisCount: 1
+  });
+
+  assert.strictEqual(dec.decision, GovernanceOutcome.ALLOW_AUTOMATIC_TRANSITION);
+  assert.strictEqual(dec.proposedState, SourceStatus.PAUSED);
+  assert.strictEqual(dec.reasonCodes.includes("OPERATIONAL_CRITICAL_PAUSE"), true);
+});
+
+test("evaluateGovernance: insufficient snapshot history boundary blocks hysteresis", () => {
+  const source = { id: "src-hist", status: SourceStatus.ACTIVE };
+  const snapshots = [
+    makeSnapshot({ sourceId: "src-hist", operationalHealth: HealthLevel.LOW, evaluatedAt: "2026-08-30T00:30:00Z" }),
+    makeSnapshot({ sourceId: "src-hist", operationalHealth: HealthLevel.LOW, evaluatedAt: "2026-08-30T01:00:00Z" })
+  ];
+
+  // Requires 3 snapshots, only 2 provided
+  const dec = evaluateGovernance(source, snapshots, {
+    decisionAt: "2026-08-30T02:00:00Z",
+    degradeHysteresisCount: 3
+  });
+
+  assert.strictEqual(dec.decision, GovernanceOutcome.NO_CHANGE);
+  assert.strictEqual(dec.reasonCodes.includes("HYSTERESIS_NOT_SATISFIED"), true);
+});
+
 test("evaluateGovernance: cooldown not satisfied blocks automatic transition", () => {
   const source = { id: "src-1", status: SourceStatus.ACTIVE };
   const snapshots = [
@@ -170,7 +205,7 @@ test("evaluateGovernance: operationalHealth HIGH + intelligence LOW proposes LOW
   assert.strictEqual(dec.decision, GovernanceOutcome.ALLOW_AUTOMATIC_TRANSITION);
 });
 
-test("evaluateGovernance: ACCESS_CONFIGURATION_FAILURE and POLICY_ACCESS_FAILURE require manual review", () => {
+test("evaluateGovernance: ACCESS_CONFIGURATION_FAILURE triggers INVESTIGATE and POLICY_ACCESS_FAILURE requires manual review", () => {
   const source = { id: "src-policy", status: SourceStatus.ACTIVE };
 
   // Policy failure
@@ -188,7 +223,7 @@ test("evaluateGovernance: ACCESS_CONFIGURATION_FAILURE and POLICY_ACCESS_FAILURE
     findings: [{ code: "ACCESS_CONFIGURATION_FAILURE" }]
   });
   const decAccess = evaluateGovernance(source, [snapAccess], { decisionAt: "2026-08-30T02:00:00Z" });
-  assert.strictEqual(decAccess.decision, GovernanceOutcome.REQUIRE_MANUAL_REVIEW);
+  assert.strictEqual(decAccess.decision, GovernanceOutcome.INVESTIGATE);
   assert.strictEqual(decAccess.reasonCodes.includes("ACCESS_CONFIGURATION_ISSUE"), true);
 });
 

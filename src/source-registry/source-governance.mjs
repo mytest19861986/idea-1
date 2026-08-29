@@ -4,7 +4,6 @@ import {
   HealthLevel,
   ContributionLevel,
   EvaluationConfidence,
-  FailureTaxonomy,
   EVALUATION_VERSION,
   FORMULA_VERSION
 } from "./source-health-evaluator.mjs";
@@ -14,7 +13,8 @@ export const GovernancePolicyVersion = "source-governance-policy-v1";
 export const GovernanceOutcome = Object.freeze({
   NO_CHANGE: "NO_CHANGE",
   ALLOW_AUTOMATIC_TRANSITION: "ALLOW_AUTOMATIC_TRANSITION",
-  REQUIRE_MANUAL_REVIEW: "REQUIRE_MANUAL_REVIEW"
+  REQUIRE_MANUAL_REVIEW: "REQUIRE_MANUAL_REVIEW",
+  INVESTIGATE: "INVESTIGATE"
 });
 
 export const TransitionClassification = Object.freeze({
@@ -72,10 +72,10 @@ export function classifyTransitionSafety(fromState, toState) {
  * - GOV-I001 & GOV-I002: Reuses SourceStatus and tags governancePolicyVersion
  * - GOV-I003: Distinguishes automated reversible from manual transitions
  * - GOV-I004: Confidence gate (HIGH confidence required for auto-transitions)
- * - GOV-I005: Hysteresis awareness (requires consistent consecutive snapshots)
+ * - GOV-I005: Hysteresis awareness (fast-track CRITICAL pause count=1; degrade/recovery count >= 2)
  * - GOV-I006: Cooldown awareness
  * - GOV-I007 & GOV-I008: Differentiates operational health from intelligence contribution
- * - GOV-I009: Access/Policy failure specific handling
+ * - GOV-I009: Access/Policy failure specific handling (INVESTIGATE vs REQUIRE_MANUAL_REVIEW)
  * - GOV-I010 & GOV-I011: Forbids auto-activation, auto-rejection, auto-retirement
  * - GOV-I012: Rich immutable decision envelope
  * - GOV-I013: Read-only evaluation (no source mutation)
@@ -86,6 +86,7 @@ export function classifyTransitionSafety(fromState, toState) {
  * @param {string} options.decisionAt - ISO 8601 evaluation timestamp (MANDATORY)
  * @param {string} [options.lastTransitionAt] - Timestamp of last lifecycle transition
  * @param {number} [options.cooldownMinutes=60] - Minimum minutes between auto transitions
+ * @param {number} [options.criticalHysteresisCount=1] - Consecutive snapshots needed to pause on CRITICAL
  * @param {number} [options.degradeHysteresisCount=2] - Consecutive snapshots needed to degrade
  * @param {number} [options.recoveryHysteresisCount=2] - Consecutive snapshots needed to recover
  * @param {string} [options.actor="source-governance-engine"]
@@ -98,6 +99,7 @@ export function evaluateGovernance(
     decisionAt,
     lastTransitionAt = null,
     cooldownMinutes = 60,
+    criticalHysteresisCount = 1,
     degradeHysteresisCount = 2,
     recoveryHysteresisCount = 2,
     actor = "source-governance-engine"
@@ -169,7 +171,7 @@ export function evaluateGovernance(
       sourceId,
       currentState,
       proposedState: currentState,
-      decision: GovernanceOutcome.REQUIRE_MANUAL_REVIEW,
+      decision: GovernanceOutcome.INVESTIGATE,
       reasonCodes,
       evidenceReferences,
       confidence: latestSnapshot.confidence,
@@ -186,10 +188,12 @@ export function evaluateGovernance(
 
   // Determine Target Proposed State based on health vs intelligence (GOV-I007, GOV-I008)
   let proposedState = currentState;
+  let isCriticalPause = false;
 
   if (currentState === SourceStatus.ACTIVE) {
     if (latestSnapshot.operationalHealth === HealthLevel.CRITICAL) {
       proposedState = SourceStatus.PAUSED;
+      isCriticalPause = true;
       reasonCodes.push("OPERATIONAL_CRITICAL_PAUSE");
     } else if (latestSnapshot.operationalHealth === HealthLevel.MEDIUM || latestSnapshot.operationalHealth === HealthLevel.LOW) {
       proposedState = SourceStatus.DEGRADED;
@@ -229,10 +233,16 @@ export function evaluateGovernance(
 
   // Check Hysteresis (GOV-I005)
   let hysteresisSatisfied = false;
-  const isDegrading = [SourceStatus.DEGRADED, SourceStatus.LOW_PRIORITY, SourceStatus.PAUSED].includes(proposedState) && currentState === SourceStatus.ACTIVE;
+  const isDegrading = [SourceStatus.DEGRADED, SourceStatus.LOW_PRIORITY].includes(proposedState) && currentState === SourceStatus.ACTIVE;
   const isRecovering = proposedState === SourceStatus.ACTIVE;
 
-  if (isDegrading) {
+  if (isCriticalPause) {
+    const requiredCount = criticalHysteresisCount;
+    if (healthSnapshots.length >= requiredCount) {
+      const recent = healthSnapshots.slice(-requiredCount);
+      hysteresisSatisfied = recent.every((snap) => snap.operationalHealth === HealthLevel.CRITICAL);
+    }
+  } else if (isDegrading) {
     const requiredCount = degradeHysteresisCount;
     if (healthSnapshots.length >= requiredCount) {
       const recent = healthSnapshots.slice(-requiredCount);
