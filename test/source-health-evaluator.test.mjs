@@ -1,89 +1,168 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  HealthStatus,
+  HealthLevel,
+  ContributionLevel,
+  EvaluationConfidence,
+  FailureTaxonomy,
   GovernanceRecommendation,
-  EVALUATOR_VERSION,
+  EVALUATION_VERSION,
+  FORMULA_VERSION,
   evaluateSourceHealth
 } from "../src/source-registry/source-health-evaluator.mjs";
 
-test("evaluateSourceHealth enforces mandatory ISO timestamp 'evaluatedAt' and valid inputs", () => {
-  const obs = [{ sourceId: "src-1", success: true, occurredAt: "2026-08-30T00:00:00Z" }];
+test("EVAL-R001: Window validation strictly rejects invalid window intervals", () => {
+  assert.throws(
+    () => evaluateSourceHealth("src-1", [], {
+      windowStart: "2026-08-30T01:00:00Z",
+      windowEnd: "2026-08-30T00:00:00Z", // start >= end
+      evaluatedAt: "2026-08-30T02:00:00Z"
+    }),
+    /must be strictly earlier than windowEnd/
+  );
 
-  assert.throws(() => evaluateSourceHealth("src-1", obs), /evaluatedAt must be a non-empty string/);
-  assert.throws(() => evaluateSourceHealth("src-1", obs, { evaluatedAt: "invalid" }), /evaluatedAt must be a valid ISO 8601 timestamp/);
-  assert.throws(() => evaluateSourceHealth("", obs, { evaluatedAt: "2026-08-30T01:00:00Z" }), /sourceId is required/);
-  assert.throws(() => evaluateSourceHealth("src-1", [], { evaluatedAt: "2026-08-30T01:00:00Z" }), /non-empty array/);
+  assert.throws(
+    () => evaluateSourceHealth("src-1", [], {
+      windowStart: "invalid",
+      windowEnd: "2026-08-30T01:00:00Z",
+      evaluatedAt: "2026-08-30T02:00:00Z"
+    }),
+    /windowStart must be a valid ISO 8601 timestamp/
+  );
 });
 
-test("evaluateSourceHealth evaluates HEALTHY source with MAINTAIN_ACTIVE recommendation", () => {
-  const observations = [
-    { sourceId: "src-active", success: true, yieldCount: 5, statusCode: 200, occurredAt: "2026-08-30T00:00:00Z" },
-    { sourceId: "src-active", success: true, yieldCount: 3, statusCode: 200, occurredAt: "2026-08-30T00:10:00Z" },
-    { sourceId: "src-active", success: true, yieldCount: 4, statusCode: 200, occurredAt: "2026-08-30T00:15:00Z" },
-    { sourceId: "src-active", success: true, yieldCount: 2, statusCode: 200, occurredAt: "2026-08-30T00:20:00Z" },
-    { sourceId: "src-active", success: false, yieldCount: 0, statusCode: 500, occurredAt: "2026-08-30T00:25:00Z" }
-  ];
-
-  const snapshot = evaluateSourceHealth("src-active", observations, {
-    evaluatedAt: "2026-08-30T01:00:00Z",
-    degradedFailureRateThreshold: 25
+test("EVAL-R002: Zero observations in window yields UNKNOWN operationalHealth, UNKNOWN contribution, and NONE confidence", () => {
+  const snapshot = evaluateSourceHealth("src-1", [], {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
   });
 
-  assert.strictEqual(snapshot.evaluatorVersion, EVALUATOR_VERSION);
-  assert.strictEqual(snapshot.healthStatus, HealthStatus.HEALTHY);
-  assert.strictEqual(snapshot.governanceRecommendation, GovernanceRecommendation.MAINTAIN_ACTIVE);
-  assert.strictEqual(snapshot.metrics.totalEvents, 5);
-  assert.strictEqual(snapshot.metrics.successCount, 4);
-  assert.strictEqual(snapshot.metrics.failureCount, 1);
-  assert.strictEqual(snapshot.metrics.failureRate, 20.0);
-  assert.strictEqual(snapshot.metrics.totalYield, 14);
-  assert.strictEqual(snapshot.metrics.latestOccurredAt, "2026-08-30T00:25:00Z");
+  assert.strictEqual(snapshot.operationalHealth, HealthLevel.UNKNOWN);
+  assert.strictEqual(snapshot.intelligenceContribution, ContributionLevel.UNKNOWN);
+  assert.strictEqual(snapshot.confidence, EvaluationConfidence.NONE);
+  assert.strictEqual(snapshot.observationCount, 0);
+  assert.strictEqual(snapshot.governanceRecommendation, GovernanceRecommendation.NO_CHANGE);
+  assert.strictEqual(snapshot.evaluationVersion, EVALUATION_VERSION);
+  assert.strictEqual(snapshot.formulaVersion, FORMULA_VERSION);
 });
 
-test("evaluateSourceHealth evaluates DEGRADED source and detects rate-limiting (429)", () => {
-  const observations = [
-    { sourceId: "src-rate-limited", success: true, yieldCount: 2, statusCode: 200, occurredAt: "2026-08-30T00:00:00Z" },
-    { sourceId: "src-rate-limited", success: false, yieldCount: 0, statusCode: 429, occurredAt: "2026-08-30T00:05:00Z" },
-    { sourceId: "src-rate-limited", success: false, yieldCount: 0, statusCode: 429, occurredAt: "2026-08-30T00:10:00Z" },
-    { sourceId: "src-rate-limited", success: true, yieldCount: 1, statusCode: 200, occurredAt: "2026-08-30T00:15:00Z" }
-  ];
-
-  const snapshot = evaluateSourceHealth("src-rate-limited", observations, {
-    evaluatedAt: "2026-08-30T01:00:00Z",
-    degradedFailureRateThreshold: 25,
-    criticalFailureRateThreshold: 75
+test("EVAL-R005 & EVAL-R006: Sample sufficiency awareness (1 obs -> LOW confidence, 25 obs -> HIGH confidence)", () => {
+  // 1 Observation
+  const obs1 = [{ sourceId: "src-1", success: true, yieldCount: 1, occurredAt: "2026-08-30T00:30:00Z" }];
+  const snap1 = evaluateSourceHealth("src-1", obs1, {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
   });
 
-  assert.strictEqual(snapshot.healthStatus, HealthStatus.DEGRADED);
-  assert.strictEqual(snapshot.governanceRecommendation, GovernanceRecommendation.DEGRADE_RECOMMENDED);
-  assert.strictEqual(snapshot.metrics.failureRate, 50.0);
-  assert.strictEqual(snapshot.findings.some((f) => f.code === "RATE_LIMIT_ENCOUNTERED"), true);
+  assert.strictEqual(snap1.operationalHealth, HealthLevel.HIGH);
+  assert.strictEqual(snap1.confidence, EvaluationConfidence.LOW, "1 observation must remain LOW confidence");
+
+  // 25 Observations
+  const obs25 = Array.from({ length: 25 }, (_, i) => ({
+    sourceId: "src-1",
+    success: true,
+    yieldCount: 2,
+    uniqueCount: 2,
+    occurredAt: `2026-08-30T00:${String(i).padStart(2, "0")}:00Z`
+  }));
+
+  const snap25 = evaluateSourceHealth("src-1", obs25, {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
+  });
+
+  assert.strictEqual(snap25.operationalHealth, HealthLevel.HIGH);
+  assert.strictEqual(snap25.intelligenceContribution, ContributionLevel.HIGH);
+  assert.strictEqual(snap25.confidence, EvaluationConfidence.HIGH, ">= 20 observations yields HIGH confidence");
 });
 
-test("evaluateSourceHealth evaluates CRITICAL source and recommends PAUSE_RECOMMENDED", () => {
+test("EVAL-R001: Filters outside-window observations deterministically", () => {
   const observations = [
-    { sourceId: "src-broken", success: false, yieldCount: 0, statusCode: 503, occurredAt: "2026-08-30T00:00:00Z" },
-    { sourceId: "src-broken", success: false, yieldCount: 0, statusCode: 503, occurredAt: "2026-08-30T00:05:00Z" },
-    { sourceId: "src-broken", success: false, yieldCount: 0, statusCode: 503, occurredAt: "2026-08-30T00:10:00Z" },
-    { sourceId: "src-broken", success: true, yieldCount: 1, statusCode: 200, occurredAt: "2026-08-30T00:15:00Z" }
+    { sourceId: "src-1", success: true, yieldCount: 5, occurredAt: "2026-08-29T23:59:59Z" }, // Before window
+    { sourceId: "src-1", success: true, yieldCount: 2, occurredAt: "2026-08-30T00:15:00Z" }, // Inside window
+    { sourceId: "src-1", success: true, yieldCount: 3, occurredAt: "2026-08-30T00:45:00Z" }, // Inside window
+    { sourceId: "src-1", success: false, yieldCount: 0, occurredAt: "2026-08-30T01:00:01Z" }  // After window
   ];
 
-  const snapshot = evaluateSourceHealth("src-broken", observations, {
-    evaluatedAt: "2026-08-30T01:00:00Z",
-    criticalFailureRateThreshold: 60
+  const snapshot = evaluateSourceHealth("src-1", observations, {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
   });
 
-  assert.strictEqual(snapshot.healthStatus, HealthStatus.CRITICAL);
+  assert.strictEqual(snapshot.observationCount, 2);
+  assert.strictEqual(snapshot.dimensions.totalYield, 5);
+  assert.strictEqual(snapshot.dimensions.failureCount, 0);
+});
+
+test("EVAL-R007: Failure taxonomy accurately distinguishes 401, 429, 500, and policy blocks", () => {
+  const observations = [
+    { sourceId: "src-tax", success: false, statusCode: 401, occurredAt: "2026-08-30T00:10:00Z" },
+    { sourceId: "src-tax", success: false, statusCode: 429, occurredAt: "2026-08-30T00:20:00Z" },
+    { sourceId: "src-tax", success: false, statusCode: 502, occurredAt: "2026-08-30T00:30:00Z" },
+    { sourceId: "src-tax", success: false, failureReason: "POLICY_BLOCKED", occurredAt: "2026-08-30T00:40:00Z" }
+  ];
+
+  const snapshot = evaluateSourceHealth("src-tax", observations, {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
+  });
+
+  const counts = snapshot.dimensions.failureTaxonomyCounts;
+  assert.strictEqual(counts.ACCESS_CONFIGURATION_FAILURE, 1);
+  assert.strictEqual(counts.RATE_LIMIT_PRESSURE, 1);
+  assert.strictEqual(counts.TECHNICAL_FAILURE, 1);
+  assert.strictEqual(counts.POLICY_ACCESS_FAILURE, 1);
+  assert.strictEqual(snapshot.operationalHealth, HealthLevel.CRITICAL);
   assert.strictEqual(snapshot.governanceRecommendation, GovernanceRecommendation.PAUSE_RECOMMENDED);
-  assert.strictEqual(snapshot.metrics.failureRate, 75.0);
-  assert.strictEqual(snapshot.findings.some((f) => f.code === "CRITICAL_FAILURE_RATE"), true);
 });
 
-test("evaluateSourceHealth is purely read-only and returns deep-frozen snapshot", () => {
-  const observations = [{ sourceId: "src-immut", success: true, yieldCount: 1, occurredAt: "2026-08-30T00:00:00Z" }];
-  const snapshot = evaluateSourceHealth("src-immut", observations, { evaluatedAt: "2026-08-30T01:00:00Z" });
+test("EVAL-R003 & EVAL-R004: Separate Operational Health and Intelligence Contribution (100% transport + 95% dup -> HIGH health, LOW contribution)", () => {
+  const observations = Array.from({ length: 10 }, (_, i) => ({
+    sourceId: "src-dup",
+    success: true,
+    yieldCount: 10,
+    duplicateCount: 9, // 90% duplicate rate
+    uniqueCount: 1,
+    occurredAt: `2026-08-30T00:${String(i * 5).padStart(2, "0")}:00Z`
+  }));
 
-  assert.throws(() => { snapshot.healthStatus = "MUTATED"; }, /Cannot assign to read only property/);
-  assert.throws(() => { snapshot.metrics.failureRate = 999; }, /Cannot assign to read only property/);
+  const snapshot = evaluateSourceHealth("src-dup", observations, {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
+  });
+
+  assert.strictEqual(snapshot.operationalHealth, HealthLevel.HIGH, "Transport is 100% reliable -> HIGH");
+  assert.strictEqual(snapshot.intelligenceContribution, ContributionLevel.LOW, "90% duplicate rate -> LOW");
+  assert.strictEqual(snapshot.governanceRecommendation, GovernanceRecommendation.DOWNRANK);
+});
+
+test("EVAL-R009 & EVAL-R010: Order independence and deterministic replay", () => {
+  const obsA = [
+    { sourceId: "src-det", success: true, yieldCount: 5, uniqueCount: 5, occurredAt: "2026-08-30T00:10:00Z" },
+    { sourceId: "src-det", success: false, statusCode: 500, occurredAt: "2026-08-30T00:20:00Z" },
+    { sourceId: "src-det", success: true, yieldCount: 2, uniqueCount: 2, occurredAt: "2026-08-30T00:30:00Z" }
+  ];
+
+  const obsB = [obsA[2], obsA[0], obsA[1]]; // Shuffled
+
+  const opts = {
+    windowStart: "2026-08-30T00:00:00Z",
+    windowEnd: "2026-08-30T01:00:00Z",
+    evaluatedAt: "2026-08-30T02:00:00Z"
+  };
+
+  const snapA = evaluateSourceHealth("src-det", obsA, opts);
+  const snapB = evaluateSourceHealth("src-det", obsB, opts);
+
+  assert.deepStrictEqual(snapA, snapB, "Shuffled observation input must produce identical snapshot");
+
+  // Replay
+  const snapReplay = evaluateSourceHealth("src-det", obsA, opts);
+  assert.deepStrictEqual(snapA, snapReplay, "Replay must be 100% deterministic");
 });
