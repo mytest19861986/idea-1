@@ -18,6 +18,13 @@ Persist authoritative delivery requests, idempotency claims, attempts, and resul
 - PostgreSQL integration environment and concurrency tests proving transactional duplicate handling.
 - Security review of connection configuration and secret injection.
 
+## Current design status
+
+- `SCHEMA_DESIGNED`: `database/migrations/0001_delivery_persistence.sql` is additive and unexecuted.
+- `HARNESS_PREPARED`: canonical identity has pure tests for revision/channel separation and malformed input.
+- `DB_INTEGRATION_NOT_EXECUTED`: PostgreSQL behavior and concurrency remain unverified.
+- `POSTGRES_ENVIRONMENT_BLOCKED`: no disposable server or client is available.
+
 ## Forbidden until blockers resolve
 
 - Do not represent local JSON persistence as production-safe.
