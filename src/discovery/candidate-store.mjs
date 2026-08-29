@@ -1,4 +1,9 @@
-import { deepFreeze, validateIsoTimestamp, computeDeterministicDiscoveryId } from "./discovery-intake.mjs";
+import {
+  deepFreeze,
+  validateIsoTimestamp,
+  computeDeterministicDiscoveryId,
+  sanitizeConfidentialRecursively
+} from "./discovery-intake.mjs";
 
 /**
  * Validates candidate discovery record structure for storage.
@@ -216,7 +221,7 @@ export class InMemoryDiscoveryCandidateStore {
       retrievedAt: candidateRecord.provenance?.retrievedAt ?? null,
       intakeProcessedAt: candidateRecord.provenance?.intakeProcessedAt ?? null,
       is_confidential: Boolean(candidateRecord.is_confidential),
-      contentReference: candidateRecord.contentReference ?? null,
+      contentReference: candidateRecord.is_confidential ? null : (candidateRecord.contentReference ?? null),
       attributedAt: at
     });
     this.#attributions.set(discoveryId, [initialAttribution]);
@@ -272,7 +277,7 @@ export class InMemoryDiscoveryCandidateStore {
 
   /**
    * Appends an independent source attribution to an existing candidate.
-   * STORE-I004: Append-only, non-destructive, supports multi-source discovery.
+   * STORE-I004 & STORE-I006: Append-only, non-destructive, enforces target candidate confidentiality isolation.
    *
    * @param {string} discoveryId
    * @param {object} attribution
@@ -302,6 +307,7 @@ export class InMemoryDiscoveryCandidateStore {
       throw new TypeError("valid attribution with sourceId is required");
     }
 
+    const candidate = this.#candidates.get(discoveryId);
     const existingAttributions = this.#attributions.get(discoveryId);
 
     // Duplicate attribution replay check
@@ -325,8 +331,19 @@ export class InMemoryDiscoveryCandidateStore {
       });
     }
 
+    // Confidentiality Isolation Gating (STORE-I006):
+    // If target candidate is confidential, attribution must never carry live contentReference or sensitive fields
+    const isConfidential = Boolean(candidate.is_confidential || attribution.is_confidential);
+    const contentReference = isConfidential ? null : (attribution.contentReference ?? null);
+    const sanitizedMetadata = isConfidential && attribution.metadata
+      ? sanitizeConfidentialRecursively(attribution.metadata)
+      : (attribution.metadata ? { ...attribution.metadata } : undefined);
+
     const newAttribution = deepFreeze({
       ...attribution,
+      is_confidential: isConfidential,
+      contentReference,
+      ...(sanitizedMetadata !== undefined ? { metadata: sanitizedMetadata } : {}),
       attributedAt: at
     });
 
@@ -336,6 +353,7 @@ export class InMemoryDiscoveryCandidateStore {
       eventType: "DISCOVERY_ATTRIBUTION_APPENDED",
       discoveryId,
       sourceId: attribution.sourceId,
+      is_confidential: isConfidential,
       actor,
       timestamp: at
     });

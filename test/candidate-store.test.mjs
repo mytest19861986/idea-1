@@ -221,6 +221,47 @@ test("STORE-I006: Confidentiality round-trip preserves isolation and explicitly 
   assert.match(resPublic.reason, /Cannot downgrade confidential candidate to public/);
 });
 
+test("STORE-I006: appendAttribution strictly isolates confidential candidates and nullifies contentReference", () => {
+  const store = new InMemoryDiscoveryCandidateStore();
+  const confidentialCandidate = {
+    schemaVersion: 1,
+    discoveryId: "disc:src-conf:https://example.com/conf-item",
+    idempotencyKey: "conf-key",
+    sourceId: "src-conf",
+    canonicalUrl: "https://example.com/conf-item",
+    title: "Stealth Project",
+    is_confidential: true,
+    contentReference: null
+  };
+
+  store.putCandidate(confidentialCandidate, { at: "2026-08-30T01:00:00Z" });
+
+  // Append attribution attempting to supply a live contentReference and sensitive domain
+  const leakAttemptAttribution = {
+    sourceId: "src-leaker",
+    canonicalUrl: "https://leaker.com/item",
+    contentReference: "https://secret-domain.com",
+    metadata: {
+      domain: "secret-domain.com",
+      websiteUrl: "https://secret-domain.com",
+      safeDescription: "Confidential SaaS"
+    }
+  };
+
+  const res = store.appendAttribution(confidentialCandidate.discoveryId, leakAttemptAttribution, { at: "2026-08-30T01:10:00Z" });
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.status, "ATTRIBUTION_APPENDED");
+
+  const history = store.getAttributionHistory(confidentialCandidate.discoveryId);
+  assert.strictEqual(history.length, 2);
+  const appended = history[1];
+  assert.strictEqual(appended.is_confidential, true);
+  assert.strictEqual(appended.contentReference, null, "contentReference must be nullified for confidential candidate attribution");
+  assert.strictEqual(appended.metadata.domain, undefined, "Sensitive domain key must be sanitized");
+  assert.strictEqual(appended.metadata.websiteUrl, undefined, "Sensitive websiteUrl key must be sanitized");
+  assert.strictEqual(appended.metadata.safeDescription, "Confidential SaaS");
+});
+
 test("Lookup APIs (getCandidateById, getCandidateBySourceIdentity, findByIdempotencyKey) work accurately", () => {
   const store = new InMemoryDiscoveryCandidateStore();
   const candidate = {
