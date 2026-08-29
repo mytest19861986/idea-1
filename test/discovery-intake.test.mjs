@@ -2,13 +2,25 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SourceStatus } from "../src/source-registry/lifecycle.mjs";
 import {
+  validateIsoTimestamp,
   validateRawDocument,
   isSourceEligibleForIntake,
   computeDeterministicDiscoveryId,
+  sanitizeConfidentialRecursively,
   processDiscoveryIntake
 } from "../src/discovery/discovery-intake.mjs";
 
-test("validateRawDocument enforces HTTPS and required schema fields", () => {
+test("validateIsoTimestamp strictly validates valid ISO UTC timestamps and rejects invalid strings", () => {
+  assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00.000Z", "test"), "2026-08-30T01:00:00.000Z");
+  assert.strictEqual(validateIsoTimestamp("2026-08-30T01:00:00Z", "test"), "2026-08-30T01:00:00Z");
+
+  assert.throws(() => validateIsoTimestamp("yesterday", "discoveredAt"), /must be a valid ISO 8601 timestamp string/);
+  assert.throws(() => validateIsoTimestamp("2026-02-31T00:00:00Z", "discoveredAt"), /represents an impossible or invalid calendar date/);
+  assert.throws(() => validateIsoTimestamp("", "discoveredAt"), /must be a non-empty string/);
+  assert.throws(() => validateIsoTimestamp(null, "discoveredAt"), /must be a non-empty string/);
+});
+
+test("validateRawDocument enforces schema, HTTPS, valid timestamps, and idempotency key syntax", () => {
   assert.throws(() => validateRawDocument(null), /raw document is required/);
   assert.throws(() => validateRawDocument({ schemaVersion: 2 }), /unsupported schemaVersion/);
   assert.throws(() => validateRawDocument({ schemaVersion: 1, sourceId: "" }), /sourceId is required/);
@@ -22,6 +34,29 @@ test("validateRawDocument enforces HTTPS and required schema fields", () => {
     retrievedAt: "2026-08-30T00:00:00Z",
     metadata: {}
   }), /canonicalUrl must use HTTPS/);
+
+  assert.throws(() => validateRawDocument({
+    schemaVersion: 1,
+    sourceId: "src1",
+    sourceType: "marketplace",
+    canonicalUrl: "https://secure.com/p",
+    title: "Test",
+    discoveredAt: "not-a-date",
+    retrievedAt: "2026-08-30T00:00:00Z",
+    metadata: {}
+  }), /discoveredAt must be a valid ISO 8601 timestamp string/);
+
+  assert.throws(() => validateRawDocument({
+    schemaVersion: 1,
+    sourceId: "src1",
+    sourceType: "marketplace",
+    canonicalUrl: "https://secure.com/p",
+    title: "Test",
+    discoveredAt: "2026-08-30T00:00:00Z",
+    retrievedAt: "2026-08-30T00:00:00Z",
+    idempotencyKey: "",
+    metadata: {}
+  }), /idempotencyKey must be a non-empty string/);
 });
 
 test("isSourceEligibleForIntake gates lifecycle states strictly", () => {
@@ -38,162 +73,232 @@ test("isSourceEligibleForIntake gates lifecycle states strictly", () => {
 });
 
 test("computeDeterministicDiscoveryId is deterministic across invocations", () => {
-  const id1 = computeDeterministicDiscoveryId("trustmrr", "https://trustmrr.com/startup/saas-app");
-  const id2 = computeDeterministicDiscoveryId("trustmrr", "https://trustmrr.com/startup/saas-app");
-  assert.strictEqual(id1, "disc:trustmrr:https://trustmrr.com/startup/saas-app");
+  const id1 = computeDeterministicDiscoveryId("source-x", "https://example.com/items/42");
+  const id2 = computeDeterministicDiscoveryId("source-x", "https://example.com/items/42");
+  assert.strictEqual(id1, "disc:source-x:https://example.com/items/42");
   assert.strictEqual(id1, id2);
 });
 
-test("processDiscoveryIntake handles SOURCE_NOT_REGISTERED branch", () => {
+test("processDiscoveryIntake fails explicitly when processedAt is missing (FINDING-001: Clock Dependency Removed)", () => {
   const rawDoc = {
     schemaVersion: 1,
-    sourceId: "unregistered-source",
-    sourceType: "marketplace",
-    canonicalUrl: "https://example.com/item/1",
-    title: "Item 1",
+    sourceId: "src1",
+    sourceType: "dataset",
+    canonicalUrl: "https://example.com/data/1",
+    title: "Data Item 1",
     discoveredAt: "2026-08-30T00:00:00Z",
     retrievedAt: "2026-08-30T00:00:00Z",
     metadata: {}
   };
 
-  const result = processDiscoveryIntake(rawDoc, { sourceRecord: null });
-  assert.strictEqual(result.ok, false);
-  assert.strictEqual(result.status, "SOURCE_NOT_REGISTERED");
-  assert.strictEqual(result.auditEvent.eventType, "DISCOVERY_INTAKE_REJECTED");
-  assert.strictEqual(result.auditEvent.reason, "SOURCE_NOT_REGISTERED");
-});
-
-test("processDiscoveryIntake handles SOURCE_MISMATCH branch", () => {
-  const rawDoc = {
-    schemaVersion: 1,
-    sourceId: "trustmrr",
-    sourceType: "marketplace",
-    canonicalUrl: "https://example.com/item/1",
-    title: "Item 1",
-    discoveredAt: "2026-08-30T00:00:00Z",
-    retrievedAt: "2026-08-30T00:00:00Z",
-    metadata: {}
-  };
-
-  const mismatchedSource = {
-    id: "different-source",
-    baseUrl: "https://different.com",
+  const sourceRecord = {
+    id: "src1",
+    baseUrl: "https://example.com",
     status: SourceStatus.APPROVED
   };
 
-  const result = processDiscoveryIntake(rawDoc, { sourceRecord: mismatchedSource });
-  assert.strictEqual(result.ok, false);
-  assert.strictEqual(result.status, "SOURCE_MISMATCH");
-  assert.strictEqual(result.auditEvent.eventType, "DISCOVERY_INTAKE_REJECTED");
-  assert.strictEqual(result.auditEvent.reason, "SOURCE_MISMATCH");
+  const resMissing = processDiscoveryIntake(rawDoc, { sourceRecord });
+  assert.strictEqual(resMissing.ok, false);
+  assert.strictEqual(resMissing.status, "INVALID_PROCESSED_AT");
+  assert.match(resMissing.reason, /processedAt must be a non-empty string/);
+
+  const resInvalid = processDiscoveryIntake(rawDoc, { sourceRecord, processedAt: "invalid-date" });
+  assert.strictEqual(resInvalid.ok, false);
+  assert.strictEqual(resInvalid.status, "INVALID_PROCESSED_AT");
+  assert.match(resInvalid.reason, /processedAt must be a valid ISO 8601 timestamp/);
 });
 
-test("processDiscoveryIntake rejects unapproved sources with audit event", () => {
+test("processDiscoveryIntake does NOT fabricate collector provenance defaults (FINDING-002: No Synthetic Provenance)", () => {
   const rawDoc = {
     schemaVersion: 1,
-    sourceId: "unapproved-source",
-    sourceType: "marketplace",
-    canonicalUrl: "https://example.com/item/123",
-    title: "Sample Item",
+    sourceId: "generic-source",
+    sourceType: "web_listing",
+    canonicalUrl: "https://example.com/listing/99",
+    title: "Unversioned Item",
     discoveredAt: "2026-08-30T00:00:00Z",
     retrievedAt: "2026-08-30T00:00:00Z",
     metadata: {}
   };
 
-  const candidateSource = {
-    id: "unapproved-source",
+  const sourceRecord = {
+    id: "generic-source",
     baseUrl: "https://example.com",
-    status: SourceStatus.CANDIDATE
+    status: SourceStatus.APPROVED
   };
 
-  const result = processDiscoveryIntake(rawDoc, { sourceRecord: candidateSource });
-  assert.strictEqual(result.ok, false);
-  assert.strictEqual(result.status, "SOURCE_INELIGIBLE");
-  assert.strictEqual(result.auditEvent.eventType, "DISCOVERY_INTAKE_REJECTED");
+  const res = processDiscoveryIntake(rawDoc, {
+    sourceRecord,
+    processedAt: "2026-08-30T01:00:00Z"
+  });
+
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.discoveryRecord.provenance.collectorId, null, "Must NOT fabricate 'unknown-collector'");
+  assert.strictEqual(res.discoveryRecord.provenance.collectorVersion, null, "Must NOT fabricate '1.0.0'");
 });
 
-test("processDiscoveryIntake is idempotent across duplicate replays", () => {
+test("processDiscoveryIntake is generic and source-agnostic without financial/TrustMRR coupling (FINDING-003)", () => {
   const rawDoc = {
     schemaVersion: 1,
-    sourceId: "trustmrr",
-    sourceType: "marketplace_startup_listing",
-    canonicalUrl: "https://trustmrr.com/startup/revenue-saas",
-    contentReference: "https://revenuesaas.com",
-    title: "Revenue SaaS",
-    summary: "B2B Analytics tool",
-    discoveredAt: "2026-08-30T01:00:00Z",
-    retrievedAt: "2026-08-30T01:05:00Z",
-    collectorId: "trustmrr-http-collector",
-    collectorVersion: "1.0.0",
+    sourceId: "hiring-board",
+    sourceType: "job_post",
+    canonicalUrl: "https://jobs.example.com/post/77",
+    contentReference: "https://company.example.com",
+    title: "Senior Engineer Job",
+    summary: "Remote position",
+    discoveredAt: "2026-08-30T00:00:00Z",
+    retrievedAt: "2026-08-30T00:00:00Z",
     metadata: {
-      financials: {
-        mrr: 15000,
-        arr: 180000,
-        claim_type: "FACT", // Attempt to supply FACT
-        provenance: {
-          verified_by: "stripe",
-          verified_status: "VERIFIED_BY_PROVIDER"
-        }
+      salaryRange: "$150k-$180k",
+      skills: ["Rust", "Distributed Systems"]
+    }
+  };
+
+  const sourceRecord = {
+    id: "hiring-board",
+    baseUrl: "https://jobs.example.com",
+    status: SourceStatus.APPROVED
+  };
+
+  const res = processDiscoveryIntake(rawDoc, {
+    sourceRecord,
+    processedAt: "2026-08-30T01:00:00Z"
+  });
+
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.discoveryRecord.sourceId, "hiring-board");
+  assert.strictEqual(res.discoveryRecord.metadata.salaryRange, "$150k-$180k");
+  assert.strictEqual(res.discoveryRecord.financials, undefined, "Generic intake must not inject financial fields");
+});
+
+test("sanitizeConfidentialRecursively cleans deeply nested objects and arrays (FINDING-004: Recursive Isolation)", () => {
+  const inputMetadata = {
+    safeField: "value1",
+    websiteUrl: "https://leak.example.com",
+    nested: {
+      domain: "secret-domain.com",
+      safeNested: 123,
+      deep: {
+        contact_url: "https://secret.example.com/contact"
+      }
+    },
+    arrayField: [
+      { rawHtmlRef: "https://secret.example.com/page.html", safeItem: "ok" },
+      "string-item"
+    ]
+  };
+
+  const cleaned = sanitizeConfidentialRecursively(inputMetadata);
+  assert.strictEqual(cleaned.safeField, "value1");
+  assert.strictEqual(cleaned.websiteUrl, undefined);
+  assert.strictEqual(cleaned.nested.domain, undefined);
+  assert.strictEqual(cleaned.nested.safeNested, 123);
+  assert.strictEqual(cleaned.nested.deep.contact_url, undefined);
+  assert.strictEqual(cleaned.arrayField[0].rawHtmlRef, undefined);
+  assert.strictEqual(cleaned.arrayField[0].safeItem, "ok");
+});
+
+test("processDiscoveryIntake isolates confidential listings and deep sanitizes (TRUSTMRR-G003)", () => {
+  const rawDoc = {
+    schemaVersion: 1,
+    sourceId: "source-a",
+    sourceType: "startup_listing",
+    canonicalUrl: "https://source-a.com/item/confidential-1",
+    contentReference: "https://secret.com",
+    title: "Stealth Startup",
+    discoveredAt: "2026-08-30T00:00:00Z",
+    retrievedAt: "2026-08-30T00:00:00Z",
+    metadata: {
+      is_confidential: true,
+      domain: "secret.com",
+      nested: {
+        websiteUrl: "https://secret.com"
       }
     }
   };
 
   const sourceRecord = {
-    id: "trustmrr",
-    baseUrl: "https://trustmrr.com/",
+    id: "source-a",
+    baseUrl: "https://source-a.com",
     status: SourceStatus.APPROVED
   };
 
-  const replayTimestamp = "2026-08-30T01:10:00.000Z";
-  const run1 = processDiscoveryIntake(rawDoc, { sourceRecord, actor: "test-runner", processedAt: replayTimestamp });
-  const run2 = processDiscoveryIntake(rawDoc, { sourceRecord, actor: "test-runner", processedAt: replayTimestamp });
+  const res = processDiscoveryIntake(rawDoc, {
+    sourceRecord,
+    processedAt: "2026-08-30T01:00:00Z"
+  });
+
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.discoveryRecord.is_confidential, true);
+  assert.strictEqual(res.discoveryRecord.contentReference, null);
+  assert.strictEqual(res.discoveryRecord.metadata.domain, undefined);
+  assert.strictEqual(res.discoveryRecord.metadata.nested.websiteUrl, undefined);
+});
+
+test("processDiscoveryIntake handles error branches (SOURCE_NOT_REGISTERED, SOURCE_MISMATCH, SOURCE_INELIGIBLE)", () => {
+  const rawDoc = {
+    schemaVersion: 1,
+    sourceId: "source-1",
+    sourceType: "listing",
+    canonicalUrl: "https://source-1.com/p/1",
+    title: "Listing 1",
+    discoveredAt: "2026-08-30T00:00:00Z",
+    retrievedAt: "2026-08-30T00:00:00Z",
+    metadata: {}
+  };
+
+  const processedAt = "2026-08-30T01:00:00Z";
+
+  // Unregistered
+  const resUnreg = processDiscoveryIntake(rawDoc, { sourceRecord: null, processedAt });
+  assert.strictEqual(resUnreg.ok, false);
+  assert.strictEqual(resUnreg.status, "SOURCE_NOT_REGISTERED");
+
+  // Mismatch
+  const resMismatch = processDiscoveryIntake(rawDoc, {
+    sourceRecord: { id: "source-2", baseUrl: "https://source-2.com", status: SourceStatus.APPROVED },
+    processedAt
+  });
+  assert.strictEqual(resMismatch.ok, false);
+  assert.strictEqual(resMismatch.status, "SOURCE_MISMATCH");
+
+  // Ineligible
+  const resIneligible = processDiscoveryIntake(rawDoc, {
+    sourceRecord: { id: "source-1", baseUrl: "https://source-1.com", status: SourceStatus.REJECTED },
+    processedAt
+  });
+  assert.strictEqual(resIneligible.ok, false);
+  assert.strictEqual(resIneligible.status, "SOURCE_INELIGIBLE");
+});
+
+test("processDiscoveryIntake is strictly deterministic and idempotent end-to-end", () => {
+  const rawDoc = {
+    schemaVersion: 1,
+    sourceId: "source-1",
+    sourceType: "listing",
+    canonicalUrl: "https://source-1.com/p/100",
+    contentReference: "https://ext.com",
+    title: "Deterministic Item",
+    discoveredAt: "2026-08-30T00:00:00Z",
+    retrievedAt: "2026-08-30T00:00:00Z",
+    metadata: { tag: "saas" }
+  };
+
+  const sourceRecord = {
+    id: "source-1",
+    baseUrl: "https://source-1.com",
+    status: SourceStatus.APPROVED
+  };
+
+  const processedAt = "2026-08-30T02:00:00.000Z";
+  const run1 = processDiscoveryIntake(rawDoc, { sourceRecord, processedAt, actor: "test-actor" });
+  const run2 = processDiscoveryIntake(rawDoc, { sourceRecord, processedAt, actor: "test-actor" });
 
   assert.strictEqual(run1.ok, true);
   assert.strictEqual(run2.ok, true);
-  assert.deepStrictEqual(run1.discoveryRecord, run2.discoveryRecord, "Replay must yield identical discovery record");
-  assert.deepStrictEqual(run1.auditEvent, run2.auditEvent, "Replay must yield identical audit event");
-  assert.strictEqual(run1.discoveryRecord.financials.claim_type, "SOURCE_CLAIM", "Caller-supplied FACT must be overwritten to SOURCE_CLAIM");
+  assert.deepStrictEqual(run1, run2, "Replay must yield 100% deep-equal output");
 
-  // Verify deep immutability
-  assert.throws(() => { run1.discoveryRecord.provenance.verified_by = "tampered"; }, /Cannot assign to read only property/);
-});
-
-test("processDiscoveryIntake isolates confidential listings and sanitizes metadata (TRUSTMRR-G003)", () => {
-  const rawDoc = {
-    schemaVersion: 1,
-    sourceId: "trustmrr",
-    sourceType: "marketplace_startup_listing",
-    canonicalUrl: "https://trustmrr.com/startup/confidential-998",
-    contentReference: "https://secret-domain.com",
-    title: "Confidential Micro-SaaS",
-    discoveredAt: "2026-08-30T01:00:00Z",
-    retrievedAt: "2026-08-30T01:05:00Z",
-    metadata: {
-      is_confidential: true,
-      domain: "secret-domain.com",
-      websiteUrl: "https://secret-domain.com",
-      contactUrl: "https://secret-domain.com/contact",
-      safeCategory: "Developer Tools",
-      financials: {
-        mrr: 5000,
-        claim_type: "SOURCE_CLAIM"
-      }
-    }
-  };
-
-  const sourceRecord = {
-    id: "trustmrr",
-    baseUrl: "https://trustmrr.com/",
-    status: SourceStatus.APPROVED
-  };
-
-  const result = processDiscoveryIntake(rawDoc, { sourceRecord });
-  assert.strictEqual(result.ok, true);
-  assert.strictEqual(result.discoveryRecord.is_confidential, true);
-  assert.strictEqual(result.discoveryRecord.contentReference, null, "confidential listings must have null contentReference");
-  assert.strictEqual(result.discoveryRecord.metadata.domain, undefined, "domain must be sanitized");
-  assert.strictEqual(result.discoveryRecord.metadata.websiteUrl, undefined, "websiteUrl must be sanitized");
-  assert.strictEqual(result.discoveryRecord.metadata.contactUrl, undefined, "contactUrl must be sanitized");
-  assert.strictEqual(result.discoveryRecord.metadata.safeCategory, "Developer Tools", "non-sensitive metadata must be preserved");
-  assert.strictEqual(result.auditEvent.is_confidential, true);
+  // Verify deep freeze immutability
+  assert.throws(() => { run1.discoveryRecord.title = "mutated"; }, /Cannot assign to read only property/);
+  assert.throws(() => { run1.discoveryRecord.provenance.discoveredAt = "mutated"; }, /Cannot assign to read only property/);
+  assert.throws(() => { run1.discoveryRecord.metadata.tag = "mutated"; }, /Cannot assign to read only property/);
 });
