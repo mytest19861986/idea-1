@@ -25,7 +25,7 @@
       --accent-rose: #f43f5e;
       --accent-purple: #a855f7;
       
-      /* Evidence Classifications */
+      /* Six Authoritative Evidence Classifications */
       --ev-fact: #10b981;
       --ev-claim: #38bdf8;
       --ev-derived: #a855f7;
@@ -48,7 +48,12 @@
       flex-direction: column;
     }
 
-    /* Terminal Navigation & Header */
+    /* Accessibility Focus States */
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 2px;
+    }
+
     header {
       background-color: var(--bg-secondary);
       border-bottom: 1px solid var(--border-subtle);
@@ -68,7 +73,6 @@
     .brand-logo {
       font-weight: 800;
       font-size: 1.15rem;
-      letter-spacing: -0.02em;
       color: #fff;
       display: flex;
       align-items: center;
@@ -104,27 +108,26 @@
       box-shadow: 0 0 8px currentColor;
     }
 
-    /* Main Workspace Layout */
     .workspace {
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 300px 1fr;
       flex: 1;
       min-height: calc(100vh - 60px);
     }
 
-    /* Sidebar & Filter Controls */
     aside {
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-subtle);
       padding: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 1.2rem;
+      overflow-y: auto;
     }
     .filter-section {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.4rem;
     }
     .filter-label {
       font-family: var(--font-mono);
@@ -139,19 +142,12 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       color: var(--text-primary);
-      padding: 0.6rem 0.8rem;
+      padding: 0.5rem 0.75rem;
       border-radius: 6px;
       font-family: var(--font-sans);
       font-size: 0.85rem;
-      transition: all 0.2s;
-    }
-    .input-search:focus, .select-control:focus {
-      outline: none;
-      border-color: var(--border-accent);
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
 
-    /* Main Stream View */
     main {
       padding: 2rem;
       display: flex;
@@ -167,13 +163,7 @@
       padding-bottom: 1rem;
       border-bottom: 1px solid var(--border-subtle);
     }
-    .feed-stats {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-    }
-    .feed-stats strong { color: var(--text-primary); }
 
-    /* Opportunity Cards */
     .opportunity-grid {
       display: flex;
       flex-direction: column;
@@ -187,19 +177,19 @@
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 1.5rem;
-      transition: all 0.2s;
       cursor: pointer;
+      transition: all 0.2s;
     }
     .opp-card:hover {
       background: var(--bg-surface-elevated);
       border-color: var(--border-accent);
-      transform: translateY(-1px);
     }
     .opp-header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
       margin-bottom: 0.5rem;
+      flex-wrap: wrap;
     }
     .opp-title {
       font-size: 1.1rem;
@@ -213,35 +203,29 @@
       gap: 1rem;
       align-items: center;
       margin-bottom: 0.75rem;
-    }
-    .opp-summary {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      line-height: 1.4;
-      margin-bottom: 1rem;
-    }
-    .signal-strip {
-      display: flex;
-      gap: 0.5rem;
       flex-wrap: wrap;
     }
 
-    /* Badges & Scores */
+    /* Six Evidence Classifications with Non-Color Symbolic Icons */
     .badge {
       font-family: var(--font-mono);
       font-size: 0.7rem;
-      font-weight: 600;
-      padding: 0.2rem 0.5rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
       border-radius: 4px;
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
       text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
-    .badge-fact { background: rgba(16, 185, 129, 0.1); color: var(--ev-fact); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-claim { background: rgba(56, 189, 248, 0.1); color: var(--ev-claim); border: 1px solid rgba(56, 189, 248, 0.3); }
-    .badge-derived { background: rgba(168, 85, 247, 0.1); color: var(--ev-derived); border: 1px solid rgba(168, 85, 247, 0.3); }
-    .badge-confidential { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-fact { background: rgba(16, 185, 129, 0.15); color: var(--ev-fact); border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--ev-claim); border: 1px solid rgba(56, 189, 248, 0.4); }
+    .badge-derived { background: rgba(168, 85, 247, 0.15); color: var(--ev-derived); border: 1px solid rgba(168, 85, 247, 0.4); }
+    .badge-analysis { background: rgba(245, 158, 11, 0.15); color: var(--ev-analysis); border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-hypothesis { background: rgba(236, 72, 153, 0.15); color: var(--ev-hypothesis); border: 1px solid rgba(236, 72, 153, 0.4); }
+    .badge-unknown { background: rgba(100, 116, 139, 0.15); color: var(--ev-unknown); border: 1px solid rgba(100, 116, 139, 0.4); }
+    .badge-confidential { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.4); }
 
     .score-box {
       display: flex;
@@ -249,14 +233,14 @@
       align-items: flex-end;
       justify-content: center;
       gap: 0.4rem;
-      min-width: 140px;
+      min-width: 150px;
       border-left: 1px solid var(--border-subtle);
       padding-left: 1.5rem;
     }
     .score-primary {
       font-family: var(--font-mono);
-      font-size: 1.5rem;
-      font-weight: 700;
+      font-size: 1.6rem;
+      font-weight: 800;
       color: #fff;
     }
     .score-label {
@@ -267,14 +251,52 @@
     }
     .confidence-meter {
       font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--text-secondary);
+      font-size: 0.8rem;
       display: flex;
       align-items: center;
       gap: 0.3rem;
     }
 
-    /* Responsive */
+    /* Modal / Detail View */
+    .detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 13, 20, 0.85);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1.5rem;
+    }
+    .detail-modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-accent);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 850px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .ia-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 1rem;
+    }
+    .ia-title {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-blue);
+    }
+
     @media (max-width: 1024px) {
       .workspace { grid-template-columns: 1fr; }
       aside { border-right: none; border-bottom: 1px solid var(--border-subtle); }
@@ -283,16 +305,16 @@
 </head>
 <body>
 
-  <header>
+  <header role="banner">
     <div class="brand-group">
-      <div class="brand-logo">
+      <h1 class="brand-logo">
         OPPORTUNITY INTEL <span>v1.0.0-PILOT</span>
-      </div>
+      </h1>
     </div>
-    <div class="terminal-status-bar">
+    <div class="terminal-status-bar" aria-label="System Status">
       <div class="status-indicator">
-        <div class="status-dot"></div>
-        <span>PILOT_STATUS: ACTIVE</span>
+        <div class="status-dot" aria-hidden="true"></div>
+        <span>SNAPSHOT: REFERENCE_PILOT_PROFILE</span>
       </div>
       <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16 (DURABLE)</span></div>
       <div>GATES: <span style="color:var(--accent-emerald);">23/23 PASS</span></div>
@@ -300,168 +322,320 @@
   </header>
 
   <div class="workspace">
-    <aside>
+    <aside role="complementary" aria-label="Search and Filter Controls">
       <div class="filter-section">
-        <label class="filter-label">Opportunity Search</label>
-        <input type="text" class="input-search" id="searchInput" placeholder="Filter by domain, tech stack, keyword...">
+        <label class="filter-label" for="searchInput">1. Search</label>
+        <input type="text" class="input-search" id="searchInput" placeholder="Keywords, tech stack...">
       </div>
 
       <div class="filter-section">
-        <label class="filter-label">Evidence Classification</label>
+        <label class="filter-label" for="catFilter">2. Category</label>
+        <select class="select-control" id="catFilter">
+          <option value="ALL">All Categories</option>
+          <option value="AI / LLM DevTools">AI / LLM DevTools</option>
+          <option value="B2B SaaS Analytics">B2B SaaS Analytics</option>
+          <option value="Developer Tools">Developer Tools</option>
+          <option value="Legal Tech">Legal Tech</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <label class="filter-label" for="marketFilter">3. Country / Market</label>
+        <select class="select-control" id="marketFilter">
+          <option value="ALL">Global / All Markets</option>
+          <option value="Global">Global</option>
+          <option value="DACH">DACH Region</option>
+          <option value="US">US / North America</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <label class="filter-label" for="minScoreFilter">4. Min Opportunity Score</label>
+        <select class="select-control" id="minScoreFilter">
+          <option value="0">Any Score (0+)</option>
+          <option value="70">70+ Score</option>
+          <option value="80">80+ Score</option>
+          <option value="90">90+ Score</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <label class="filter-label" for="minConfFilter">5. Min Evidence Confidence</label>
+        <select class="select-control" id="minConfFilter">
+          <option value="0">Any Confidence (0%+)</option>
+          <option value="60">60%+ Confidence</option>
+          <option value="80">80%+ Confidence</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <label class="filter-label" for="evFilter">6. Evidence Classification</label>
         <select class="select-control" id="evFilter">
-          <option value="ALL">All Classifications</option>
-          <option value="FACT">FACT (Verified)</option>
-          <option value="SOURCE_CLAIM">SOURCE_CLAIM (Reported)</option>
-          <option value="DERIVED_METRIC">DERIVED_METRIC (Calculated)</option>
+          <option value="ALL">All 6 Classifications</option>
+          <option value="FACT">[FACT] Verified Proof</option>
+          <option value="SOURCE_CLAIM">[CLAIM] Source Reported</option>
+          <option value="DERIVED_METRIC">[DERIVED] Computed Metric</option>
+          <option value="AI_ANALYSIS">[AI_ANALYSIS] AI Evaluated</option>
+          <option value="AI_HYPOTHESIS">[AI_HYPOTHESIS] Speculative Gap</option>
+          <option value="UNKNOWN">[UNKNOWN] Unclassified</option>
         </select>
       </div>
 
       <div class="filter-section">
-        <label class="filter-label">Access & Confidentiality</label>
-        <select class="select-control" id="confFilter">
-          <option value="ALL">All Listings</option>
-          <option value="PUBLIC">Public Only</option>
-          <option value="CONFIDENTIAL">Confidential / Stealth Only</option>
-        </select>
-      </div>
-
-      <div class="filter-section">
-        <label class="filter-label">Traction & Source Model</label>
+        <label class="filter-label" for="sourceFilter">7. Source</label>
         <select class="select-control" id="sourceFilter">
           <option value="ALL">All Authorized Sources</option>
-          <option value="HN">Hacker News Official API</option>
-          <option value="TRUSTMRR">TrustMRR Marketplace (Fixtures)</option>
+          <option value="hacker-news-official-api">Hacker News Official API</option>
+          <option value="trustmrr">TrustMRR Marketplace</option>
+          <option value="speculative-market-gap">Speculative Intelligence</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <label class="filter-label" for="freshFilter">8. Freshness</label>
+        <select class="select-control" id="freshFilter">
+          <option value="ALL">Any Time</option>
+          <option value="24H">Last 24 Hours</option>
+          <option value="7D">Last 7 Days</option>
         </select>
       </div>
     </aside>
 
-    <main>
+    <main role="main">
       <div class="toolbar">
-        <div class="feed-stats">
-          Showing <strong id="oppCount">5</strong> Normalized Intelligence Opportunities
-        </div>
+        <h2 class="feed-stats" style="font-size:1rem; font-weight:600;">
+          Showing <strong id="oppCount">5</strong> Opportunities
+        </h2>
         <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
-          PIPELINE: FAIL-CLOSED | IDEMPOTENT
+          SOURCE_NEUTRAL_VIEW_MODEL | FAIL-CLOSED
         </div>
       </div>
 
-      <div class="opportunity-grid" id="opportunityFeed">
-        <!-- Cards rendered via JS -->
+      <div class="opportunity-grid" id="opportunityFeed" role="region" aria-label="Opportunity Feed">
+        <!-- Rendered via JS -->
       </div>
     </main>
   </div>
 
+  <!-- Detail Information Architecture Modal -->
+  <div class="detail-overlay" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="detail-modal">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 id="modalTitle" style="font-size:1.3rem; color:#fff; margin-bottom:0.4rem;"></h2>
+          <div id="modalBadges" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+        </div>
+        <button id="closeModalBtn" style="background:none; border:1px solid var(--border-subtle); color:#fff; padding:0.4rem 0.8rem; border-radius:4px; cursor:pointer;" aria-label="Close detail modal">✕ Close</button>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">1. Summary</span>
+        <p id="iaSummary" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">2. Why Now</span>
+        <p id="iaWhyNow" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">3. Evidence Classification & Provenance</span>
+        <div id="iaEvidence" style="font-size:0.85rem; color:var(--text-secondary);"></div>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">4. Traction & Market Signals</span>
+        <div id="iaTraction" style="font-size:0.85rem; color:var(--text-secondary);"></div>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">5. Monetization Strategy</span>
+        <p id="iaMonetization" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">6. Localization Fit</span>
+        <p id="iaLocalization" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">7. Risks & Regulatory Boundaries</span>
+        <p id="iaRisks" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+
+      <div class="ia-section">
+        <span class="ia-title">8. MVP Scope Recommendation</span>
+        <p id="iaMvp" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Canonical Opportunities Fixtures encompassing all 5 mandatory pilot tiers
+    // Complete Source-Neutral Opportunities Fixtures representing all 6 evidence classes
     const OPPORTUNITY_FIXTURES = [
       {
         id: "opp-hn-live-001",
         title: "Show HN: Bolnee-Chat – Self Hosted Chatbot Integration in Your Business Website",
+        category: "AI / LLM DevTools",
+        market: "Global",
         sourceId: "hacker-news-official-api",
         isConfidential: false,
         publishedAt: "2026-08-30T09:56:05.000Z",
         author: "AniketWathore",
         summary: "Lightweight conversational AI integration widget for direct B2B customer support without third-party vendor lock-in.",
+        whyNow: "Growing enterprise preference for self-hosted data-sovereign chatbots.",
         opportunityScore: 84,
         evidenceConfidence: 72,
         evidenceType: "SOURCE_CLAIM",
+        evidenceSymbol: "[CLAIM]",
         signals: [
-          { name: "HN Upvotes", value: "29", type: "SOURCE_CLAIM" },
-          { name: "Velocity", value: "6.7 pts/hr", type: "DERIVED_METRIC" },
-          { name: "Tech Stack", value: "TypeScript, Go", type: "SOURCE_CLAIM" }
-        ]
+          { name: "HN Upvotes", value: "29", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { name: "Velocity", value: "6.7 pts/hr", type: "DERIVED_METRIC", symbol: "[DERIVED]" }
+        ],
+        monetization: "Open-core licensing with enterprise support tiers.",
+        localization: "High global applicability across English and multilingual business sites.",
+        risks: "Competition from major open-source UI libraries.",
+        mvp: "Next.js / Node.js embedded widget with local vector store."
       },
       {
         id: "opp-trustmrr-001",
-        title: "B2B SaaS Analytics Platform (High-Growth MRR)",
+        title: "B2B SaaS Analytics Platform (Self-Reported Traction Claim)",
+        category: "B2B SaaS Analytics",
+        market: "US",
         sourceId: "trustmrr",
         isConfidential: false,
         publishedAt: "2026-08-29T14:20:00.000Z",
-        author: "Verified Seller",
-        summary: "Multi-tenant B2B analytics platform with verified Stripe integration metrics and strong product-market fit.",
+        author: "Marketplace Listing",
+        summary: "Multi-tenant B2B analytics platform with vendor-reported subscription metrics.",
+        whyNow: "Demand for consolidated usage metrics across hybrid clouds.",
         opportunityScore: 92,
-        evidenceConfidence: 95,
-        evidenceType: "FACT",
+        evidenceConfidence: 85,
+        evidenceType: "SOURCE_CLAIM",
+        evidenceSymbol: "[CLAIM]",
         signals: [
-          { name: "MRR", value: "$24,500 / mo", type: "FACT" },
-          { name: "MoM Growth", value: "+18.4%", type: "DERIVED_METRIC" },
-          { name: "Verified By", value: "Stripe", type: "FACT" }
-        ]
+          { name: "Reported MRR", value: "$24,500 / mo", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { name: "Growth Rate", value: "+18.4% MoM", type: "DERIVED_METRIC", symbol: "[DERIVED]" }
+        ],
+        monetization: "Tiered monthly subscription per tracked event volume.",
+        localization: "US market first with EU GDPR compliance.",
+        risks: "High customer acquisition costs in crowded analytics space.",
+        mvp: "Plug-and-play SDK with automated Stripe usage billing."
       },
       {
         id: "opp-stealth-002",
         title: "Confidential Stealth Opportunity #7742 (AI DevTools)",
+        category: "AI / LLM DevTools",
+        market: "Global",
         sourceId: "trustmrr",
         isConfidential: true,
         publishedAt: "2026-08-28T11:00:00.000Z",
         author: "[CONFIDENTIAL]",
-        summary: "High-margin LLM observability framework operating in stealth acquisition mode. Identity and domain isolated.",
+        summary: "High-margin LLM observability framework operating in stealth acquisition mode.",
+        whyNow: "Rapid enterprise migration to multi-model LLM architectures.",
         opportunityScore: 78,
         evidenceConfidence: 65,
         evidenceType: "SOURCE_CLAIM",
+        evidenceSymbol: "[CLAIM]",
         signals: [
-          { name: "Reported ARR", value: "$180,000", type: "SOURCE_CLAIM" },
-          { name: "Domain Leakage", value: "ZERO (Isolated)", type: "FACT" }
-        ]
+          { name: "Reported ARR", value: "$180,000", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { name: "Isolation", value: "Strict PII Protected", type: "FACT", symbol: "[FACT]" }
+        ],
+        monetization: "Enterprise yearly contract.",
+        localization: "Global remote developer teams.",
+        risks: "Stealth verification latency.",
+        mvp: "Proxy gateway for prompt cost attribution."
       },
       {
         id: "opp-hn-live-002",
         title: "Show HN: C# Game Engine with Scripting Language and Integrated IDE",
+        category: "Developer Tools",
+        market: "Global",
         sourceId: "hacker-news-official-api",
         isConfidential: false,
         publishedAt: "2026-08-30T10:12:00.000Z",
         author: "gamedev_lead",
         summary: "Custom cross-platform lightweight 2D/3D game development framework targeting indie developers.",
+        whyNow: "Dissatisfaction with heavy commercial game engine licensing models.",
         opportunityScore: 71,
         evidenceConfidence: 68,
         evidenceType: "SOURCE_CLAIM",
+        evidenceSymbol: "[CLAIM]",
         signals: [
-          { name: "HN Upvotes", value: "48", type: "SOURCE_CLAIM" },
-          { name: "Engagement", value: "High", type: "AI_ANALYSIS" }
-        ]
+          { name: "HN Upvotes", value: "48", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { name: "Community Engagement", value: "Strong Signal", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" }
+        ],
+        monetization: "Asset store marketplace commission and premium IDE plugins.",
+        localization: "Global developer ecosystem.",
+        risks: "Ecosystem network effects of established engines.",
+        mvp: "C# / Vulkan lightweight desktop editor."
       },
       {
         id: "opp-speculative-003",
         title: "Localized AI Legal Document Assistant (Emerging Gap)",
+        category: "Legal Tech",
+        market: "DACH",
         sourceId: "speculative-market-gap",
         isConfidential: false,
         publishedAt: "2026-08-27T08:30:00.000Z",
-        author: "Intelligence Engine",
+        author: "Market Gap Engine",
         summary: "Identified high market gap in mid-tier corporate regulatory compliance automation in DACH region.",
+        whyNow: "New EU AI Act compliance mandates coming into force.",
         opportunityScore: 89,
         evidenceConfidence: 45,
         evidenceType: "AI_HYPOTHESIS",
+        evidenceSymbol: "[AI_HYPOTHESIS]",
         signals: [
-          { name: "Market Gap Score", value: "9.2 / 10", type: "AI_ANALYSIS" },
-          { name: "Ground Truth Evidence", value: "Pending Verification", type: "AI_HYPOTHESIS" }
-        ]
+          { name: "Market Gap Score", value: "9.2 / 10", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" },
+          { name: "Ground Truth Evidence", value: "Pending Pilot Ingestion", type: "AI_HYPOTHESIS", symbol: "[AI_HYPOTHESIS]" }
+        ],
+        monetization: "Monthly B2B SaaS per corporate legal seat.",
+        localization: "DACH Region (German language legal corpus).",
+        risks: "Strict liability and legal accuracy requirements.",
+        mvp: "Retrieval-augmented clause analyzer for German commercial contracts."
       }
     ];
+
+    function getBadgeClass(type) {
+      switch(type) {
+        case 'FACT': return 'badge-fact';
+        case 'SOURCE_CLAIM': return 'badge-claim';
+        case 'DERIVED_METRIC': return 'badge-derived';
+        case 'AI_ANALYSIS': return 'badge-analysis';
+        case 'AI_HYPOTHESIS': return 'badge-hypothesis';
+        default: return 'badge-unknown';
+      }
+    }
 
     function renderFeed(items) {
       const feedContainer = document.getElementById("opportunityFeed");
       document.getElementById("oppCount").innerText = items.length;
 
+      if (items.length === 0) {
+        feedContainer.innerHTML = '<div style="padding:2rem; color:var(--text-muted); text-align:center;">No matching opportunities found.</div>';
+        return;
+      }
+
       feedContainer.innerHTML = items.map(item => `
-        <div class="opp-card">
+        <div class="opp-card" tabindex="0" role="button" aria-label="View details for ${item.title}" onclick="openDetail('${item.id}')" onkeydown="if(event.key==='Enter'||event.key===' ') openDetail('${item.id}')">
           <div>
             <div class="opp-header">
               <span class="opp-title">${item.title}</span>
-              ${item.isConfidential ? '<span class="badge badge-confidential">🔒 CONFIDENTIAL</span>' : ''}
-              <span class="badge ${item.evidenceType === 'FACT' ? 'badge-fact' : item.evidenceType === 'DERIVED_METRIC' ? 'badge-derived' : 'badge-claim'}">
-                ${item.evidenceType}
+              ${item.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
+              <span class="badge ${getBadgeClass(item.evidenceType)}">
+                ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
               </span>
             </div>
             <div class="opp-meta">
+              <span>Category: <strong>${item.category}</strong></span>
+              <span>Market: <strong>${item.market}</strong></span>
               <span>Source: <strong>${item.sourceId}</strong></span>
               <span>Author: <strong>${item.author}</strong></span>
-              <span>Published: ${new Date(item.publishedAt).toLocaleDateString()}</span>
             </div>
-            <div class="opp-summary">${item.summary}</div>
-            <div class="signal-strip">
+            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">${item.summary}</div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
               ${item.signals.map(s => `
-                <span class="badge badge-claim" style="font-size:0.75rem;">
-                  ${s.name}: <strong style="color:#fff; margin-left:0.2rem;">${s.value}</strong>
+                <span class="badge ${getBadgeClass(s.type)}" style="font-size:0.7rem;">
+                  ${s.symbol || ''} ${s.name}: <strong style="color:#fff; margin-left:0.2rem;">${s.value}</strong>
                 </span>
               `).join('')}
             </div>
@@ -469,7 +643,7 @@
           <div class="score-box">
             <span class="score-label">Opportunity Score</span>
             <span class="score-primary">${item.opportunityScore}</span>
-            <span class="score-label" style="margin-top:0.5rem;">Evidence Confidence</span>
+            <span class="score-label" style="margin-top:0.4rem;">Evidence Confidence</span>
             <span class="confidence-meter" style="color:${item.evidenceConfidence >= 80 ? 'var(--accent-emerald)' : 'var(--accent-amber)'}">
               ${item.evidenceConfidence}%
             </span>
@@ -478,28 +652,64 @@
       `).join('');
     }
 
-    // Initial render
-    renderFeed(OPPORTUNITY_FIXTURES);
+    function openDetail(id) {
+      const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
+      if (!opp) return;
 
-    // Search and Filter Handlers
-    function applyFilters() {
+      document.getElementById("modalTitle").innerText = opp.title;
+      document.getElementById("modalBadges").innerHTML = `
+        ${opp.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
+        <span class="badge ${getBadgeClass(opp.evidenceType)}">${opp.evidenceSymbol} ${opp.evidenceType}</span>
+        <span class="badge badge-unknown">Score: ${opp.opportunityScore}</span>
+        <span class="badge badge-unknown">Confidence: ${opp.evidenceConfidence}%</span>
+      `;
+      document.getElementById("iaSummary").innerText = opp.summary;
+      document.getElementById("iaWhyNow").innerText = opp.whyNow;
+      document.getElementById("iaEvidence").innerHTML = `Source: <strong>${opp.sourceId}</strong> | Author: <strong>${opp.author}</strong> | Timestamp: ${opp.publishedAt}`;
+      document.getElementById("iaTraction").innerHTML = opp.signals.map(s => `<div>${s.symbol} ${s.name}: <strong>${s.value}</strong> (${s.type})</div>`).join('');
+      document.getElementById("iaMonetization").innerText = opp.monetization;
+      document.getElementById("iaLocalization").innerText = opp.localization;
+      document.getElementById("iaRisks").innerText = opp.risks;
+      document.getElementById("iaMvp").innerText = opp.mvp;
+
+      document.getElementById("detailModal").style.display = "flex";
+    }
+
+    document.getElementById("closeModalBtn").onclick = () => {
+      document.getElementById("detailModal").style.display = "none";
+    };
+
+    function applyAllFilters() {
       const q = document.getElementById("searchInput").value.toLowerCase();
+      const cat = document.getElementById("catFilter").value;
+      const market = document.getElementById("marketFilter").value;
+      const minScore = parseInt(document.getElementById("minScoreFilter").value, 10);
+      const minConf = parseInt(document.getElementById("minConfFilter").value, 10);
       const ev = document.getElementById("evFilter").value;
-      const conf = document.getElementById("confFilter").value;
+      const src = document.getElementById("sourceFilter").value;
 
       const filtered = OPPORTUNITY_FIXTURES.filter(item => {
         const matchesQ = item.title.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q);
+        const matchesCat = cat === "ALL" || item.category === cat;
+        const matchesMarket = market === "ALL" || item.market === market;
+        const matchesScore = item.opportunityScore >= minScore;
+        const matchesConf = item.evidenceConfidence >= minConf;
         const matchesEv = ev === "ALL" || item.evidenceType === ev;
-        const matchesConf = conf === "ALL" || (conf === "CONFIDENTIAL" ? item.isConfidential : !item.isConfidential);
-        return matchesQ && matchesEv && matchesConf;
+        const matchesSrc = src === "ALL" || item.sourceId === src;
+
+        return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc;
       });
 
       renderFeed(filtered);
     }
 
-    document.getElementById("searchInput").addEventListener("input", applyFilters);
-    document.getElementById("evFilter").addEventListener("change", applyFilters);
-    document.getElementById("confFilter").addEventListener("change", applyFilters);
+    ["searchInput", "catFilter", "marketFilter", "minScoreFilter", "minConfFilter", "evFilter", "sourceFilter", "freshFilter"].forEach(id => {
+      document.getElementById(id).addEventListener("input", applyAllFilters);
+      document.getElementById(id).addEventListener("change", applyAllFilters);
+    });
+
+    // Initial render
+    renderFeed(OPPORTUNITY_FIXTURES);
   </script>
 </body>
 </html>
