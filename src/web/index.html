@@ -825,10 +825,18 @@
               ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.regulatoryRisk >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.regulatoryRisk} / 10</td>`).join('')}
             </tr>
 
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">3. Localization & Regional Fit Comparison</td></tr>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">3. Localization & Regional Fit Multi-Factor Matrix</td></tr>
             <tr>
               <td>Target Market & Language Fit</td>
               ${selected.map(o => `<td><strong style="color:#fff;">${o.market}</strong><div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">${o.localization || 'UNKNOWN'}</div></td>`).join('')}
+            </tr>
+            <tr>
+              <td>Payment & Pricing Fit</td>
+              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">Stripe/Multi-Currency: <strong style="color:#fff;">${o.market === 'US' || o.market === 'Global' ? 'HIGH_FIT' : 'UNKNOWN'}</strong></td>`).join('')}
+            </tr>
+            <tr>
+              <td>Distribution & Regulatory Fit</td>
+              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">GDPR / Local Law: <strong style="color:#fff;">${o.market === 'DACH' ? 'EU_AI_ACT_APPLICABLE' : 'STANDARD'}</strong></td>`).join('')}
             </tr>
 
             <tr class="matrix-section-row"><td colspan="${selected.length + 1}">4. Monetization Model Comparison</td></tr>
@@ -837,10 +845,14 @@
               ${selected.map(o => `<td><span class="badge badge-hypothesis" style="font-size:0.65rem;">[AI_HYPOTHESIS]</span> <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">${o.monetization || 'UNKNOWN'}</div></td>`).join('')}
             </tr>
 
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">5. Buildability & MVP Scope Comparison</td></tr>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">5. Buildability, Dependencies & MVP Scope</td></tr>
             <tr>
               <td>Architecture & MVP Breadth</td>
               ${selected.map(o => `<td><div style="font-size:0.75rem; color:var(--text-secondary);">${o.mvp || 'UNKNOWN'}</div></td>`).join('')}
+            </tr>
+            <tr>
+              <td>Integration Dependencies & Blockers</td>
+              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">External APIs: <strong style="color:#fff;">${o.dimensions.buildComplexity >= 7 ? 'HIGH_DEPENDENCY' : 'LOW_DEPENDENCY'}</strong></td>`).join('')}
             </tr>
 
             <tr class="matrix-section-row"><td colspan="${selected.length + 1}">6. 6-Dimensional Risk Matrix Comparison</td></tr>
@@ -869,28 +881,44 @@
               ${selected.map(o => `<td><span style="color:var(--accent-rose); font-weight:700; font-size:0.75rem;">[HIGH]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Public Forum / Unverified)</span></td>`).join('')}
             </tr>
 
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">7. Evidence Quality Breakdown & Freshness</td></tr>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">7. Full Evidence Taxonomy & Freshness</td></tr>
             <tr>
-              <td>Verified Proofs [FACT]</td>
-              ${selected.map(o => `<td><strong>${o.evidenceCount.FACT}</strong> items</td>`).join('')}
+              <td>[FACT] / [CLAIM] Counts</td>
+              ${selected.map(o => `<td>FACT: <strong>${o.evidenceCount.FACT || 0}</strong> | CLAIM: <strong>${o.evidenceCount.CLAIM || 0}</strong></td>`).join('')}
             </tr>
             <tr>
-              <td>Reported Claims [CLAIM]</td>
-              ${selected.map(o => `<td><strong>${o.evidenceCount.CLAIM}</strong> items</td>`).join('')}
+              <td>[DERIVED] / [AI_ANALYSIS] Counts</td>
+              ${selected.map(o => `<td>DERIVED: <strong>${o.evidenceCount.DERIVED || 0}</strong> | ANALYSIS: <strong>${o.evidenceCount.AI_ANALYSIS || 0}</strong></td>`).join('')}
             </tr>
             <tr>
-              <td>Hypotheses [AI_HYPOTHESIS]</td>
-              ${selected.map(o => `<td><strong>${o.evidenceCount.AI_HYPOTHESIS}</strong> items</td>`).join('')}
+              <td>[AI_HYPOTHESIS] / [UNKNOWN] Counts</td>
+              ${selected.map(o => `<td>HYPOTHESIS: <strong>${o.evidenceCount.AI_HYPOTHESIS || 0}</strong> | UNKNOWN: <strong>${o.evidenceCount.UNKNOWN || 0}</strong></td>`).join('')}
             </tr>
             <tr>
               <td>Freshness (Published)</td>
               ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">${new Date(o.publishedAt).toLocaleDateString()}</td>`).join('')}
             </tr>
 
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">8. Strategic Trade-Off & Portfolio Decision</td></tr>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">8. Deterministic Leaders & Strategic Trade-Off</td></tr>
+            <tr>
+              <td>Deterministic Dimension Leaders</td>
+              ${selected.map(o => {
+                const bestScore = Math.max(...selected.map(s => s.opportunityScore)) === o.opportunityScore;
+                const bestConf = Math.max(...selected.map(s => s.evidenceConfidence)) === o.evidenceConfidence;
+                const easiestBuild = Math.min(...selected.map(s => s.dimensions.buildComplexity)) === o.dimensions.buildComplexity;
+                return `
+                  <td style="font-size:0.75rem;">
+                    ${bestScore ? '<div style="color:var(--accent-blue); font-weight:700;">★ HIGHEST_SCORE_LEADER</div>' : ''}
+                    ${bestConf ? '<div style="color:var(--accent-emerald); font-weight:700;">★ HIGHEST_CONFIDENCE_LEADER</div>' : ''}
+                    ${easiestBuild ? '<div style="color:var(--accent-purple); font-weight:700;">★ LOWEST_COMPLEXITY_LEADER</div>' : ''}
+                    ${!bestScore && !bestConf && !easiestBuild ? '<span style="color:var(--text-muted);">BALANCED_CONTENDER</span>' : ''}
+                  </td>
+                `;
+              }).join('')}
+            </tr>
             <tr>
               <td>Executive Trade-Off Summary</td>
-              ${selected.map(o => `<td style="color:var(--text-secondary); line-height:1.4;">${o.tradeOff}</td>`).join('')}
+              ${selected.map(o => `<td style="color:var(--text-secondary); line-height:1.4; font-size:0.8rem;">${o.tradeOff}</td>`).join('')}
             </tr>
             <tr>
               <td>Product Portfolio Decision State</td>
