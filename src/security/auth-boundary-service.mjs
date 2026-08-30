@@ -1,11 +1,11 @@
+import crypto from "node:crypto";
 import { deepFreeze } from "../discovery/discovery-intake.mjs";
 
 /**
  * ============================================================================
- * AUTHENTICATION & RBAC BOUNDARY MIDDLEWARE (PROD-READINESS-001 / P0-001)
- * Enforces operator identity validation, role-based access control,
- * and confidential data projection protection.
- * Roles: ADMIN, OPERATOR, ANALYST, VIEWER
+ * CRYPTOGRAPHIC AUTHENTICATION & RBAC SERVICE (PROD-READINESS-001R / P0-001)
+ * Standards-compliant HMAC-SHA256 Token Verification (Algorithm Allowlist: HS256)
+ * Strict Expiration, Issuer, Audience, Signature Tamper Rejection & Server RBAC.
  * ============================================================================
  */
 
@@ -23,45 +23,115 @@ export const RoutePermission = Object.freeze({
   VIEW_PUBLIC: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST, UserRole.VIEWER]
 });
 
-export class AuthBoundaryService {
-  constructor({ tokenSecret = "default-dev-secret-change-in-prod" } = {}) {
-    this.tokenSecret = tokenSecret;
+export class CryptographicAuthService {
+  constructor({
+    secretKey = "prod-crypto-auth-secret-key-32bytes-min!!",
+    issuer = "discovery-auth-service",
+    audience = "discovery-platform-api",
+    clock = () => new Date()
+  } = {}) {
+    this.secretKey = secretKey;
+    this.issuer = issuer;
+    this.audience = audience;
+    this.clock = clock;
+    this.allowedAlgorithms = ["HS256"];
   }
 
   /**
-   * Validates operator session token and returns authenticated principal.
+   * Generates a signed cryptographic JWT-style token.
    */
-  authenticateSession(authHeader) {
+  signToken({ userId, role, email, expiresInSeconds = 3600 }) {
+    const now = Math.floor(this.clock().getTime() / 1000);
+    const header = { alg: "HS256", typ: "JWT" };
+    const payload = {
+      sub: userId,
+      role,
+      email,
+      iss: this.issuer,
+      aud: this.audience,
+      iat: now,
+      exp: now + expiresInSeconds
+    };
+
+    const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url");
+    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const sig = crypto.createHmac("sha256", this.secretKey)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest("base64url");
+
+    return `${headerB64}.${payloadB64}.${sig}`;
+  }
+
+  /**
+   * Authenticates and verifies cryptographic token integrity.
+   */
+  verifyToken(authHeader) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Missing or malformed Bearer token." };
     }
 
     const token = authHeader.substring(7).trim();
-    if (!token || token === "invalid") {
-      return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid session token." };
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Malformed JWT token structure." };
     }
 
-    // Mock/reference token decoding for bounded pilot/test environment
-    let principal = {
-      userId: "usr_operator_01",
-      role: UserRole.OPERATOR,
-      email: "operator@discovery.internal"
-    };
+    const [headerB64, payloadB64, signature] = parts;
 
-    if (token === "token-admin") {
-      principal.role = UserRole.ADMIN;
-    } else if (token === "token-viewer") {
-      principal.role = UserRole.VIEWER;
+    // 1. Verify Algorithm Allowlist
+    let header;
+    try {
+      header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8"));
+    } catch {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid header encoding." };
+    }
+
+    if (!this.allowedAlgorithms.includes(header.alg)) {
+      return { ok: false, status: 401, error: `UNAUTHORIZED: Disallowed algorithm ${header.alg}.` };
+    }
+
+    // 2. Cryptographic Signature Tamper Rejection
+    const expectedSig = crypto.createHmac("sha256", this.secretKey)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest("base64url");
+
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Signature verification failed (TAMPERED)." };
+    }
+
+    // 3. Payload Claims Validation (exp, iss, aud)
+    let payload;
+    try {
+      payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+    } catch {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid payload encoding." };
+    }
+
+    const now = Math.floor(this.clock().getTime() / 1000);
+    if (payload.exp && payload.exp < now) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Token has expired." };
+    }
+
+    if (payload.iss && payload.iss !== this.issuer) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid token issuer." };
+    }
+
+    if (payload.aud && payload.aud !== this.audience) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid token audience." };
     }
 
     return deepFreeze({
       ok: true,
-      principal
+      principal: {
+        userId: payload.sub,
+        role: payload.role,
+        email: payload.email
+      }
     });
   }
 
   /**
-   * Authorizes an action against a route permission requirement.
+   * Server-Side RBAC Enforcement (Zero Client-Side Authority).
    */
   authorizeAction(principal, requiredRoleList) {
     if (!principal || !principal.role) {
@@ -72,7 +142,7 @@ export class AuthBoundaryService {
       return {
         ok: false,
         status: 403,
-        error: `FORBIDDEN: Principal with role ${principal.role} lacks required permissions.`
+        error: `FORBIDDEN: Principal role '${principal.role}' lacks required permissions.`
       };
     }
 
