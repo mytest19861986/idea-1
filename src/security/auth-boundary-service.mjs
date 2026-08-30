@@ -26,11 +26,13 @@ export const RoutePermission = Object.freeze({
 export class CryptographicAuthService {
   constructor({
     secretKey = "prod-crypto-auth-secret-key-32bytes-min!!",
+    verificationKeys = [],
     issuer = "discovery-auth-service",
     audience = "discovery-platform-api",
     clock = () => new Date()
   } = {}) {
     this.secretKey = secretKey;
+    this.verificationKeys = [secretKey, ...verificationKeys];
     this.issuer = issuer;
     this.audience = audience;
     this.clock = clock;
@@ -90,12 +92,21 @@ export class CryptographicAuthService {
       return { ok: false, status: 401, error: `UNAUTHORIZED: Disallowed algorithm ${header.alg}.` };
     }
 
-    // 2. Cryptographic Signature Tamper Rejection
-    const expectedSig = crypto.createHmac("sha256", this.secretKey)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest("base64url");
+    // 2. Cryptographic Signature Tamper Rejection (Supports Multi-Key Rolling Secret Rotation)
+    let signatureValid = false;
+    for (const key of this.verificationKeys) {
+      const expectedSig = crypto.createHmac("sha256", key)
+        .update(`${headerB64}.${payloadB64}`)
+        .digest("base64url");
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+      if (signature.length === expectedSig.length &&
+          crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+        signatureValid = true;
+        break;
+      }
+    }
+
+    if (!signatureValid) {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Signature verification failed (TAMPERED)." };
     }
 
