@@ -12,7 +12,7 @@ import {
  * ============================================================================
  * DISCOVERY WORKER RUNTIME & EXECUTION ENGINE (PKG-WORKER-014 / PKG-SECRETS-016R)
  * Invariants: WORK-I001 through WORK-I027, SEC-I008 through SEC-I020
- * Ephemeral Execution Scope & Per-Execution Secret Isolation
+ * Ephemeral Execution Scope, Atomic Secret Resolution & Isolation
  * ============================================================================
  */
 
@@ -34,8 +34,9 @@ export class HandlerRegistry {
 }
 
 export class WorkerRuntime {
-  constructor(handlerRegistry = new HandlerRegistry()) {
+  constructor(handlerRegistry = new HandlerRegistry(), secretResolver = null) {
     this.registry = handlerRegistry;
+    this.secretResolver = secretResolver;
     this.attemptHistory = new Map(); // taskId -> [attemptRecord]
   }
 
@@ -71,8 +72,17 @@ export class WorkerRuntime {
       Array.isArray(executionContext.knownSecrets) ? executionContext.knownSecrets : []
     );
 
+    const activeResolver = executionContext.secretResolver || this.secretResolver;
+
     const executionScope = {
       attemptNumber,
+      // Atomic resolve + auto-registration into active execution scope (Finding 1 fix)
+      resolveSecret: async (credentialRef, purpose, env) => {
+        if (!activeResolver || typeof activeResolver.resolveSecret !== "function") {
+          throw new Error("No SecretResolver configured on WorkerRuntime or executionContext");
+        }
+        return activeResolver.resolveSecret(credentialRef, purpose, env, scopedSecrets);
+      },
       registerSecretForRedaction: (sec) => {
         if (typeof sec === "string" && sec.trim().length >= 4) {
           scopedSecrets.add(sec.trim());

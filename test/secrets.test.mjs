@@ -22,6 +22,23 @@ test("SECRETS: known credentialRef + allowed purpose resolves successfully", asy
   assert.strictEqual(secret, "synth-key-12345");
 });
 
+test("SECRETS: resolveSecret with scope auto-registers secret into the scope atomically", async () => {
+  const provider = new InMemorySecretProvider({
+    "cred:source:trustmrr:api_key": "synth-auto-scope-key"
+  });
+  const resolver = new SecretResolver(provider);
+  const scope = createSecretRedactionScope();
+
+  assert.strictEqual(scope.getRegisteredCount(), 0);
+  const secret = await resolver.resolveSecret("cred:source:trustmrr:api_key", SecretPurpose.COLLECTOR_EXECUTION, "test", scope);
+  assert.strictEqual(secret, "synth-auto-scope-key");
+  assert.strictEqual(scope.getRegisteredCount(), 1);
+
+  // Redaction through scope automatically masks the resolved secret
+  const text = "Error with key synth-auto-scope-key in request";
+  assert.strictEqual(scope.redactText(text), "Error with key [REDACTED_SECRET] in request");
+});
+
 test("SECRETS: prototype-key inputs (__proto__, constructor, toString) fail closed safely without unhandled errors", async () => {
   const envProvider = new EnvironmentSecretProvider({});
   const pProto = await envProvider.getSecret("__proto__");
@@ -193,6 +210,37 @@ test("SECRETS: Concurrent task secret isolation (Finding 2 fix - SEC-I018)", asy
   assert.ok(!JSON.stringify(resB).includes("distinct-secret-AAAAA"));
 });
 
+test("SECRETS: Automatic fail-safe secret resolution and redaction in WorkerRuntime (No manual registration needed)", async () => {
+  const syntheticSecret = "synth-atomic-token-999";
+  const provider = new InMemorySecretProvider({
+    "cred:source:trustmrr:bearer": syntheticSecret
+  });
+  const resolver = new SecretResolver(provider);
+
+  const registry = new HandlerRegistry();
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
+    // Handler simply resolves the secret via context.resolveSecret without manual register call!
+    const token = await context.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
+    assert.strictEqual(token, syntheticSecret);
+
+    // Simulate error leaking the token
+    throw new Error(`Upstream rejection: token ${token} invalid`);
+  });
+
+  const runtime = new WorkerRuntime(registry, resolver);
+  const task = createWorkerTask({
+    taskId: "task-atomic-secret-test",
+    taskType: TaskType.DISCOVERY_EXECUTION,
+    sourceId: "src-1"
+  });
+
+  const execResult = await runtime.executeTask(task);
+
+  // Assert error message automatically has value-aware redaction without manual registration
+  assert.ok(!execResult.error.message.includes(syntheticSecret));
+  assert.ok(execResult.error.message.includes("[REDACTED_SECRET]"));
+});
+
 test("SECRETS: End-to-end secret resolution and collector injection failure boundary test (SEC-I008 to SEC-I016)", async () => {
   const syntheticSecret = "synth-distinct-secret-999888";
   const provider = new InMemorySecretProvider({
@@ -200,14 +248,9 @@ test("SECRETS: End-to-end secret resolution and collector injection failure boun
   });
   const resolver = new SecretResolver(provider);
 
-  // 1. Resolve distinct secret at execution boundary
-  const resolvedToken = await resolver.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
-  assert.strictEqual(resolvedToken, syntheticSecret);
-
-  // 2. Set up worker handler simulating collector execution with ephemeral secret injection
   const registry = new HandlerRegistry();
   registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
-    context.registerSecretForRedaction(resolvedToken);
+    const resolvedToken = await context.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
     const headers = { Authorization: `Bearer ${resolvedToken}` };
     assert.strictEqual(headers.Authorization, `Bearer ${syntheticSecret}`);
 
@@ -215,7 +258,7 @@ test("SECRETS: End-to-end secret resolution and collector injection failure boun
     throw new Error(`401 Unauthorized from upstream: token ${syntheticSecret} expired`);
   });
 
-  const runtime = new WorkerRuntime(registry);
+  const runtime = new WorkerRuntime(registry, resolver);
   const task = createWorkerTask({
     taskId: "task-secret-boundary-test-failure",
     taskType: TaskType.DISCOVERY_EXECUTION,
@@ -225,10 +268,9 @@ test("SECRETS: End-to-end secret resolution and collector injection failure boun
     }
   });
 
-  // 3. Execute task and assert failure containment + value-aware redaction
+  // Execute task and assert failure containment + value-aware redaction
   const execResult = await runtime.executeTask(task);
 
-  // 4. Assert WorkerTask, AttemptHistory, and Errors NEVER contain the raw synthetic secret
   const serializedTask = JSON.stringify(task);
   const serializedAttempts = JSON.stringify(execResult.attempts);
   const serializedResult = JSON.stringify(execResult);
@@ -237,7 +279,6 @@ test("SECRETS: End-to-end secret resolution and collector injection failure boun
   assert.ok(!serializedAttempts.includes(syntheticSecret), "AttemptHistory must not contain raw secret");
   assert.ok(!serializedResult.includes(syntheticSecret), "ExecResult must not contain raw secret");
 
-  // Verify value-aware redaction replaced the secret in the error message
   assert.ok(execResult.error.message.includes("[REDACTED_SECRET]"), "Error message must have value-aware redaction");
 });
 
@@ -248,21 +289,16 @@ test("SECRETS: End-to-end secret resolution and collector injection SUCCESS boun
   });
   const resolver = new SecretResolver(provider);
 
-  // 1. Resolve distinct secret at execution boundary
-  const resolvedToken = await resolver.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
-  assert.strictEqual(resolvedToken, successSecret);
-
-  // 2. Set up worker handler returning a payload that accidentally echoed the token in a nested field
   const registry = new HandlerRegistry();
   registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
-    context.registerSecretForRedaction(resolvedToken);
+    const resolvedToken = await context.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
     return {
       fetchedCount: 10,
       debugContext: `Fetched using token ${resolvedToken} successfully`
     };
   });
 
-  const runtime = new WorkerRuntime(registry);
+  const runtime = new WorkerRuntime(registry, resolver);
   const task = createWorkerTask({
     taskId: "task-secret-boundary-test-success",
     taskType: TaskType.DISCOVERY_EXECUTION,
@@ -272,7 +308,6 @@ test("SECRETS: End-to-end secret resolution and collector injection SUCCESS boun
     }
   });
 
-  // 3. Execute task and assert success return value AND attempt record are redacted
   const execResult = await runtime.executeTask(task);
   assert.strictEqual(execResult.state, "SUCCEEDED");
 

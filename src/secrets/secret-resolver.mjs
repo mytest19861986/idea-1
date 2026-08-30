@@ -6,7 +6,7 @@ import { telemetry } from "../observability/telemetry.mjs";
  * SECRET RESOLVER PORT & PURPOSE BINDING (PKG-SECRETS-016R)
  * Invariants: SEC-I001 through SEC-I035
  * Secrets Contract Version: secrets-contract-v1
- * Zero global secret retention; pure ephemeral resolution.
+ * Zero global secret retention; atomic scoped registration support.
  * ============================================================================
  */
 
@@ -83,7 +83,7 @@ export class SecretResolver {
     }
   }
 
-  async resolveSecret(credentialRef, purpose, env = this.environment) {
+  async resolveSecret(credentialRef, purpose, env = this.environment, redactionScope = null) {
     const span = telemetry.startSpan("secret.resolve", {
       credentialRef,
       purpose,
@@ -139,6 +139,17 @@ export class SecretResolver {
       err.statusCode = 401;
       err.classification = "ACCESS_CONFIGURATION_FAILURE";
       throw err;
+    }
+
+    // Atomic auto-registration into active execution scope (Finding 1 fix)
+    if (redactionScope) {
+      if (typeof redactionScope.register === "function") {
+        redactionScope.register(secretValue);
+      } else if (redactionScope instanceof Set) {
+        redactionScope.add(secretValue);
+      } else if (typeof redactionScope === "function") {
+        redactionScope(secretValue);
+      }
     }
 
     span.setStatus("OK", "Secret resolved successfully");
