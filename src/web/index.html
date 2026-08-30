@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Opportunity Intelligence Platform | Executive Intelligence Terminal</title>
+  <title>Global Opportunity Intelligence Platform | Executive Portfolio & Comparison Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #080b11;
-      --bg-secondary: #0d121d;
-      --bg-surface: #121826;
-      --bg-surface-elevated: #182236;
-      --border-subtle: #1f2a40;
+      --bg-primary: #070a0f;
+      --bg-secondary: #0c111c;
+      --bg-surface: #111726;
+      --bg-surface-elevated: #162035;
+      --border-subtle: #1c273e;
       --border-accent: #3b82f6;
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
@@ -46,6 +46,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding-bottom: 70px;
     }
 
     /* Accessibility Focus States */
@@ -112,7 +113,7 @@
       display: grid;
       grid-template-columns: 290px 1fr;
       flex: 1;
-      min-height: calc(100vh - 60px);
+      min-height: calc(100vh - 130px);
     }
 
     aside {
@@ -179,11 +180,15 @@
       gap: 1.5rem;
       cursor: pointer;
       transition: all 0.2s;
+      position: relative;
     }
     .opp-card:hover {
       background: var(--bg-surface-elevated);
       border-color: var(--border-accent);
-      transform: translateY(-1px);
+    }
+    .opp-card.selected-for-compare {
+      border-color: var(--accent-blue);
+      background: rgba(56, 189, 248, 0.04);
     }
     .opp-header {
       display: flex;
@@ -257,82 +262,129 @@
       gap: 0.3rem;
     }
 
-    /* Executive Opportunity Workspace View (Full-Page Modal Overlay) */
-    .workspace-overlay {
+    /* Compare Button on Card */
+    .compare-card-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: all 0.2s;
+    }
+    .compare-card-btn:hover, .compare-card-btn.active {
+      border-color: var(--accent-blue);
+      color: #fff;
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    /* Sticky Bottom Compare Bar */
+    .sticky-compare-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      z-index: 80;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .compare-btn-launch {
+      background: var(--accent-blue);
+      color: #070a0f;
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.6rem 1.4rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .compare-btn-launch:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .compare-btn-launch:not(:disabled):hover {
+      background: #7dd3fc;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Comparison Matrix Modal Overlay */
+    .compare-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(8, 11, 17, 0.92);
-      backdrop-filter: blur(8px);
+      background: rgba(7, 10, 15, 0.94);
+      backdrop-filter: blur(10px);
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      z-index: 120;
       padding: 1.5rem;
     }
-    .workspace-modal {
+    .compare-modal {
       background: var(--bg-secondary);
       border: 1px solid var(--border-accent);
       border-radius: 12px;
       width: 100%;
-      max-width: 1100px;
-      height: 92vh;
+      max-width: 1280px;
+      height: 94vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
     }
-    .workspace-header {
-      padding: 1.5rem 2rem;
+    .compare-modal-header {
+      padding: 1.25rem 2rem;
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       background: var(--bg-surface);
     }
-    .workspace-body {
+    .compare-modal-body {
       flex: 1;
       overflow-y: auto;
       padding: 2rem;
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 2rem;
     }
-    .workspace-section {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-    .workspace-section-title {
-      font-family: var(--font-mono);
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 0.85rem;
+    }
+    .matrix-table th, .matrix-table td {
+      border: 1px solid var(--border-subtle);
+      padding: 1rem 1.2rem;
+      vertical-align: top;
+    }
+    .matrix-table th {
+      background: var(--bg-surface);
+      font-family: var(--font-mono);
       font-weight: 700;
-      color: var(--accent-blue);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      color: var(--accent-blue);
+      text-align: left;
     }
-    .grid-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-    .metric-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      font-size: 0.85rem;
+    .matrix-section-row {
+      background: var(--bg-surface-elevated);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     @media (max-width: 1024px) {
       .workspace { grid-template-columns: 1fr; }
       aside { border-right: none; border-bottom: 1px solid var(--border-subtle); }
-      .workspace-body { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -341,16 +393,16 @@
   <header role="banner">
     <div class="brand-group">
       <h1 class="brand-logo">
-        OPPORTUNITY INTEL <span>v1.0.0-EXEC</span>
+        OPPORTUNITY INTEL <span>v1.0.0-PORTFOLIO</span>
       </h1>
     </div>
     <div class="terminal-status-bar" aria-label="System Status">
       <div class="status-indicator">
         <div class="status-dot" aria-hidden="true"></div>
-        <span>PILOT: ACTIVE_DURABLE_ROUTE</span>
+        <span>PORTFOLIO_WORKSPACE: READY</span>
       </div>
-      <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16</span></div>
-      <div>GATES: <span style="color:var(--accent-emerald);">23/23 SATISFIED</span></div>
+      <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16 (DURABLE)</span></div>
+      <div>GATES: <span style="color:var(--accent-emerald);">23/23 PASS</span></div>
     </div>
   </header>
 
@@ -440,7 +492,7 @@
           Showing <strong id="oppCount">5</strong> Validated Opportunities
         </h2>
         <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
-          CORE_UI: SOURCE-NEUTRAL | DECISION_READY
+          PORTFOLIO_DECISION: SIDE-BY-SIDE MATRIX ENABLED
         </div>
       </div>
 
@@ -450,113 +502,39 @@
     </main>
   </div>
 
-  <!-- Full Opportunity Intelligence Detail Workspace Modal -->
-  <div class="workspace-overlay" id="workspaceModal" role="dialog" aria-modal="true" aria-labelledby="wsTitle">
-    <div class="workspace-modal">
-      <div class="workspace-header">
+  <!-- Sticky Bottom Portfolio Compare Bar -->
+  <div class="sticky-compare-bar" id="stickyCompareBar">
+    <div style="display:flex; align-items:center; gap:1.5rem;">
+      <span style="font-family:var(--font-mono); font-size:0.85rem; font-weight:700; color:var(--accent-blue);">
+        Selected for Comparison: <strong id="compareCount" style="color:#fff;">0</strong> / 4 (Min 2)
+      </span>
+      <div id="compareSelectedPills" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+    </div>
+    <div style="display:flex; gap:1rem;">
+      <button onclick="clearCompareSelection()" style="background:none; border:1px solid var(--border-subtle); color:var(--text-muted); padding:0.5rem 1rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">Clear Selection</button>
+      <button id="launchCompareBtn" class="compare-btn-launch" onclick="launchComparisonMatrix()" disabled>Launch Comparison Matrix (0/4)</button>
+    </div>
+  </div>
+
+  <!-- Full Comparison Matrix Modal -->
+  <div class="compare-modal-overlay" id="compareModal" role="dialog" aria-modal="true" aria-labelledby="matrixTitle">
+    <div class="compare-modal">
+      <div class="compare-modal-header">
         <div>
-          <div id="wsBadges" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
-          <h2 id="wsTitle" style="font-size:1.4rem; font-weight:800; color:#fff;"></h2>
-          <div id="wsMeta" style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.4rem;"></div>
+          <h2 id="matrixTitle" style="font-size:1.3rem; font-weight:800; color:#fff;">Executive Opportunity Comparison & Portfolio Matrix</h2>
+          <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">Side-by-side trade-off evaluation for strategic resource allocation</div>
         </div>
-        <button id="closeWsBtn" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.5rem 1rem; border-radius:6px; font-weight:700; cursor:pointer;" aria-label="Close Workspace">✕ Close Workspace</button>
+        <button onclick="closeComparisonMatrix()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.4rem 1rem; border-radius:6px; font-weight:700; cursor:pointer;">✕ Close Matrix</button>
       </div>
 
-      <div class="workspace-body">
-        <!-- Left Analysis Column -->
-        <div>
-          <!-- Section B: Executive Summary -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">B. Executive Summary</div>
-            <p id="wsSummary" style="color:var(--text-secondary); font-size:0.95rem; line-height:1.6;"></p>
-          </div>
-
-          <!-- Section C & D: Why Now & Proven Elsewhere -->
-          <div class="grid-2col">
-            <div class="workspace-section">
-              <div class="workspace-section-title">C. Why Now (Catalysts)</div>
-              <p id="wsWhyNow" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-            </div>
-            <div class="workspace-section">
-              <div class="workspace-section-title">D. Proven Elsewhere</div>
-              <p id="wsProvenElsewhere" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-            </div>
-          </div>
-
-          <!-- Section E: Evidence Ledger -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">E. Evidence Ledger (Attributed Claims)</div>
-            <div id="wsEvidenceLedger" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
-          </div>
-
-          <!-- Section K: MVP Blueprint -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">K. MVP Architecture Blueprint</div>
-            <div id="wsMvp" style="color:var(--text-secondary); font-size:0.9rem;"></div>
-          </div>
-
-          <!-- Section L & M: Competitor Landscape & Risk Register -->
-          <div class="grid-2col">
-            <div class="workspace-section">
-              <div class="workspace-section-title">L. Competitor Landscape</div>
-              <div id="wsCompetitors" style="font-size:0.85rem; color:var(--text-secondary);"></div>
-            </div>
-            <div class="workspace-section">
-              <div class="workspace-section-title">M. Risk Register</div>
-              <div id="wsRisks" style="font-size:0.85rem; color:var(--text-secondary);"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Decision Column -->
-        <div>
-          <!-- Section A & F: Score Breakdown -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">A & F. Decision Scores</div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border-subtle);">
-              <div>
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Opportunity Score</div>
-                <div id="wsScore" style="font-size:1.8rem; font-weight:800; color:#fff; font-family:var(--font-mono);"></div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Evidence Confidence</div>
-                <div id="wsConf" style="font-size:1.8rem; font-weight:800; color:var(--accent-emerald); font-family:var(--font-mono);"></div>
-              </div>
-            </div>
-            <div id="wsScoreDimensions"></div>
-          </div>
-
-          <!-- Section G & H: Traction & Market Gap -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">G & H. Market Signals</div>
-            <div id="wsMarketSignals"></div>
-          </div>
-
-          <!-- Section I & J: Localization & Monetization -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">I & J. Business Strategy</div>
-            <div style="font-size:0.85rem; margin-bottom:0.75rem;">
-              <strong style="color:var(--accent-blue);">Localization Fit:</strong>
-              <div id="wsLocalization" style="color:var(--text-secondary); margin-top:0.2rem;"></div>
-            </div>
-            <div style="font-size:0.85rem;">
-              <strong style="color:var(--accent-emerald);">Monetization Model:</strong>
-              <div id="wsMonetization" style="color:var(--text-secondary); margin-top:0.2rem;"></div>
-            </div>
-          </div>
-
-          <!-- Section N: Provenance Panel -->
-          <div class="workspace-section">
-            <div class="workspace-section-title">N. Provenance & Audit</div>
-            <div id="wsProvenance" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--text-muted);"></div>
-          </div>
-        </div>
+      <div class="compare-modal-body">
+        <div id="matrixTableContainer"></div>
       </div>
     </div>
   </div>
 
   <script>
-    // Complete Comprehensive Source-Neutral Opportunity View Models for WEB-PRODUCT-002
+    // Complete Comprehensive Source-Neutral Opportunity View Models with Full Dimensions
     const OPPORTUNITY_FIXTURES = [
       {
         id: "opp-hn-live-001",
@@ -574,39 +552,18 @@
         evidenceConfidence: 72,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        dimensions: [
-          { name: "Market Gap", score: 8.5 },
-          { name: "Traction Velocity", score: 8.2 },
-          { name: "Monetization Potential", score: 7.9 },
-          { name: "Build Complexity", score: 4.5 },
-          { name: "Regulatory Risk", score: 3.2 }
-        ],
-        evidenceLedger: [
-          { claim: "HN Community Upvotes", value: "29 points", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { claim: "Engagement Velocity", value: "6.7 pts/hour", type: "DERIVED_METRIC", symbol: "[DERIVED]" },
-          { claim: "Tech Stack Invariant", value: "Go, TypeScript, Embeddable WASM", type: "SOURCE_CLAIM", symbol: "[CLAIM]" }
-        ],
-        competitors: [
-          { name: "Chatbase (US)", type: "Direct International Competitor" },
-          { name: "OpenAssistant Widget", type: "Open Source Substitute" }
-        ],
-        risks: [
-          { dimension: "Market Risk", risk: "Market demand shifts towards big-tech bundled assistants", severity: "MEDIUM", confidence: "80%", basis: "SOURCE_CLAIM" },
-          { dimension: "Technical Risk", risk: "LLM hallucination rate in enterprise customer queries", severity: "HIGH", confidence: "90%", basis: "AI_ANALYSIS" },
-          { dimension: "Regulatory Risk", risk: "EU AI Act transparency and data sovereignty rules", severity: "LOW", confidence: "95%", basis: "FACT" },
-          { dimension: "Distribution Risk", risk: "SaaS Widget copycat saturation on open-source repositories", severity: "MEDIUM", confidence: "75%", basis: "DERIVED_METRIC" },
-          { dimension: "Monetization Risk", risk: "Self-hosting users reluctant to convert to paid seats", severity: "HIGH", confidence: "85%", basis: "AI_HYPOTHESIS" },
-          { dimension: "Evidence Risk", risk: "Public forum upvotes are unverified commercial traction signals", severity: "HIGH", confidence: "95%", basis: "FACT" }
-        ],
+        dimensions: {
+          marketGap: 8.5,
+          tractionVelocity: 8.2,
+          monetizationPotential: 7.9,
+          buildComplexity: 4.5,
+          regulatoryRisk: 3.2
+        },
+        evidenceCount: { FACT: 1, CLAIM: 2, DERIVED: 1, AI_ANALYSIS: 1, AI_HYPOTHESIS: 1, UNKNOWN: 0 },
         monetization: "Dual-license model: AGPL open-source with paid commercial seats and white-label enterprise deployment packages.",
         localization: "Zero hardcoded locale strings; immediate translation support for DACH (German), US, and APAC markets.",
         mvp: "Next.js / Node.js lightweight widget loader (<45KB bundle size) with local vector store SQLite adapter.",
-        provenance: {
-          externalId: "hn:49497227",
-          ingestedVia: "Hacker News Official REST API",
-          collectorVersion: "1.0.0",
-          durableStore: "PostgreSQL 16 Attributed"
-        }
+        tradeOff: "Low build complexity and high market pull, but moderate monetization conversion risk."
       },
       {
         id: "opp-trustmrr-001",
@@ -624,35 +581,18 @@
         evidenceConfidence: 85,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        dimensions: [
-          { name: "Market Gap", score: 9.1 },
-          { name: "Traction Velocity", score: 9.4 },
-          { name: "Monetization Potential", score: 9.6 },
-          { name: "Build Complexity", score: 7.8 },
-          { name: "Regulatory Risk", score: 4.0 }
-        ],
-        evidenceLedger: [
-          { claim: "Reported MRR", value: "$24,500 / month", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { claim: "Reported MoM Growth", value: "+18.4% monthly", type: "DERIVED_METRIC", symbol: "[DERIVED]" },
-          { claim: "Third-Party Proof Hook", value: "Stripe Connect Claim", type: "SOURCE_CLAIM", symbol: "[CLAIM]" }
-        ],
-        competitors: [
-          { name: "Vantage.sh (US)", type: "Direct Competitor" },
-          { name: "In-House CloudWatch Dashboards", type: "Substitute" }
-        ],
-        risks: [
-          { risk: "Cloud Provider API Rate Limiting", severity: "MEDIUM", confidence: "80%" },
-          { risk: "Enterprise Sales Cycle Latency", severity: "HIGH", confidence: "85%" }
-        ],
+        dimensions: {
+          marketGap: 9.1,
+          tractionVelocity: 9.4,
+          monetizationPotential: 9.6,
+          buildComplexity: 7.8,
+          regulatoryRisk: 4.0
+        },
+        evidenceCount: { FACT: 2, CLAIM: 2, DERIVED: 1, AI_ANALYSIS: 1, AI_HYPOTHESIS: 0, UNKNOWN: 0 },
         monetization: "Usage-based tiers starting at $199/month scaling with tracked infrastructure spend.",
         localization: "US English primary; EU GDPR compliant data residency mode supported.",
         mvp: "Single-tenant AWS/GCP Cost Explorer IAM connector with automated Slack anomaly alerts.",
-        provenance: {
-          externalId: "trustmrr:listing:48821",
-          ingestedVia: "TrustMRR Normalized Discovery Ingestion",
-          collectorVersion: "1.0.0",
-          durableStore: "PostgreSQL 16 Attributed"
-        }
+        tradeOff: "Highest traction and verified monetization, but higher build complexity and longer sales cycle."
       },
       {
         id: "opp-stealth-002",
@@ -670,32 +610,18 @@
         evidenceConfidence: 65,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        dimensions: [
-          { name: "Market Gap", score: 8.0 },
-          { name: "Traction Velocity", score: 7.5 },
-          { name: "Monetization Potential", score: 8.8 },
-          { name: "Build Complexity", score: 6.5 },
-          { name: "Regulatory Risk", score: 2.5 }
-        ],
-        evidenceLedger: [
-          { claim: "Reported ARR", value: "$180,000", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { claim: "Confidential Isolation", value: "Zero PII Leaked", type: "FACT", symbol: "[FACT]" }
-        ],
-        competitors: [
-          { name: "Stealth Provider (US)", type: "Direct International Competitor" }
-        ],
-        risks: [
-          { risk: "Confidential Seller Identity Verification Latency", severity: "HIGH", confidence: "95%" }
-        ],
+        dimensions: {
+          marketGap: 8.0,
+          tractionVelocity: 7.5,
+          monetizationPotential: 8.8,
+          buildComplexity: 6.5,
+          regulatoryRisk: 2.5
+        },
+        evidenceCount: { FACT: 1, CLAIM: 2, DERIVED: 0, AI_ANALYSIS: 1, AI_HYPOTHESIS: 1, UNKNOWN: 0 },
         monetization: "Yearly enterprise contracts ($15k - $50k/year).",
         localization: "Global remote developer infrastructure.",
         mvp: "OpenTelemetry compliant LLM gateway proxy.",
-        provenance: {
-          externalId: "trustmrr:stealth:7742",
-          ingestedVia: "Restricted Stealth Gateway",
-          collectorVersion: "1.0.0",
-          durableStore: "PostgreSQL 16 Isolated"
-        }
+        tradeOff: "High enterprise contract value, but high verification latency due to stealth mode."
       },
       {
         id: "opp-hn-live-002",
@@ -713,33 +639,18 @@
         evidenceConfidence: 68,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        dimensions: [
-          { name: "Market Gap", score: 7.2 },
-          { name: "Traction Velocity", score: 6.8 },
-          { name: "Monetization Potential", score: 6.5 },
-          { name: "Build Complexity", score: 9.0 },
-          { name: "Regulatory Risk", score: 1.5 }
-        ],
-        evidenceLedger: [
-          { claim: "HN Upvotes", value: "48 points", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { claim: "Community Engagement", value: "Strong Signal", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" }
-        ],
-        competitors: [
-          { name: "Godot Engine (Open Source)", type: "Direct Competitor" },
-          { name: "MonoGame", type: "Substitute" }
-        ],
-        risks: [
-          { risk: "Massive Tooling & Asset Pipeline Engineering Requirement", severity: "HIGH", confidence: "95%" }
-        ],
+        dimensions: {
+          marketGap: 7.2,
+          tractionVelocity: 6.8,
+          monetizationPotential: 6.5,
+          buildComplexity: 9.0,
+          regulatoryRisk: 1.5
+        },
+        evidenceCount: { FACT: 0, CLAIM: 2, DERIVED: 0, AI_ANALYSIS: 2, AI_HYPOTHESIS: 1, UNKNOWN: 0 },
         monetization: "Curated asset marketplace commission and enterprise simulation runtime support.",
         localization: "Global indie developer ecosystem.",
         mvp: "Vulkan / C# desktop rendering core with basic tilemap editor.",
-        provenance: {
-          externalId: "hn:49497922",
-          ingestedVia: "Hacker News Official REST API",
-          collectorVersion: "1.0.0",
-          durableStore: "PostgreSQL 16 Attributed"
-        }
+        tradeOff: "Strong community passion, but extremely high build complexity and low initial monetization."
       },
       {
         id: "opp-speculative-003",
@@ -757,35 +668,22 @@
         evidenceConfidence: 45,
         evidenceType: "AI_HYPOTHESIS",
         evidenceSymbol: "[AI_HYPOTHESIS]",
-        dimensions: [
-          { name: "Market Gap", score: 9.6 },
-          { name: "Traction Velocity", score: 5.0 },
-          { name: "Monetization Potential", score: 9.4 },
-          { name: "Build Complexity", score: 7.2 },
-          { name: "Regulatory Risk", score: 8.5 }
-        ],
-        evidenceLedger: [
-          { claim: "Market Gap Score", value: "9.6 / 10", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" },
-          { claim: "Empirical Ground Truth Evidence", value: "Pending Pilot Ingestion", type: "AI_HYPOTHESIS", symbol: "[AI_HYPOTHESIS]" }
-        ],
-        competitors: [
-          { name: "Harvey AI (US)", type: "International Giant" },
-          { name: "Local German Law Firms", type: "Incumbent Substitute" }
-        ],
-        risks: [
-          { risk: "Strict Professional Liability for Legal Inaccuracies", severity: "CRITICAL", confidence: "98%" }
-        ],
+        dimensions: {
+          marketGap: 9.6,
+          tractionVelocity: 5.0,
+          monetizationPotential: 9.4,
+          buildComplexity: 7.2,
+          regulatoryRisk: 8.5
+        },
+        evidenceCount: { FACT: 0, CLAIM: 0, DERIVED: 0, AI_ANALYSIS: 2, AI_HYPOTHESIS: 3, UNKNOWN: 0 },
         monetization: "Monthly B2B SaaS seat per corporate legal counsel (€350/month).",
         localization: "DACH Region (German civil law corpus - BGB/HGB).",
         mvp: "Retrieval-augmented clause analyzer for German commercial vendor contracts.",
-        provenance: {
-          externalId: "gap:dach:legal:003",
-          ingestedVia: "Market Gap Detection Pipeline",
-          collectorVersion: "1.0.0",
-          durableStore: "PostgreSQL 16 Attributed"
-        }
+        tradeOff: "Highest theoretical upside in underserved region, but weakest empirical ground truth evidence."
       }
     ];
+
+    let selectedCompareIds = new Set();
 
     function getBadgeClass(type) {
       switch(type) {
@@ -798,6 +696,41 @@
       }
     }
 
+    function toggleCompare(id, event) {
+      event.stopPropagation();
+      if (selectedCompareIds.has(id)) {
+        selectedCompareIds.delete(id);
+      } else {
+        if (selectedCompareIds.size >= 4) {
+          alert("Maximum 4 opportunities can be compared simultaneously in the Portfolio Matrix.");
+          return;
+        }
+        selectedCompareIds.add(id);
+      }
+      updateCompareBar();
+      renderFeed(OPPORTUNITY_FIXTURES);
+    }
+
+    function clearCompareSelection() {
+      selectedCompareIds.clear();
+      updateCompareBar();
+      renderFeed(OPPORTUNITY_FIXTURES);
+    }
+
+    function updateCompareBar() {
+      const count = selectedCompareIds.size;
+      document.getElementById("compareCount").innerText = count;
+      const launchBtn = document.getElementById("launchCompareBtn");
+      launchBtn.disabled = count < 2;
+      launchBtn.innerText = `Launch Comparison Matrix (${count}/4)`;
+
+      const pillsContainer = document.getElementById("compareSelectedPills");
+      pillsContainer.innerHTML = Array.from(selectedCompareIds).map(id => {
+        const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
+        return `<span class="badge badge-claim" style="font-size:0.7rem;">${opp.title.slice(0, 24)}...</span>`;
+      }).join('');
+    }
+
     function renderFeed(items) {
       const feedContainer = document.getElementById("opportunityFeed");
       document.getElementById("oppCount").innerText = items.length;
@@ -807,150 +740,128 @@
         return;
       }
 
-      feedContainer.innerHTML = items.map(item => `
-        <div class="opp-card" tabindex="0" role="button" aria-label="Open Workspace for ${item.title}" onclick="openWorkspace('${item.id}')" onkeydown="if(event.key==='Enter'||event.key===' ') openWorkspace('${item.id}')">
-          <div>
-            <div class="opp-header">
-              <span class="opp-title">${item.title}</span>
-              ${item.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
-              <span class="badge ${getBadgeClass(item.evidenceType)}">
-                ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
+      feedContainer.innerHTML = items.map(item => {
+        const isSelected = selectedCompareIds.has(item.id);
+        return `
+          <div class="opp-card ${isSelected ? 'selected-for-compare' : ''}">
+            <div>
+              <div class="opp-header">
+                <span class="opp-title">${item.title}</span>
+                ${item.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
+                <span class="badge ${getBadgeClass(item.evidenceType)}">
+                  ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
+                </span>
+              </div>
+              <div class="opp-meta">
+                <span>Category: <strong>${item.category}</strong></span>
+                <span>Market: <strong>${item.market}</strong></span>
+                <span>Source: <strong>${item.sourceId}</strong></span>
+              </div>
+              <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.4;">${item.summary}</div>
+              <button class="compare-card-btn ${isSelected ? 'active' : ''}" onclick="toggleCompare('${item.id}', event)">
+                ${isSelected ? '✓ In Compare Matrix' : '+ Add to Compare'}
+              </button>
+            </div>
+            <div class="score-box">
+              <span class="score-label">Opportunity Score</span>
+              <span class="score-primary">${item.opportunityScore}</span>
+              <span class="score-label" style="margin-top:0.4rem;">Evidence Confidence</span>
+              <span class="confidence-meter" style="color:${item.evidenceConfidence >= 80 ? 'var(--accent-emerald)' : 'var(--accent-amber)'}">
+                ${item.evidenceConfidence}%
               </span>
             </div>
-            <div class="opp-meta">
-              <span>Category: <strong>${item.category}</strong></span>
-              <span>Market: <strong>${item.market}</strong></span>
-              <span>Source: <strong>${item.sourceId}</strong></span>
-              <span>Author: <strong>${item.author}</strong></span>
-            </div>
-            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.4;">${item.summary}</div>
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-              ${item.evidenceLedger.map(s => `
-                <span class="badge ${getBadgeClass(s.type)}" style="font-size:0.7rem;">
-                  ${s.symbol || ''} ${s.claim}: <strong style="color:#fff; margin-left:0.2rem;">${s.value}</strong>
-                </span>
-              `).join('')}
-            </div>
           </div>
-          <div class="score-box">
-            <span class="score-label">Opportunity Score</span>
-            <span class="score-primary">${item.opportunityScore}</span>
-            <span class="score-label" style="margin-top:0.4rem;">Evidence Confidence</span>
-            <span class="confidence-meter" style="color:${item.evidenceConfidence >= 80 ? 'var(--accent-emerald)' : 'var(--accent-amber)'}">
-              ${item.evidenceConfidence}%
-            </span>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    function openWorkspace(id) {
-      const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
-      if (!opp) return;
+    function launchComparisonMatrix() {
+      if (selectedCompareIds.size < 2) return;
+      const selected = Array.from(selectedCompareIds).map(id => OPPORTUNITY_FIXTURES.find(o => o.id === id));
+      
+      const container = document.getElementById("matrixTableContainer");
+      container.innerHTML = `
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th style="width:200px;">Strategic Decision Dimension</th>
+              ${selected.map(o => `<th>${o.title} ${o.isConfidential ? '🔒 [CONFIDENTIAL]' : ''}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">1. Executive Scores & Confidence Decoupling</td></tr>
+            <tr>
+              <td><strong>Opportunity Score</strong></td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:800; color:#fff;">${o.opportunityScore} / 100</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Evidence Confidence</strong></td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:800; color:var(--accent-emerald);">${o.evidenceConfidence}%</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>Primary Classification</strong></td>
+              ${selected.map(o => `<td><span class="badge ${getBadgeClass(o.evidenceType)}">${o.evidenceSymbol} ${o.evidenceType}</span></td>`).join('')}
+            </tr>
 
-      document.getElementById("wsTitle").innerText = opp.title;
-      document.getElementById("wsBadges").innerHTML = `
-        ${opp.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
-        <span class="badge ${getBadgeClass(opp.evidenceType)}">${opp.evidenceSymbol} ${opp.evidenceType}</span>
-        <span class="badge badge-unknown">Category: ${opp.category}</span>
-        <span class="badge badge-unknown">Market: ${opp.market}</span>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">2. Detailed Score Dimension Matrix</td></tr>
+            <tr>
+              <td>Market Gap Score</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.marketGap} / 10</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Traction Velocity</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.tractionVelocity} / 10</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Monetization Potential</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.monetizationPotential} / 10</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Build Complexity (Lower = Easier)</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.buildComplexity >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.buildComplexity} / 10</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Regulatory Risk (Lower = Safer)</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.regulatoryRisk >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.regulatoryRisk} / 10</td>`).join('')}
+            </tr>
+
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">3. Evidence Quality Breakdown</td></tr>
+            <tr>
+              <td>Verified Proofs [FACT]</td>
+              ${selected.map(o => `<td><strong>${o.evidenceCount.FACT}</strong> items</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Reported Claims [CLAIM]</td>
+              ${selected.map(o => `<td><strong>${o.evidenceCount.CLAIM}</strong> items</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Hypotheses [AI_HYPOTHESIS]</td>
+              ${selected.map(o => `<td><strong>${o.evidenceCount.AI_HYPOTHESIS}</strong> items</td>`).join('')}
+            </tr>
+
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">4. Strategic Trade-Off & Shortlist</td></tr>
+            <tr>
+              <td>Executive Trade-Off Summary</td>
+              ${selected.map(o => `<td style="color:var(--text-secondary); line-height:1.4;">${o.tradeOff}</td>`).join('')}
+            </tr>
+            <tr>
+              <td>Portfolio Decision</td>
+              ${selected.map(o => `<td><button onclick="alert('Added to Active Portfolio Shortlist!')" style="background:var(--bg-surface-elevated); border:1px solid var(--accent-emerald); color:#fff; padding:0.4rem 0.8rem; border-radius:4px; font-weight:700; cursor:pointer;">★ Add to Shortlist</button></td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
       `;
-      document.getElementById("wsMeta").innerText = `Source ID: ${opp.sourceId} | Author: ${opp.author} | Published: ${new Date(opp.publishedAt).toLocaleString()}`;
-      document.getElementById("wsSummary").innerText = opp.summary;
-      document.getElementById("wsWhyNow").innerText = opp.whyNow;
-      document.getElementById("wsProvenElsewhere").innerText = opp.provenElsewhere;
 
-      // Evidence Ledger
-      document.getElementById("wsEvidenceLedger").innerHTML = opp.evidenceLedger.map(e => `
-        <div class="metric-row">
-          <span><span class="badge ${getBadgeClass(e.type)}" style="font-size:0.65rem; margin-right:0.4rem;">${e.symbol} ${e.type}</span> ${e.claim}</span>
-          <strong style="color:#fff; font-family:var(--font-mono);">${e.value}</strong>
-        </div>
-      `).join('');
-
-      // Score Breakdown Dimensions
-      document.getElementById("wsScore").innerText = opp.opportunityScore;
-      document.getElementById("wsConf").innerText = `${opp.evidenceConfidence}%`;
-      document.getElementById("wsScoreDimensions").innerHTML = opp.dimensions.map(d => `
-        <div class="metric-row">
-          <span>${d.name}</span>
-          <strong style="color:var(--accent-blue); font-family:var(--font-mono);">${d.score} / 10</strong>
-        </div>
-      `).join('');
-
-      // Market Gap & Signals (Preserving non-promoted semantic labels)
-      document.getElementById("wsMarketSignals").innerHTML = `
-        <div class="metric-row"><span>Category Landscape</span><strong>${opp.category}</strong></div>
-        <div class="metric-row"><span>Market Geography</span><strong>${opp.market}</strong></div>
-        <div class="metric-row"><span>Market Gap Indicator</span><strong><span class="badge badge-analysis" style="font-size:0.65rem;">[AI_ANALYSIS]</span> Quantified Assessment</strong></div>
-        <div class="metric-row"><span>Evidence Status</span><strong>${opp.evidenceSymbol} ${opp.evidenceType}</strong></div>
-      `;
-
-      document.getElementById("wsLocalization").innerText = opp.localization;
-      document.getElementById("wsMonetization").innerHTML = `<div><span class="badge badge-hypothesis" style="font-size:0.65rem; margin-right:0.3rem;">[AI_HYPOTHESIS]</span> ${opp.monetization}</div>`;
-      document.getElementById("wsMvp").innerText = opp.mvp;
-
-      // Competitors & 6-Dimensional Risk Register
-      document.getElementById("wsCompetitors").innerHTML = opp.competitors.map(c => `
-        <div class="metric-row"><span>${c.name}</span><span style="color:var(--text-muted); font-size:0.75rem;">${c.type}</span></div>
-      `).join('');
-
-      document.getElementById("wsRisks").innerHTML = (opp.risks || []).map(r => `
-        <div class="metric-row" style="flex-direction:column; align-items:flex-start; gap:0.2rem; padding:0.4rem 0;">
-          <div style="display:flex; justify-content:space-between; width:100%;">
-            <strong style="color:#fff; font-size:0.8rem;">${r.dimension || 'Risk'}: ${r.risk}</strong>
-            <span style="color:${r.severity==='CRITICAL'||r.severity==='HIGH'?'var(--accent-rose)':'var(--accent-amber)'}; font-size:0.75rem; font-weight:700;">[${r.severity}]</span>
-          </div>
-          <div style="font-size:0.7rem; color:var(--text-muted);">Confidence: ${r.confidence} | Basis: <span class="badge ${getBadgeClass(r.basis || 'UNKNOWN')}" style="font-size:0.6rem; padding:0.1rem 0.3rem;">${r.basis || 'UNKNOWN'}</span></div>
-        </div>
-      `).join('');
-
-      // Provenance Panel
-      document.getElementById("wsProvenance").innerHTML = `
-        <div>EXTERNAL_ID: ${opp.provenance.externalId}</div>
-        <div>INGESTION_ROUTE: ${opp.provenance.ingestedVia}</div>
-        <div>COLLECTOR_VER: ${opp.provenance.collectorVersion}</div>
-        <div>STORE: ${opp.provenance.durableStore}</div>
-      `;
-
-      document.getElementById("workspaceModal").style.display = "flex";
+      document.getElementById("compareModal").style.display = "flex";
     }
 
-    document.getElementById("closeWsBtn").onclick = () => {
-      document.getElementById("workspaceModal").style.display = "none";
-    };
-
-    function applyAllFilters() {
-      const q = document.getElementById("searchInput").value.toLowerCase();
-      const cat = document.getElementById("catFilter").value;
-      const market = document.getElementById("marketFilter").value;
-      const minScore = parseInt(document.getElementById("minScoreFilter").value, 10);
-      const minConf = parseInt(document.getElementById("minConfFilter").value, 10);
-      const ev = document.getElementById("evFilter").value;
-      const src = document.getElementById("sourceFilter").value;
-
-      const filtered = OPPORTUNITY_FIXTURES.filter(item => {
-        const matchesQ = item.title.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q);
-        const matchesCat = cat === "ALL" || item.category === cat;
-        const matchesMarket = market === "ALL" || item.market === market;
-        const matchesScore = item.opportunityScore >= minScore;
-        const matchesConf = item.evidenceConfidence >= minConf;
-        const matchesEv = ev === "ALL" || item.evidenceType === ev;
-        const matchesSrc = src === "ALL" || item.sourceId === src;
-
-        return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc;
-      });
-
-      renderFeed(filtered);
+    function closeComparisonMatrix() {
+      document.getElementById("compareModal").style.display = "none";
     }
-
-    ["searchInput", "catFilter", "marketFilter", "minScoreFilter", "minConfFilter", "evFilter", "sourceFilter", "freshFilter"].forEach(id => {
-      document.getElementById(id).addEventListener("input", applyAllFilters);
-      document.getElementById(id).addEventListener("change", applyAllFilters);
-    });
 
     // Initial render
     renderFeed(OPPORTUNITY_FIXTURES);
+    updateCompareBar();
   </script>
 </body>
 </html>
