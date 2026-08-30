@@ -878,15 +878,16 @@
         </div>
       `).join('');
 
-      // Market Signals
+      // Market Gap & Signals (Preserving non-promoted semantic labels)
       document.getElementById("wsMarketSignals").innerHTML = `
         <div class="metric-row"><span>Category Landscape</span><strong>${opp.category}</strong></div>
         <div class="metric-row"><span>Market Geography</span><strong>${opp.market}</strong></div>
+        <div class="metric-row"><span>Market Gap Indicator</span><strong><span class="badge badge-analysis" style="font-size:0.65rem;">[AI_ANALYSIS]</span> Quantified Assessment</strong></div>
         <div class="metric-row"><span>Evidence Status</span><strong>${opp.evidenceSymbol} ${opp.evidenceType}</strong></div>
       `;
 
       document.getElementById("wsLocalization").innerText = opp.localization;
-      document.getElementById("wsMonetization").innerText = opp.monetization;
+      document.getElementById("wsMonetization").innerHTML = `<div><span class="badge badge-hypothesis" style="font-size:0.65rem; margin-right:0.3rem;">[AI_HYPOTHESIS]</span> ${opp.monetization}</div>`;
       document.getElementById("wsMvp").innerText = opp.mvp;
 
       // Competitors & 6-Dimensional Risk Register
