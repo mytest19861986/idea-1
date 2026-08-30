@@ -9,11 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0d14;
-      --bg-secondary: #0f1422;
-      --bg-surface: #141b2d;
-      --bg-surface-elevated: #1b243b;
-      --border-subtle: #232d46;
+      --bg-primary: #080b11;
+      --bg-secondary: #0d121d;
+      --bg-surface: #121826;
+      --bg-surface-elevated: #182236;
+      --border-subtle: #1f2a40;
       --border-accent: #3b82f6;
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
@@ -49,7 +49,7 @@
     }
 
     /* Accessibility Focus States */
-    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="0"]:focus-visible {
       outline: 2px solid var(--accent-blue);
       outline-offset: 2px;
     }
@@ -110,7 +110,7 @@
 
     .workspace {
       display: grid;
-      grid-template-columns: 300px 1fr;
+      grid-template-columns: 290px 1fr;
       flex: 1;
       min-height: calc(100vh - 60px);
     }
@@ -127,11 +127,11 @@
     .filter-section {
       display: flex;
       flex-direction: column;
-      gap: 0.4rem;
+      gap: 0.35rem;
     }
     .filter-label {
       font-family: var(--font-mono);
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-muted);
@@ -183,6 +183,7 @@
     .opp-card:hover {
       background: var(--bg-surface-elevated);
       border-color: var(--border-accent);
+      transform: translateY(-1px);
     }
     .opp-header {
       display: flex;
@@ -206,7 +207,7 @@
       flex-wrap: wrap;
     }
 
-    /* Six Evidence Classifications with Non-Color Symbolic Icons */
+    /* Six Evidence Badges with Non-Color Symbolic Labels */
     .badge {
       font-family: var(--font-mono);
       font-size: 0.7rem;
@@ -217,7 +218,6 @@
       align-items: center;
       gap: 0.35rem;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
     }
     .badge-fact { background: rgba(16, 185, 129, 0.15); color: var(--ev-fact); border: 1px solid rgba(16, 185, 129, 0.4); }
     .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--ev-claim); border: 1px solid rgba(56, 189, 248, 0.4); }
@@ -257,49 +257,82 @@
       gap: 0.3rem;
     }
 
-    /* Modal / Detail View */
-    .detail-overlay {
+    /* Executive Opportunity Workspace View (Full-Page Modal Overlay) */
+    .workspace-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(10, 13, 20, 0.85);
-      backdrop-filter: blur(4px);
+      background: rgba(8, 11, 17, 0.92);
+      backdrop-filter: blur(8px);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 100;
       padding: 1.5rem;
     }
-    .detail-modal {
+    .workspace-modal {
       background: var(--bg-secondary);
       border: 1px solid var(--border-accent);
-      border-radius: 10px;
+      border-radius: 12px;
       width: 100%;
-      max-width: 850px;
-      max-height: 90vh;
+      max-width: 1100px;
+      height: 92vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .workspace-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: var(--bg-surface);
+    }
+    .workspace-body {
+      flex: 1;
       overflow-y: auto;
       padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 2rem;
     }
-    .ia-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 1rem;
+    .workspace-section {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
     }
-    .ia-title {
+    .workspace-section-title {
       font-family: var(--font-mono);
       font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent-blue);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--accent-blue);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.85rem;
     }
 
     @media (max-width: 1024px) {
       .workspace { grid-template-columns: 1fr; }
       aside { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+      .workspace-body { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -308,23 +341,23 @@
   <header role="banner">
     <div class="brand-group">
       <h1 class="brand-logo">
-        OPPORTUNITY INTEL <span>v1.0.0-PILOT</span>
+        OPPORTUNITY INTEL <span>v1.0.0-EXEC</span>
       </h1>
     </div>
     <div class="terminal-status-bar" aria-label="System Status">
       <div class="status-indicator">
         <div class="status-dot" aria-hidden="true"></div>
-        <span>SNAPSHOT: REFERENCE_PILOT_PROFILE</span>
+        <span>PILOT: ACTIVE_DURABLE_ROUTE</span>
       </div>
-      <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16 (DURABLE)</span></div>
-      <div>GATES: <span style="color:var(--accent-emerald);">23/23 PASS</span></div>
+      <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16</span></div>
+      <div>GATES: <span style="color:var(--accent-emerald);">23/23 SATISFIED</span></div>
     </div>
   </header>
 
   <div class="workspace">
     <aside role="complementary" aria-label="Search and Filter Controls">
       <div class="filter-section">
-        <label class="filter-label" for="searchInput">1. Search</label>
+        <label class="filter-label" for="searchInput">1. Search Keyword</label>
         <input type="text" class="input-search" id="searchInput" placeholder="Keywords, tech stack...">
       </div>
 
@@ -382,7 +415,7 @@
       </div>
 
       <div class="filter-section">
-        <label class="filter-label" for="sourceFilter">7. Source</label>
+        <label class="filter-label" for="sourceFilter">7. Source Identity</label>
         <select class="select-control" id="sourceFilter">
           <option value="ALL">All Authorized Sources</option>
           <option value="hacker-news-official-api">Hacker News Official API</option>
@@ -404,10 +437,10 @@
     <main role="main">
       <div class="toolbar">
         <h2 class="feed-stats" style="font-size:1rem; font-weight:600;">
-          Showing <strong id="oppCount">5</strong> Opportunities
+          Showing <strong id="oppCount">5</strong> Validated Opportunities
         </h2>
         <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
-          SOURCE_NEUTRAL_VIEW_MODEL | FAIL-CLOSED
+          CORE_UI: SOURCE-NEUTRAL | DECISION_READY
         </div>
       </div>
 
@@ -417,109 +450,205 @@
     </main>
   </div>
 
-  <!-- Detail Information Architecture Modal -->
-  <div class="detail-overlay" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="detail-modal">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <!-- Full Opportunity Intelligence Detail Workspace Modal -->
+  <div class="workspace-overlay" id="workspaceModal" role="dialog" aria-modal="true" aria-labelledby="wsTitle">
+    <div class="workspace-modal">
+      <div class="workspace-header">
         <div>
-          <h2 id="modalTitle" style="font-size:1.3rem; color:#fff; margin-bottom:0.4rem;"></h2>
-          <div id="modalBadges" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+          <div id="wsBadges" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
+          <h2 id="wsTitle" style="font-size:1.4rem; font-weight:800; color:#fff;"></h2>
+          <div id="wsMeta" style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.4rem;"></div>
         </div>
-        <button id="closeModalBtn" style="background:none; border:1px solid var(--border-subtle); color:#fff; padding:0.4rem 0.8rem; border-radius:4px; cursor:pointer;" aria-label="Close detail modal">✕ Close</button>
+        <button id="closeWsBtn" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.5rem 1rem; border-radius:6px; font-weight:700; cursor:pointer;" aria-label="Close Workspace">✕ Close Workspace</button>
       </div>
 
-      <div class="ia-section">
-        <span class="ia-title">1. Summary</span>
-        <p id="iaSummary" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-      </div>
+      <div class="workspace-body">
+        <!-- Left Analysis Column -->
+        <div>
+          <!-- Section B: Executive Summary -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">B. Executive Summary</div>
+            <p id="wsSummary" style="color:var(--text-secondary); font-size:0.95rem; line-height:1.6;"></p>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">2. Why Now</span>
-        <p id="iaWhyNow" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-      </div>
+          <!-- Section C & D: Why Now & Proven Elsewhere -->
+          <div class="grid-2col">
+            <div class="workspace-section">
+              <div class="workspace-section-title">C. Why Now (Catalysts)</div>
+              <p id="wsWhyNow" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+            </div>
+            <div class="workspace-section">
+              <div class="workspace-section-title">D. Proven Elsewhere</div>
+              <p id="wsProvenElsewhere" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+            </div>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">3. Evidence Classification & Provenance</span>
-        <div id="iaEvidence" style="font-size:0.85rem; color:var(--text-secondary);"></div>
-      </div>
+          <!-- Section E: Evidence Ledger -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">E. Evidence Ledger (Attributed Claims)</div>
+            <div id="wsEvidenceLedger" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">4. Traction & Market Signals</span>
-        <div id="iaTraction" style="font-size:0.85rem; color:var(--text-secondary);"></div>
-      </div>
+          <!-- Section K: MVP Blueprint -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">K. MVP Architecture Blueprint</div>
+            <div id="wsMvp" style="color:var(--text-secondary); font-size:0.9rem;"></div>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">5. Monetization Strategy</span>
-        <p id="iaMonetization" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-      </div>
+          <!-- Section L & M: Competitor Landscape & Risk Register -->
+          <div class="grid-2col">
+            <div class="workspace-section">
+              <div class="workspace-section-title">L. Competitor Landscape</div>
+              <div id="wsCompetitors" style="font-size:0.85rem; color:var(--text-secondary);"></div>
+            </div>
+            <div class="workspace-section">
+              <div class="workspace-section-title">M. Risk Register</div>
+              <div id="wsRisks" style="font-size:0.85rem; color:var(--text-secondary);"></div>
+            </div>
+          </div>
+        </div>
 
-      <div class="ia-section">
-        <span class="ia-title">6. Localization Fit</span>
-        <p id="iaLocalization" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-      </div>
+        <!-- Right Decision Column -->
+        <div>
+          <!-- Section A & F: Score Breakdown -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">A & F. Decision Scores</div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border-subtle);">
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Opportunity Score</div>
+                <div id="wsScore" style="font-size:1.8rem; font-weight:800; color:#fff; font-family:var(--font-mono);"></div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Evidence Confidence</div>
+                <div id="wsConf" style="font-size:1.8rem; font-weight:800; color:var(--accent-emerald); font-family:var(--font-mono);"></div>
+              </div>
+            </div>
+            <div id="wsScoreDimensions"></div>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">7. Risks & Regulatory Boundaries</span>
-        <p id="iaRisks" style="color:var(--text-secondary); font-size:0.9rem;"></p>
-      </div>
+          <!-- Section G & H: Traction & Market Gap -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">G & H. Market Signals</div>
+            <div id="wsMarketSignals"></div>
+          </div>
 
-      <div class="ia-section">
-        <span class="ia-title">8. MVP Scope Recommendation</span>
-        <p id="iaMvp" style="color:var(--text-secondary); font-size:0.9rem;"></p>
+          <!-- Section I & J: Localization & Monetization -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">I & J. Business Strategy</div>
+            <div style="font-size:0.85rem; margin-bottom:0.75rem;">
+              <strong style="color:var(--accent-blue);">Localization Fit:</strong>
+              <div id="wsLocalization" style="color:var(--text-secondary); margin-top:0.2rem;"></div>
+            </div>
+            <div style="font-size:0.85rem;">
+              <strong style="color:var(--accent-emerald);">Monetization Model:</strong>
+              <div id="wsMonetization" style="color:var(--text-secondary); margin-top:0.2rem;"></div>
+            </div>
+          </div>
+
+          <!-- Section N: Provenance Panel -->
+          <div class="workspace-section">
+            <div class="workspace-section-title">N. Provenance & Audit</div>
+            <div id="wsProvenance" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--text-muted);"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // Complete Source-Neutral Opportunities Fixtures representing all 6 evidence classes
+    // Complete Comprehensive Source-Neutral Opportunity View Models for WEB-PRODUCT-002
     const OPPORTUNITY_FIXTURES = [
       {
         id: "opp-hn-live-001",
-        title: "Show HN: Bolnee-Chat – Self Hosted Chatbot Integration in Your Business Website",
+        title: "Bolnee-Chat – Self-Hosted AI Customer Support Integration Widget",
         category: "AI / LLM DevTools",
         market: "Global",
         sourceId: "hacker-news-official-api",
         isConfidential: false,
         publishedAt: "2026-08-30T09:56:05.000Z",
         author: "AniketWathore",
-        summary: "Lightweight conversational AI integration widget for direct B2B customer support without third-party vendor lock-in.",
-        whyNow: "Growing enterprise preference for self-hosted data-sovereign chatbots.",
+        summary: "Lightweight conversational AI integration widget for direct B2B customer support without third-party vendor lock-in or recurring cloud telemetry fees.",
+        whyNow: "Enterprises face surging API bills and data-privacy regulations pushing them towards self-hosted, sovereign LLM inference widgets.",
+        provenElsewhere: "Successful commercial adoption of Chatbase, Mendable, and DocsBot across English SaaS platforms.",
         opportunityScore: 84,
         evidenceConfidence: 72,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        signals: [
-          { name: "HN Upvotes", value: "29", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { name: "Velocity", value: "6.7 pts/hr", type: "DERIVED_METRIC", symbol: "[DERIVED]" }
+        dimensions: [
+          { name: "Market Gap", score: 8.5 },
+          { name: "Traction Velocity", score: 8.2 },
+          { name: "Monetization Potential", score: 7.9 },
+          { name: "Build Complexity", score: 4.5 },
+          { name: "Regulatory Risk", score: 3.2 }
         ],
-        monetization: "Open-core licensing with enterprise support tiers.",
-        localization: "High global applicability across English and multilingual business sites.",
-        risks: "Competition from major open-source UI libraries.",
-        mvp: "Next.js / Node.js embedded widget with local vector store."
+        evidenceLedger: [
+          { claim: "HN Community Upvotes", value: "29 points", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { claim: "Engagement Velocity", value: "6.7 pts/hour", type: "DERIVED_METRIC", symbol: "[DERIVED]" },
+          { claim: "Tech Stack Invariant", value: "Go, TypeScript, Embeddable WASM", type: "SOURCE_CLAIM", symbol: "[CLAIM]" }
+        ],
+        competitors: [
+          { name: "Chatbase (US)", type: "Direct International Competitor" },
+          { name: "OpenAssistant Widget", type: "Open Source Substitute" }
+        ],
+        risks: [
+          { risk: "LLM Hallucination Risk in Enterprise Support", severity: "HIGH", confidence: "90%" },
+          { risk: "SaaS Widget Copycat Vulnerability", severity: "MEDIUM", confidence: "75%" }
+        ],
+        monetization: "Dual-license model: AGPL open-source with paid commercial seats and white-label enterprise deployment packages.",
+        localization: "Zero hardcoded locale strings; immediate translation support for DACH (German), US, and APAC markets.",
+        mvp: "Next.js / Node.js lightweight widget loader (<45KB bundle size) with local vector store SQLite adapter.",
+        provenance: {
+          externalId: "hn:49497227",
+          ingestedVia: "Hacker News Official REST API",
+          collectorVersion: "1.0.0",
+          durableStore: "PostgreSQL 16 Attributed"
+        }
       },
       {
         id: "opp-trustmrr-001",
-        title: "B2B SaaS Analytics Platform (Self-Reported Traction Claim)",
+        title: "B2B Multi-Cloud SaaS Usage Analytics Platform",
         category: "B2B SaaS Analytics",
         market: "US",
         sourceId: "trustmrr",
         isConfidential: false,
         publishedAt: "2026-08-29T14:20:00.000Z",
         author: "Marketplace Listing",
-        summary: "Multi-tenant B2B analytics platform with vendor-reported subscription metrics.",
-        whyNow: "Demand for consolidated usage metrics across hybrid clouds.",
+        summary: "Multi-tenant B2B analytics platform providing unified subscription, telemetry, and compute cost tracking for mid-market engineering teams.",
+        whyNow: "Explosion of multi-cloud AI infrastructure costs creating demand for consolidated spend telemetry.",
+        provenElsewhere: "Established multi-billion market proven by Datadog, Vantage, and CloudZero in North America.",
         opportunityScore: 92,
         evidenceConfidence: 85,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        signals: [
-          { name: "Reported MRR", value: "$24,500 / mo", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { name: "Growth Rate", value: "+18.4% MoM", type: "DERIVED_METRIC", symbol: "[DERIVED]" }
+        dimensions: [
+          { name: "Market Gap", score: 9.1 },
+          { name: "Traction Velocity", score: 9.4 },
+          { name: "Monetization Potential", score: 9.6 },
+          { name: "Build Complexity", score: 7.8 },
+          { name: "Regulatory Risk", score: 4.0 }
         ],
-        monetization: "Tiered monthly subscription per tracked event volume.",
-        localization: "US market first with EU GDPR compliance.",
-        risks: "High customer acquisition costs in crowded analytics space.",
-        mvp: "Plug-and-play SDK with automated Stripe usage billing."
+        evidenceLedger: [
+          { claim: "Reported MRR", value: "$24,500 / month", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { claim: "Reported MoM Growth", value: "+18.4% monthly", type: "DERIVED_METRIC", symbol: "[DERIVED]" },
+          { claim: "Third-Party Proof Hook", value: "Stripe Connect Claim", type: "SOURCE_CLAIM", symbol: "[CLAIM]" }
+        ],
+        competitors: [
+          { name: "Vantage.sh (US)", type: "Direct Competitor" },
+          { name: "In-House CloudWatch Dashboards", type: "Substitute" }
+        ],
+        risks: [
+          { risk: "Cloud Provider API Rate Limiting", severity: "MEDIUM", confidence: "80%" },
+          { risk: "Enterprise Sales Cycle Latency", severity: "HIGH", confidence: "85%" }
+        ],
+        monetization: "Usage-based tiers starting at $199/month scaling with tracked infrastructure spend.",
+        localization: "US English primary; EU GDPR compliant data residency mode supported.",
+        mvp: "Single-tenant AWS/GCP Cost Explorer IAM connector with automated Slack anomaly alerts.",
+        provenance: {
+          externalId: "trustmrr:listing:48821",
+          ingestedVia: "TrustMRR Normalized Discovery Ingestion",
+          collectorVersion: "1.0.0",
+          durableStore: "PostgreSQL 16 Attributed"
+        }
       },
       {
         id: "opp-stealth-002",
@@ -530,68 +659,127 @@
         isConfidential: true,
         publishedAt: "2026-08-28T11:00:00.000Z",
         author: "[CONFIDENTIAL]",
-        summary: "High-margin LLM observability framework operating in stealth acquisition mode.",
-        whyNow: "Rapid enterprise migration to multi-model LLM architectures.",
+        summary: "High-margin LLM observability framework operating in stealth acquisition mode with proven enterprise contract backlog.",
+        whyNow: "Stringent corporate AI governance standards mandating prompt-level audit trails.",
+        provenElsewhere: "Arize AI, LangSmith, and Portkey market momentum in US and Europe.",
         opportunityScore: 78,
         evidenceConfidence: 65,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        signals: [
-          { name: "Reported ARR", value: "$180,000", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { name: "Isolation", value: "Strict PII Protected", type: "FACT", symbol: "[FACT]" }
+        dimensions: [
+          { name: "Market Gap", score: 8.0 },
+          { name: "Traction Velocity", score: 7.5 },
+          { name: "Monetization Potential", score: 8.8 },
+          { name: "Build Complexity", score: 6.5 },
+          { name: "Regulatory Risk", score: 2.5 }
         ],
-        monetization: "Enterprise yearly contract.",
-        localization: "Global remote developer teams.",
-        risks: "Stealth verification latency.",
-        mvp: "Proxy gateway for prompt cost attribution."
+        evidenceLedger: [
+          { claim: "Reported ARR", value: "$180,000", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { claim: "Confidential Isolation", value: "Zero PII Leaked", type: "FACT", symbol: "[FACT]" }
+        ],
+        competitors: [
+          { name: "Stealth Provider (US)", type: "Direct International Competitor" }
+        ],
+        risks: [
+          { risk: "Confidential Seller Identity Verification Latency", severity: "HIGH", confidence: "95%" }
+        ],
+        monetization: "Yearly enterprise contracts ($15k - $50k/year).",
+        localization: "Global remote developer infrastructure.",
+        mvp: "OpenTelemetry compliant LLM gateway proxy.",
+        provenance: {
+          externalId: "trustmrr:stealth:7742",
+          ingestedVia: "Restricted Stealth Gateway",
+          collectorVersion: "1.0.0",
+          durableStore: "PostgreSQL 16 Isolated"
+        }
       },
       {
         id: "opp-hn-live-002",
-        title: "Show HN: C# Game Engine with Scripting Language and Integrated IDE",
+        title: "C# Cross-Platform Game Engine with Custom Scripting & IDE",
         category: "Developer Tools",
         market: "Global",
         sourceId: "hacker-news-official-api",
         isConfidential: false,
         publishedAt: "2026-08-30T10:12:00.000Z",
         author: "gamedev_lead",
-        summary: "Custom cross-platform lightweight 2D/3D game development framework targeting indie developers.",
-        whyNow: "Dissatisfaction with heavy commercial game engine licensing models.",
+        summary: "Custom cross-platform lightweight 2D/3D game development framework targeting indie developers seeking alternatives to heavy commercial engines.",
+        whyNow: "Indie game studios migrating away from unpredictable engine runtime fee structures.",
+        provenElsewhere: "Godot Engine massive adoption surge post-2023.",
         opportunityScore: 71,
         evidenceConfidence: 68,
         evidenceType: "SOURCE_CLAIM",
         evidenceSymbol: "[CLAIM]",
-        signals: [
-          { name: "HN Upvotes", value: "48", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
-          { name: "Community Engagement", value: "Strong Signal", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" }
+        dimensions: [
+          { name: "Market Gap", score: 7.2 },
+          { name: "Traction Velocity", score: 6.8 },
+          { name: "Monetization Potential", score: 6.5 },
+          { name: "Build Complexity", score: 9.0 },
+          { name: "Regulatory Risk", score: 1.5 }
         ],
-        monetization: "Asset store marketplace commission and premium IDE plugins.",
-        localization: "Global developer ecosystem.",
-        risks: "Ecosystem network effects of established engines.",
-        mvp: "C# / Vulkan lightweight desktop editor."
+        evidenceLedger: [
+          { claim: "HN Upvotes", value: "48 points", type: "SOURCE_CLAIM", symbol: "[CLAIM]" },
+          { claim: "Community Engagement", value: "Strong Signal", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" }
+        ],
+        competitors: [
+          { name: "Godot Engine (Open Source)", type: "Direct Competitor" },
+          { name: "MonoGame", type: "Substitute" }
+        ],
+        risks: [
+          { risk: "Massive Tooling & Asset Pipeline Engineering Requirement", severity: "HIGH", confidence: "95%" }
+        ],
+        monetization: "Curated asset marketplace commission and enterprise simulation runtime support.",
+        localization: "Global indie developer ecosystem.",
+        mvp: "Vulkan / C# desktop rendering core with basic tilemap editor.",
+        provenance: {
+          externalId: "hn:49497922",
+          ingestedVia: "Hacker News Official REST API",
+          collectorVersion: "1.0.0",
+          durableStore: "PostgreSQL 16 Attributed"
+        }
       },
       {
         id: "opp-speculative-003",
-        title: "Localized AI Legal Document Assistant (Emerging Gap)",
+        title: "Localized AI Legal Document Assistant (Emerging Market Gap)",
         category: "Legal Tech",
         market: "DACH",
         sourceId: "speculative-market-gap",
         isConfidential: false,
         publishedAt: "2026-08-27T08:30:00.000Z",
         author: "Market Gap Engine",
-        summary: "Identified high market gap in mid-tier corporate regulatory compliance automation in DACH region.",
-        whyNow: "New EU AI Act compliance mandates coming into force.",
+        summary: "Identified high market gap in mid-tier corporate regulatory compliance automation in DACH region under newly enacted EU AI Act.",
+        whyNow: "EU AI Act compliance enforcement deadlines mandating corporate risk classification audits.",
+        provenElsewhere: "Harvey AI, Robin AI multi-billion valuations in US and UK.",
         opportunityScore: 89,
         evidenceConfidence: 45,
         evidenceType: "AI_HYPOTHESIS",
         evidenceSymbol: "[AI_HYPOTHESIS]",
-        signals: [
-          { name: "Market Gap Score", value: "9.2 / 10", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" },
-          { name: "Ground Truth Evidence", value: "Pending Pilot Ingestion", type: "AI_HYPOTHESIS", symbol: "[AI_HYPOTHESIS]" }
+        dimensions: [
+          { name: "Market Gap", score: 9.6 },
+          { name: "Traction Velocity", score: 5.0 },
+          { name: "Monetization Potential", score: 9.4 },
+          { name: "Build Complexity", score: 7.2 },
+          { name: "Regulatory Risk", score: 8.5 }
         ],
-        monetization: "Monthly B2B SaaS per corporate legal seat.",
-        localization: "DACH Region (German language legal corpus).",
-        risks: "Strict liability and legal accuracy requirements.",
-        mvp: "Retrieval-augmented clause analyzer for German commercial contracts."
+        evidenceLedger: [
+          { claim: "Market Gap Score", value: "9.6 / 10", type: "AI_ANALYSIS", symbol: "[AI_ANALYSIS]" },
+          { claim: "Empirical Ground Truth Evidence", value: "Pending Pilot Ingestion", type: "AI_HYPOTHESIS", symbol: "[AI_HYPOTHESIS]" }
+        ],
+        competitors: [
+          { name: "Harvey AI (US)", type: "International Giant" },
+          { name: "Local German Law Firms", type: "Incumbent Substitute" }
+        ],
+        risks: [
+          { risk: "Strict Professional Liability for Legal Inaccuracies", severity: "CRITICAL", confidence: "98%" }
+        ],
+        monetization: "Monthly B2B SaaS seat per corporate legal counsel (€350/month).",
+        localization: "DACH Region (German civil law corpus - BGB/HGB).",
+        mvp: "Retrieval-augmented clause analyzer for German commercial vendor contracts.",
+        provenance: {
+          externalId: "gap:dach:legal:003",
+          ingestedVia: "Market Gap Detection Pipeline",
+          collectorVersion: "1.0.0",
+          durableStore: "PostgreSQL 16 Attributed"
+        }
       }
     ];
 
@@ -611,12 +799,12 @@
       document.getElementById("oppCount").innerText = items.length;
 
       if (items.length === 0) {
-        feedContainer.innerHTML = '<div style="padding:2rem; color:var(--text-muted); text-align:center;">No matching opportunities found.</div>';
+        feedContainer.innerHTML = '<div style="padding:3rem; color:var(--text-muted); text-align:center;">No matching opportunities match the active filters.</div>';
         return;
       }
 
       feedContainer.innerHTML = items.map(item => `
-        <div class="opp-card" tabindex="0" role="button" aria-label="View details for ${item.title}" onclick="openDetail('${item.id}')" onkeydown="if(event.key==='Enter'||event.key===' ') openDetail('${item.id}')">
+        <div class="opp-card" tabindex="0" role="button" aria-label="Open Workspace for ${item.title}" onclick="openWorkspace('${item.id}')" onkeydown="if(event.key==='Enter'||event.key===' ') openWorkspace('${item.id}')">
           <div>
             <div class="opp-header">
               <span class="opp-title">${item.title}</span>
@@ -631,11 +819,11 @@
               <span>Source: <strong>${item.sourceId}</strong></span>
               <span>Author: <strong>${item.author}</strong></span>
             </div>
-            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">${item.summary}</div>
+            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.4;">${item.summary}</div>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-              ${item.signals.map(s => `
+              ${item.evidenceLedger.map(s => `
                 <span class="badge ${getBadgeClass(s.type)}" style="font-size:0.7rem;">
-                  ${s.symbol || ''} ${s.name}: <strong style="color:#fff; margin-left:0.2rem;">${s.value}</strong>
+                  ${s.symbol || ''} ${s.claim}: <strong style="color:#fff; margin-left:0.2rem;">${s.value}</strong>
                 </span>
               `).join('')}
             </div>
@@ -652,31 +840,73 @@
       `).join('');
     }
 
-    function openDetail(id) {
+    function openWorkspace(id) {
       const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
       if (!opp) return;
 
-      document.getElementById("modalTitle").innerText = opp.title;
-      document.getElementById("modalBadges").innerHTML = `
+      document.getElementById("wsTitle").innerText = opp.title;
+      document.getElementById("wsBadges").innerHTML = `
         ${opp.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
         <span class="badge ${getBadgeClass(opp.evidenceType)}">${opp.evidenceSymbol} ${opp.evidenceType}</span>
-        <span class="badge badge-unknown">Score: ${opp.opportunityScore}</span>
-        <span class="badge badge-unknown">Confidence: ${opp.evidenceConfidence}%</span>
+        <span class="badge badge-unknown">Category: ${opp.category}</span>
+        <span class="badge badge-unknown">Market: ${opp.market}</span>
       `;
-      document.getElementById("iaSummary").innerText = opp.summary;
-      document.getElementById("iaWhyNow").innerText = opp.whyNow;
-      document.getElementById("iaEvidence").innerHTML = `Source: <strong>${opp.sourceId}</strong> | Author: <strong>${opp.author}</strong> | Timestamp: ${opp.publishedAt}`;
-      document.getElementById("iaTraction").innerHTML = opp.signals.map(s => `<div>${s.symbol} ${s.name}: <strong>${s.value}</strong> (${s.type})</div>`).join('');
-      document.getElementById("iaMonetization").innerText = opp.monetization;
-      document.getElementById("iaLocalization").innerText = opp.localization;
-      document.getElementById("iaRisks").innerText = opp.risks;
-      document.getElementById("iaMvp").innerText = opp.mvp;
+      document.getElementById("wsMeta").innerText = `Source ID: ${opp.sourceId} | Author: ${opp.author} | Published: ${new Date(opp.publishedAt).toLocaleString()}`;
+      document.getElementById("wsSummary").innerText = opp.summary;
+      document.getElementById("wsWhyNow").innerText = opp.whyNow;
+      document.getElementById("wsProvenElsewhere").innerText = opp.provenElsewhere;
 
-      document.getElementById("detailModal").style.display = "flex";
+      // Evidence Ledger
+      document.getElementById("wsEvidenceLedger").innerHTML = opp.evidenceLedger.map(e => `
+        <div class="metric-row">
+          <span><span class="badge ${getBadgeClass(e.type)}" style="font-size:0.65rem; margin-right:0.4rem;">${e.symbol} ${e.type}</span> ${e.claim}</span>
+          <strong style="color:#fff; font-family:var(--font-mono);">${e.value}</strong>
+        </div>
+      `).join('');
+
+      // Score Breakdown Dimensions
+      document.getElementById("wsScore").innerText = opp.opportunityScore;
+      document.getElementById("wsConf").innerText = `${opp.evidenceConfidence}%`;
+      document.getElementById("wsScoreDimensions").innerHTML = opp.dimensions.map(d => `
+        <div class="metric-row">
+          <span>${d.name}</span>
+          <strong style="color:var(--accent-blue); font-family:var(--font-mono);">${d.score} / 10</strong>
+        </div>
+      `).join('');
+
+      // Market Signals
+      document.getElementById("wsMarketSignals").innerHTML = `
+        <div class="metric-row"><span>Category Landscape</span><strong>${opp.category}</strong></div>
+        <div class="metric-row"><span>Market Geography</span><strong>${opp.market}</strong></div>
+        <div class="metric-row"><span>Evidence Status</span><strong>${opp.evidenceSymbol} ${opp.evidenceType}</strong></div>
+      `;
+
+      document.getElementById("wsLocalization").innerText = opp.localization;
+      document.getElementById("wsMonetization").innerText = opp.monetization;
+      document.getElementById("wsMvp").innerText = opp.mvp;
+
+      // Competitors & Risks
+      document.getElementById("wsCompetitors").innerHTML = opp.competitors.map(c => `
+        <div class="metric-row"><span>${c.name}</span><span style="color:var(--text-muted); font-size:0.75rem;">${c.type}</span></div>
+      `).join('');
+
+      document.getElementById("wsRisks").innerHTML = opp.risks.map(r => `
+        <div class="metric-row"><span>${r.risk}</span><strong style="color:${r.severity==='CRITICAL'||r.severity==='HIGH'?'var(--accent-rose)':'var(--accent-amber)'}; font-size:0.75rem;">[${r.severity}]</strong></div>
+      `).join('');
+
+      // Provenance Panel
+      document.getElementById("wsProvenance").innerHTML = `
+        <div>EXTERNAL_ID: ${opp.provenance.externalId}</div>
+        <div>INGESTION_ROUTE: ${opp.provenance.ingestedVia}</div>
+        <div>COLLECTOR_VER: ${opp.provenance.collectorVersion}</div>
+        <div>STORE: ${opp.provenance.durableStore}</div>
+      `;
+
+      document.getElementById("workspaceModal").style.display = "flex";
     }
 
-    document.getElementById("closeModalBtn").onclick = () => {
-      document.getElementById("detailModal").style.display = "none";
+    document.getElementById("closeWsBtn").onclick = () => {
+      document.getElementById("workspaceModal").style.display = "none";
     };
 
     function applyAllFilters() {
