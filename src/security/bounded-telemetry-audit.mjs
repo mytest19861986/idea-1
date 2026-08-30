@@ -16,16 +16,20 @@ export class BoundedTelemetryBuffer {
     this.overflowPolicy = overflowPolicy;
     this.buffer = [];
     this.droppedAlertCount = 0;
+    this.highWaterMark = 0;
+    this.overflowEventCount = 0;
+    this.sinkFailureCount = 0;
   }
 
   push(item) {
     if (this.buffer.length >= this.maxBufferSize) {
+      this.overflowEventCount++;
       if (this.overflowPolicy === "DROP_OLDEST") {
         this.buffer.shift();
         this.droppedAlertCount++;
       } else {
         this.droppedAlertCount++;
-        return { ok: false, dropped: true, reason: "BUFFER_OVERFLOW" };
+        return { ok: false, dropped: true, reason: "BUFFER_OVERFLOW", droppedCount: this.droppedAlertCount };
       }
     }
 
@@ -36,6 +40,12 @@ export class BoundedTelemetryBuffer {
     };
 
     this.buffer.push(entry);
+
+    // Track high-water mark
+    if (this.buffer.length > this.highWaterMark) {
+      this.highWaterMark = this.buffer.length;
+    }
+
     return { ok: true, id: entry.id, bufferSize: this.buffer.length, droppedCount: this.droppedAlertCount };
   }
 
@@ -49,7 +59,8 @@ export class BoundedTelemetryBuffer {
       return { ok: true, flushedCount: itemsToFlush.length, droppedAlerts: this.droppedAlertCount };
     } catch (err) {
       // Retain in buffer up to maxBufferSize on network partition
-      return { ok: false, error: err.message, retainedCount: this.buffer.length };
+      this.sinkFailureCount++;
+      return { ok: false, error: err.message, retainedCount: this.buffer.length, sinkFailures: this.sinkFailureCount };
     }
   }
 
@@ -59,6 +70,11 @@ export class BoundedTelemetryBuffer {
       maxLimit: this.maxBufferSize,
       overflowPolicy: this.overflowPolicy,
       totalDropped: this.droppedAlertCount,
+      highWaterMark: this.highWaterMark,
+      overflowEventCount: this.overflowEventCount,
+      sinkFailureCount: this.sinkFailureCount,
+      overflowEventVisible: this.overflowEventCount > 0,
+      alertDestinationFailureVisible: this.sinkFailureCount > 0,
       memoryBounded: true
     };
   }
