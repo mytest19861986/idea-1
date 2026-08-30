@@ -25,12 +25,15 @@ export const RoutePermission = Object.freeze({
 
 export class CryptographicAuthService {
   constructor({
-    secretKey = "prod-crypto-auth-secret-key-32bytes-min!!",
+    secretKey,
     verificationKeys = [],
     issuer = "discovery-auth-service",
     audience = "discovery-platform-api",
     clock = () => new Date()
   } = {}) {
+    if (!secretKey || typeof secretKey !== "string" || secretKey.trim().length < 16) {
+      throw new TypeError("AUTH_SECRET_REQUIRED: secretKey must be a non-empty string with minimum 16 characters");
+    }
     this.secretKey = secretKey;
     this.verificationKeys = [secretKey, ...verificationKeys];
     this.issuer = issuer;
@@ -42,7 +45,10 @@ export class CryptographicAuthService {
   /**
    * Generates a signed cryptographic JWT-style token.
    */
-  signToken({ userId, role, email, expiresInSeconds = 3600 }) {
+  signToken({ userId, role = UserRole.VIEWER, email, expiresInSeconds = 3600 }) {
+    if (!Object.values(UserRole).includes(role)) {
+      throw new TypeError(`INVALID_ROLE: Role '${role}' is not recognized in UserRole schema.`);
+    }
     const now = Math.floor(this.clock().getTime() / 1000);
     const header = { alg: "HS256", typ: "JWT" };
     const payload = {
@@ -110,7 +116,7 @@ export class CryptographicAuthService {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Signature verification failed (TAMPERED)." };
     }
 
-    // 3. Payload Claims Validation (exp, iss, aud)
+    // 3. Payload Claims Validation (exp, iss, aud, sub, role)
     let payload;
     try {
       payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
@@ -118,16 +124,24 @@ export class CryptographicAuthService {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid payload encoding." };
     }
 
+    if (!payload.iss || !payload.aud || !payload.exp || !payload.sub || !payload.role) {
+      return { ok: false, status: 401, error: "UNAUTHORIZED: Missing required JWT claims (iss, aud, exp, sub, role)." };
+    }
+
+    if (!Object.values(UserRole).includes(payload.role)) {
+      return { ok: false, status: 401, error: `UNAUTHORIZED: Invalid role claim '${payload.role}'.` };
+    }
+
     const now = Math.floor(this.clock().getTime() / 1000);
-    if (payload.exp && payload.exp < now) {
+    if (payload.exp < now) {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Token has expired." };
     }
 
-    if (payload.iss && payload.iss !== this.issuer) {
+    if (payload.iss !== this.issuer) {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid token issuer." };
     }
 
-    if (payload.aud && payload.aud !== this.audience) {
+    if (payload.aud !== this.audience) {
       return { ok: false, status: 401, error: "UNAUTHORIZED: Invalid token audience." };
     }
 
@@ -136,7 +150,7 @@ export class CryptographicAuthService {
       principal: {
         userId: payload.sub,
         role: payload.role,
-        email: payload.email
+        email: payload.email || null
       }
     });
   }
@@ -161,42 +175,66 @@ export class CryptographicAuthService {
   }
 
   /**
-   * Server-Side RBAC Data Projection & Confidentiality Redaction (PRODUCT-EXPANSION-001)
-   * Redacts confidential intelligence, source evidence, and unapproved items for VIEWERs.
+   * Server-Side RBAC Data Projection & Strict Allowlist (PRODUCT-EXPANSION-001-FIXSET-01)
+   * Enforces fail-closed allowlist per role: any novel/unmapped field is DENIED to VIEWER by construction.
+   * Redacts confidential opportunities and derived scores entirely for unprivileged VIEWERs.
    */
   projectOpportunityForRole(opportunity, role = UserRole.VIEWER) {
     if (!opportunity || typeof opportunity !== "object") throw new TypeError("opportunity is required");
     const isPrivileged = [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST].includes(role);
 
+    // If confidential and viewer: return strictly redacted stub with score stripped
     if (opportunity.isConfidential && !isPrivileged) {
       return deepFreeze({
         opportunityId: opportunity.opportunityId,
         title: "[CONFIDENTIAL OPPORTUNITY]",
         summary: "[REDACTED - PRIVILEGED ACCESS REQUIRED]",
-        score: opportunity.score,
+        score: null,
         isConfidential: true,
         accessState: "REDACTED"
       });
     }
 
-    const projected = { ...opportunity };
+    // Explicit allowlist projection for VIEWER (Fail-Closed by Construction)
     if (!isPrivileged) {
-      // Redact sensitive competitor notes, unredacted raw source signals, and internal audit notes
-      if (Array.isArray(projected.competitors)) {
-        projected.competitors = projected.competitors.map(c => ({
-          name: c.name,
-          type: c.type,
-          pricingModel: c.pricingModel
-        }));
-      }
-      if (Array.isArray(projected.citations)) {
-        projected.citations = projected.citations.map(c => ({
-          sourceId: c.sourceId,
-          url: c.url
-        }));
-      }
+      const publicCitations = Array.isArray(opportunity.citations)
+        ? opportunity.citations.map(c => ({ sourceId: c.sourceId, url: c.url }))
+        : [];
+
+      const publicCompetitors = Array.isArray(opportunity.competitors)
+        ? opportunity.competitors.map(c => ({ name: c.name, type: c.type, pricingModel: c.pricingModel }))
+        : [];
+
+      return deepFreeze({
+        opportunityId: opportunity.opportunityId,
+        slug: opportunity.slug,
+        title: opportunity.title,
+        summary: opportunity.summary,
+        score: opportunity.score,
+        scoringModelVersion: opportunity.scoringModelVersion || null,
+        evidenceConfidence: typeof opportunity.evidenceConfidence === "number" ? opportunity.evidenceConfidence : null,
+        confidenceBreakdown: opportunity.confidenceBreakdown || null,
+        corroborationStatus: opportunity.corroborationStatus || "UNCONFIRMED",
+        freshnessStatus: opportunity.freshnessStatus || "CURRENT",
+        isConfidential: false,
+        category: opportunity.category,
+        market: opportunity.market,
+        publishedAt: opportunity.publishedAt,
+        tractionMetrics: Array.isArray(opportunity.tractionMetrics) ? [...opportunity.tractionMetrics] : [],
+        competitors: publicCompetitors,
+        marketGaps: Array.isArray(opportunity.marketGaps) ? [...opportunity.marketGaps] : [],
+        localization: opportunity.localization || null,
+        monetization: opportunity.monetization || null,
+        complexity: opportunity.complexity || null,
+        regulatoryRisk: opportunity.regulatoryRisk || null,
+        contradictions: Array.isArray(opportunity.contradictions) ? [...opportunity.contradictions] : [],
+        unknownFactors: Array.isArray(opportunity.unknownFactors) ? [...opportunity.unknownFactors] : [],
+        citations: publicCitations,
+        accessState: "PUBLIC_AUTHORIZED"
+      });
     }
 
-    return deepFreeze(projected);
+    // Privileged roles get complete opportunity record
+    return deepFreeze({ ...opportunity, accessState: "PRIVILEGED_AUTHORIZED" });
   }
 }

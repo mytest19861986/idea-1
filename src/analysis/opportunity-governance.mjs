@@ -200,6 +200,7 @@ export function calculateGranularEvidenceConfidence({
 export function createOpportunityCandidate({
   opportunityId,
   clusterId = null,
+  isConfidential = false,
   problem,
   targetCustomer,
   valueProposition,
@@ -214,6 +215,7 @@ export function createOpportunityCandidate({
     opportunityId: requireString(opportunityId, "opportunityId"),
     clusterId: clusterId ? String(clusterId) : null,
     isDeduplicated: clusterId !== null,
+    isConfidential: Boolean(isConfidential),
     problem: requireString(problem, "problem"),
     targetCustomer: requireString(targetCustomer, "targetCustomer"),
     valueProposition: requireString(valueProposition, "valueProposition"),
@@ -226,3 +228,4 @@ export function createOpportunityCandidate({
     lifecycleState: "ACTIVE_CANDIDATE"
   });
 }
+

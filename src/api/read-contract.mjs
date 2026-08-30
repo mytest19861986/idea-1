@@ -21,12 +21,12 @@ export function toPublicOpportunity(record) {
     title: text(record.title, "title"),
     summary: text(record.summary, "summary"),
     score: record.score,
-    scoringModelVersion: record.scoringModelVersion || "v1.0.0-balanced",
-    evidenceConfidence: typeof record.evidenceConfidence === "number" ? record.evidenceConfidence : 0,
+    scoringModelVersion: record.scoringModelVersion || null,
+    evidenceConfidence: typeof record.evidenceConfidence === "number" ? record.evidenceConfidence : null,
     confidenceBreakdown: Object.freeze(record.confidenceBreakdown || null),
     corroborationStatus: record.corroborationStatus || "UNCONFIRMED",
     freshnessStatus: record.freshnessStatus || "CURRENT",
-    clusterId: record.clusterId || null,
+    clusterId: record.isConfidential ? null : (record.clusterId || null),
     contradictions: Object.freeze(Array.isArray(record.contradictions) ? record.contradictions : []),
     unknownFactors: Object.freeze(Array.isArray(record.unknownFactors) ? record.unknownFactors : []),
     tractionMetrics: Object.freeze(Array.isArray(record.tractionMetrics) ? record.tractionMetrics : []),
@@ -41,3 +41,4 @@ export function toPublicOpportunity(record) {
     citations: Object.freeze(citations.map(({ sourceId, url }) => Object.freeze({ sourceId: text(sourceId, "citation.sourceId"), url: new URL(text(url, "citation.url")).toString() })))
   });
 }
+

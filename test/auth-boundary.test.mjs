@@ -4,7 +4,9 @@ import { CryptographicAuthService, UserRole, RoutePermission } from "../src/secu
 
 describe("PROD-READINESS-001R: P0-001 Cryptographic Token Verification & Server RBAC", () => {
   const baseTime = new Date("2026-08-30T12:00:00.000Z");
-  const authService = new CryptographicAuthService({ clock: () => baseTime });
+  const testSecret = "prod-crypto-auth-secret-key-32bytes-min!!";
+  const authService = new CryptographicAuthService({ secretKey: testSecret, clock: () => baseTime });
+
 
   it("1. Signs valid token and verifies claims (sub, role, iss, aud, exp)", () => {
     const token = authService.signToken({ userId: "usr_op_1", role: UserRole.OPERATOR, email: "op@disc.internal", expiresInSeconds: 3600 });
@@ -30,7 +32,7 @@ describe("PROD-READINESS-001R: P0-001 Cryptographic Token Verification & Server 
   it("3. Rejects expired token (TOKEN_EXPIRATION)", () => {
     const token = authService.signToken({ userId: "usr_op_1", role: UserRole.OPERATOR, email: "op@disc.internal", expiresInSeconds: 10 });
     // Advance clock by 20 seconds
-    const futureAuthService = new CryptographicAuthService({ clock: () => new Date(baseTime.getTime() + 20000) });
+    const futureAuthService = new CryptographicAuthService({ secretKey: testSecret, clock: () => new Date(baseTime.getTime() + 20000) });
     const res = futureAuthService.verifyToken(`Bearer ${token}`);
     assert.equal(res.ok, false);
     assert.equal(res.status, 401);
