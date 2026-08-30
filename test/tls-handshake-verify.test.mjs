@@ -21,8 +21,26 @@ describe("PROD-READINESS-001R2: P0-003 Local Cryptographic TLS Handshake & HTTPS
   });
 
   before(async () => {
-    const key = fs.readFileSync("/tmp/tls_key.pem");
-    const cert = fs.readFileSync("/tmp/tls_cert.pem");
+    let key, cert;
+    try {
+      if (fs.existsSync("/tmp/tls_key.pem") && fs.existsSync("/tmp/tls_cert.pem")) {
+        key = fs.readFileSync("/tmp/tls_key.pem");
+        cert = fs.readFileSync("/tmp/tls_cert.pem");
+      } else {
+        const { execSync } = await import("node:child_process");
+        const tmpDir = process.env.TEMP || process.env.TMP || "/tmp";
+        const keyPath = `${tmpDir}/tls_test_key.pem`;
+        const certPath = `${tmpDir}/tls_test_cert.pem`;
+        if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+          execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 1 -nodes -subj "/CN=localhost"`);
+        }
+        key = fs.readFileSync(keyPath);
+        cert = fs.readFileSync(certPath);
+      }
+    } catch {
+      key = fs.readFileSync("/tmp/tls_key.pem");
+      cert = fs.readFileSync("/tmp/tls_cert.pem");
+    }
 
     // HTTPS Server enforcing TLS & Security Headers
     httpsServer = https.createServer({

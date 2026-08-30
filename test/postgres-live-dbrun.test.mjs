@@ -193,6 +193,7 @@ test("LIVE POSTGRES: OBSERVATION_CONCURRENCY - Concurrent duplicate observation 
 });
 
 test("LIVE POSTGRES: LIVE_DURABLE_CONFIDENTIALITY (GATE-015) - Preserves isConfidential and isolates sensitive identifiers", () => {
+  psqlExec("DELETE FROM discovery_candidate_attributions WHERE candidate_id='cand-confidential-001'; DELETE FROM discovery_candidates WHERE id='cand-confidential-001';");
   // Insert synthetic confidential listing
   psqlExec(`
     INSERT INTO discovery_candidates (

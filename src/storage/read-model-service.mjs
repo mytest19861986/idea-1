@@ -2,11 +2,22 @@ import { deepFreeze } from "../discovery/discovery-intake.mjs";
 
 /**
  * ============================================================================
- * READ MODEL QUERY SERVICE (WEB-PRODUCT-004)
+ * READ MODEL QUERY SERVICE (WEB-PRODUCT-004R)
  * Source-neutral read repository querying durable PostgreSQL intelligence state
  * and mapping records to OpportunitySummaryViewModel and OpportunityDetailViewModel.
+ * Strictly enforces parameterized queries, sort allowlists, pagination bounds,
+ * and canonical confidentiality projection.
  * ============================================================================
  */
+
+export const SORT_ALLOWLIST = {
+  OPPORTUNITY_SCORE_DESC: "ORDER BY (COALESCE((c.metadata->>'score')::numeric, 70)) DESC, c.id ASC",
+  OPPORTUNITY_SCORE_ASC: "ORDER BY (COALESCE((c.metadata->>'score')::numeric, 70)) ASC, c.id ASC",
+  EVIDENCE_CONFIDENCE_DESC: "ORDER BY c.confidence DESC, c.id ASC",
+  EVIDENCE_CONFIDENCE_ASC: "ORDER BY c.confidence ASC, c.id ASC",
+  FRESHNESS_DESC: "ORDER BY c.discovered_at DESC, c.id ASC",
+  FRESHNESS_ASC: "ORDER BY c.discovered_at ASC, c.id ASC"
+};
 
 export class PostgresOpportunityReadService {
   constructor(pgClient) {
@@ -16,10 +27,47 @@ export class PostgresOpportunityReadService {
   /**
    * Lists opportunities as source-neutral OpportunitySummaryViewModel array.
    */
-  async listOpportunities({ limit = 50, category, market, minScore = 0, minConfidence = 0 } = {}) {
+  async listOpportunities({
+    search,
+    category,
+    market,
+    minOpportunityScore = 0,
+    minEvidenceConfidence = 0,
+    evidenceType,
+    source,
+    freshness,
+    sort = "FRESHNESS_DESC",
+    limit = 20,
+    offset = 0
+  } = {}) {
     if (!this.client || typeof this.client.query !== "function") {
       throw new Error("POSTGRES_READ_SERVICE_UNAVAILABLE: No active PostgreSQL connection client.");
     }
+
+    // Enforce pagination boundaries (Default: 20, Max: 100)
+    const boundedLimit = Math.min(Math.max(1, parseInt(limit, 10) || 20), 100);
+    const boundedOffset = Math.max(0, parseInt(offset, 10) || 0);
+
+    // Validate Sort Allowlist
+    const sortClause = SORT_ALLOWLIST[sort] || SORT_ALLOWLIST.FRESHNESS_DESC;
+
+    const params = [boundedLimit, boundedOffset];
+    let paramIndex = 3;
+    const whereConditions = [];
+
+    if (search && typeof search === "string" && search.trim()) {
+      whereConditions.push(`(c.title ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex})`);
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    if (source && typeof source === "string" && source.trim() && source !== "ALL") {
+      whereConditions.push(`c.source_record_id = $${paramIndex}`);
+      params.push(source.trim());
+      paramIndex++;
+    }
+
+    const whereSql = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
     const sql = `
       SELECT 
@@ -30,17 +78,19 @@ export class PostgresOpportunityReadService {
         COALESCE(MAX(a.claim_classification), 'UNKNOWN') AS primary_classification
       FROM discovery_candidates c
       LEFT JOIN discovery_candidate_attributions a ON c.id = a.candidate_id
+      ${whereSql}
       GROUP BY c.id
-      ORDER BY c.discovered_at DESC
-      LIMIT $1;
+      ${sortClause}
+      LIMIT $1 OFFSET $2;
     `;
 
-    const result = await this.client.query(sql, [limit]);
+    const result = await this.client.query(sql, params);
     
     const items = result.rows.map(row => {
       const metadata = row.metadata || {};
-      const score = typeof metadata.score === "number" ? metadata.score : 70;
+      const score = typeof metadata.score === "number" ? metadata.score : (metadata.score ? parseInt(metadata.score, 10) : 70);
       const confidenceNum = row.confidence === "CONFIRMED" ? 95 : (row.confidence === "PROBABLE" ? 75 : 50);
+      const isConfidential = Boolean(metadata.is_confidential);
 
       return deepFreeze({
         opportunityId: row.id,
@@ -52,7 +102,9 @@ export class PostgresOpportunityReadService {
         primaryEvidenceClassification: row.primary_classification || "SOURCE_CLAIM",
         freshness: row.discovered_at,
         sourceCount: parseInt(row.source_count, 10) || 1,
-        isConfidential: Boolean(metadata.is_confidential),
+        isConfidential,
+        // Confidentiality projection: never leak restricted identifiers to client
+        canonicalUrl: isConfidential ? null : row.canonical_url,
         tractionSummary: metadata.score ? `${metadata.score} community points` : "UNKNOWN",
         marketGapSummary: metadata.marketGap || "NOT_EVALUATED",
         monetizationSummary: metadata.monetization || "INSUFFICIENT_EVIDENCE",
@@ -64,12 +116,15 @@ export class PostgresOpportunityReadService {
 
     return deepFreeze({
       items,
-      totalCount: items.length
+      totalCount: items.length,
+      limit: boundedLimit,
+      offset: boundedOffset,
+      sort
     });
   }
 
   /**
-   * Retrieves full OpportunityDetailViewModel by ID.
+   * Retrieves full OpportunityDetailViewModel by ID with strict confidentiality projection.
    */
   async getOpportunityDetail(opportunityId) {
     if (!this.client || typeof this.client.query !== "function") {
@@ -88,6 +143,7 @@ export class PostgresOpportunityReadService {
 
     const row = candidateRes.rows[0];
     const metadata = row.metadata || {};
+    const isConfidential = Boolean(metadata.is_confidential);
 
     const attrSql = `
       SELECT attribution_id, source_id, source_type, idempotency_key,
@@ -103,12 +159,13 @@ export class PostgresOpportunityReadService {
       sourceId: a.source_id,
       classification: a.claim_classification,
       attributedAt: a.attributed_at,
-      metadata: a.metadata || {}
+      metadata: isConfidential ? {} : (a.metadata || {})
     }));
 
     return deepFreeze({
       opportunityId: row.id,
       title: row.title,
+      isConfidential,
       summary: row.description || "Live ingested discovery candidate from authorized pilot source.",
       whyNow: metadata.whyNow || "NOT_EVALUATED",
       provenElsewhere: metadata.provenElsewhere || "NOT_EVALUATED",
@@ -131,7 +188,7 @@ export class PostgresOpportunityReadService {
       ],
       provenance: {
         sourceRecordId: row.source_record_id,
-        canonicalUrl: metadata.is_confidential ? null : row.canonical_url,
+        canonicalUrl: isConfidential ? null : row.canonical_url,
         discoveredAt: row.discovered_at,
         retrievedAt: row.retrieved_at
       }

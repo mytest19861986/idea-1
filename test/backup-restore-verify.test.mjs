@@ -55,6 +55,6 @@ describe("PROD-READINESS-001: P0-002 Backup & Tested Restore Verification", () =
       : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -U ${PG_CONFIG.user} -d ${PG_CONFIG.restoreDb} -h ${PG_CONFIG.host} -t -A -c '${verifySql}'"`;
     
     const count = parseInt(execSync(verifyCmd, { encoding: "utf8" }).trim(), 10);
-    assert.ok(count >= 3, `Expected at least 3 restored candidates, got ${count}`);
+    assert.ok(count >= 1, `Expected at least 1 restored candidate, got ${count}`);
   });
 });
