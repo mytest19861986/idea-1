@@ -16,5 +16,18 @@ export function toPublicOpportunity(record) {
   if (!record || typeof record !== "object" || record.publicationState !== "APPROVED") throw new RangeError("only approved records are publicly readable");
   const citations = Array.isArray(record.citations) ? record.citations : [];
   if (!record.slug || !record.title || !record.summary || citations.length === 0) throw new TypeError("public record is incomplete");
-  return Object.freeze({ slug: text(record.slug, "slug"), title: text(record.title, "title"), summary: text(record.summary, "summary"), score: record.score, facts: Object.freeze(Array.isArray(record.facts) ? record.facts : []), inferences: Object.freeze(Array.isArray(record.inferences) ? record.inferences : []), citations: Object.freeze(citations.map(({ sourceId, url }) => Object.freeze({ sourceId: text(sourceId, "citation.sourceId"), url: new URL(text(url, "citation.url")).toString() }))) });
+  return Object.freeze({
+    slug: text(record.slug, "slug"),
+    title: text(record.title, "title"),
+    summary: text(record.summary, "summary"),
+    score: record.score,
+    scoringModelVersion: record.scoringModelVersion || "v1.0.0-balanced",
+    evidenceConfidence: typeof record.evidenceConfidence === "number" ? record.evidenceConfidence : 0,
+    corroborationStatus: record.corroborationStatus || "UNCONFIRMED",
+    contradictions: Object.freeze(Array.isArray(record.contradictions) ? record.contradictions : []),
+    unknownFactors: Object.freeze(Array.isArray(record.unknownFactors) ? record.unknownFactors : []),
+    facts: Object.freeze(Array.isArray(record.facts) ? record.facts : []),
+    inferences: Object.freeze(Array.isArray(record.inferences) ? record.inferences : []),
+    citations: Object.freeze(citations.map(({ sourceId, url }) => Object.freeze({ sourceId: text(sourceId, "citation.sourceId"), url: new URL(text(url, "citation.url")).toString() })))
+  });
 }
