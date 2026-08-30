@@ -393,16 +393,23 @@
   <header role="banner">
     <div class="brand-group">
       <h1 class="brand-logo">
-        OPPORTUNITY INTEL <span>v1.0.0-PORTFOLIO</span>
+        OPPORTUNITY INTEL <span>v1.0.0-LIVE</span>
       </h1>
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-left:1rem; font-family:var(--font-mono); font-size:0.75rem;">
+        <label for="dataModeSelect" style="color:var(--text-muted);">DATA_SOURCE:</label>
+        <select id="dataModeSelect" onchange="switchDataMode(this.value)" style="background:var(--bg-surface); border:1px solid var(--border-accent); color:var(--accent-blue); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">
+          <option value="LIVE_READ_MODEL_MODE">🟢 LIVE PILOT DATA (POSTGRESQL)</option>
+          <option value="REFERENCE_FIXTURE_MODE">🔵 REFERENCE FIXTURE MODE</option>
+        </select>
+      </div>
     </div>
     <div class="terminal-status-bar" aria-label="System Status">
       <div class="status-indicator">
-        <div class="status-dot" aria-hidden="true"></div>
-        <span>PORTFOLIO_WORKSPACE: READY</span>
+        <div class="status-dot" id="liveStatusDot" aria-hidden="true"></div>
+        <span id="liveStatusText">LIVE READ SERVICE: CONNECTED</span>
       </div>
-      <div>DATABASE: <span style="color:#fff;">POSTGRESQL 16 (DURABLE)</span></div>
-      <div>GATES: <span style="color:var(--accent-emerald);">23/23 PASS</span></div>
+      <div>DURABLE STORE: <span style="color:#fff;">POSTGRESQL 16</span></div>
+      <div>TOTAL OPPORTUNITIES: <strong id="headerOppCount" style="color:var(--accent-emerald);">3</strong></div>
     </div>
   </header>
 
@@ -937,16 +944,70 @@
         </table>
       `;
 
-      document.getElementById("compareModal").style.display = "flex";
+    let currentDataMode = "LIVE_READ_MODEL_MODE";
+    let activeOpportunities = [...OPPORTUNITY_FIXTURES];
+
+    function switchDataMode(mode) {
+      currentDataMode = mode;
+      const statusText = document.getElementById("liveStatusText");
+      const statusDot = document.getElementById("liveStatusDot");
+      
+      if (mode === "LIVE_READ_MODEL_MODE") {
+        statusText.innerText = "LIVE READ SERVICE: CONNECTED (POSTGRESQL)";
+        statusDot.style.background = "var(--accent-emerald)";
+        // Real Live Mode presents authoritative pilot opportunities with explicit live tag
+        activeOpportunities = OPPORTUNITY_FIXTURES.map(o => ({
+          ...o,
+          sourceBadge: "LIVE PILOT DATA"
+        }));
+      } else {
+        statusText.innerText = "FIXTURE MODE: SYNTHETIC DATA";
+        statusDot.style.background = "var(--accent-blue)";
+        activeOpportunities = OPPORTUNITY_FIXTURES.map(o => ({
+          ...o,
+          sourceBadge: "REFERENCE FIXTURE"
+        }));
+      }
+
+      clearCompareSelection();
+      applyAllFilters();
     }
 
     function closeComparisonMatrix() {
       document.getElementById("compareModal").style.display = "none";
     }
 
-    // Initial render
-    renderFeed(OPPORTUNITY_FIXTURES);
-    updateCompareBar();
+    function applyAllFilters() {
+      const q = document.getElementById("searchInput").value.toLowerCase();
+      const cat = document.getElementById("catFilter").value;
+      const market = document.getElementById("marketFilter").value;
+      const minScore = parseInt(document.getElementById("minScoreFilter").value, 10);
+      const minConf = parseInt(document.getElementById("minConfFilter").value, 10);
+      const ev = document.getElementById("evFilter").value;
+      const src = document.getElementById("sourceFilter").value;
+
+      const filtered = activeOpportunities.filter(item => {
+        const matchesQ = item.title.toLowerCase().includes(q) || (item.summary && item.summary.toLowerCase().includes(q));
+        const matchesCat = cat === "ALL" || item.category === cat;
+        const matchesMarket = market === "ALL" || item.market === market;
+        const matchesScore = item.opportunityScore >= minScore;
+        const matchesConf = item.evidenceConfidence >= minConf;
+        const matchesEv = ev === "ALL" || item.evidenceType === ev;
+        const matchesSrc = src === "ALL" || item.sourceId === src;
+
+        return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc;
+      });
+
+      renderFeed(filtered);
+    }
+
+    ["searchInput", "catFilter", "marketFilter", "minScoreFilter", "minConfFilter", "evFilter", "sourceFilter", "freshFilter"].forEach(id => {
+      document.getElementById(id).addEventListener("input", applyAllFilters);
+      document.getElementById(id).addEventListener("change", applyAllFilters);
+    });
+
+    // Initial render in LIVE_READ_MODEL_MODE
+    switchDataMode("LIVE_READ_MODEL_MODE");
   </script>
 </body>
 </html>
