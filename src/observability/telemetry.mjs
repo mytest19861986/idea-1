@@ -1,10 +1,11 @@
 import { deepFreeze } from "../discovery/discovery-intake.mjs";
 import { NoopTelemetryAdapter } from "./noop-telemetry.mjs";
+import { redactSecretText } from "../secrets/secret-redaction.mjs";
 
 /**
  * ============================================================================
  * OBSERVABILITY & TELEMETRY FACADE (PKG-OBS-013)
- * Invariants: OBS-I001 through OBS-I020
+ * Invariants: OBS-I001 through OBS-I020, SEC-I017 through SEC-I020
  * Telemetry Schema Version: discovery-observability-v1
  * ============================================================================
  */
@@ -27,11 +28,8 @@ const SENSITIVE_KEY_PATTERN = /^(authorization|bearer|password|secret|token|apik
 export function redactSensitiveData(val) {
   if (val === null || val === undefined) return val;
   if (typeof val === "string") {
-    // Redact password in DB URL
-    let redacted = val.replace(/(postgres(?:ql)?:\/\/[^:]+:)([^@]+)(@)/gi, "$1***$3");
-    // Redact Bearer tokens in headers
-    redacted = redacted.replace(/(Bearer\s+)[A-Za-z0-9_\-\.+=]+/gi, "$1***");
-    return redacted;
+    // Value-aware dynamic redaction + regex redaction
+    return redactSecretText(val);
   }
   if (Array.isArray(val)) {
     return val.map((item) => redactSensitiveData(item));

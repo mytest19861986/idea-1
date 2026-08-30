@@ -5,6 +5,7 @@ import { InMemorySecretProvider } from "../src/secrets/in-memory-secret-provider
 import { EnvironmentSecretProvider } from "../src/secrets/environment-secret-provider.mjs";
 import { redactSecretText, redactSecretPayload } from "../src/secrets/secret-redaction.mjs";
 import { createWorkerTask, TaskType } from "../src/worker/worker-task.mjs";
+import { HandlerRegistry, WorkerRuntime } from "../src/worker/worker-runtime.mjs";
 import { evaluateSchedule, DEFAULT_SCHEDULING_POLICY } from "../src/scheduler/scheduling-engine.mjs";
 
 test("SECRETS: known credentialRef + allowed purpose resolves successfully", async () => {
@@ -133,22 +134,50 @@ test("SECRETS: value-aware redaction masks resolved secret in subsequent logs an
   assert.ok(sanitized.includes("[REDACTED_SECRET]"));
 });
 
-test("SECRETS: WorkerTask and SchedulerState boundaries are strictly secret-free (SEC-I008 to SEC-I016)", () => {
-  const source = {
-    id: "src-1",
-    status: "ACTIVE",
-    config: { credentialRef: "cred:source:trustmrr:api_key" } // Only logical ref allowed
-  };
+test("SECRETS: End-to-end secret resolution and collector injection boundary test (SEC-I008 to SEC-I016)", async () => {
+  const syntheticSecret = "synth-distinct-secret-999888";
+  const provider = new InMemorySecretProvider({
+    "cred:source:trustmrr:bearer": syntheticSecret
+  });
+  const resolver = new SecretResolver(provider);
 
-  const decision = evaluateSchedule(source, {}, DEFAULT_SCHEDULING_POLICY, "2026-08-30T12:00:00.000Z");
-  assert.ok(decision.task);
+  // 1. Resolve distinct secret at execution boundary
+  const resolvedToken = await resolver.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
+  assert.strictEqual(resolvedToken, syntheticSecret);
 
-  const serializedTask = JSON.stringify(decision.task);
-  const serializedDecision = JSON.stringify(decision);
+  // 2. Set up worker handler simulating collector execution with ephemeral secret injection
+  const registry = new HandlerRegistry();
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task) => {
+    // Ephemeral header construction inside execution boundary
+    const headers = { Authorization: `Bearer ${resolvedToken}` };
+    assert.strictEqual(headers.Authorization, `Bearer ${syntheticSecret}`);
 
-  // Assert neither task nor schedule decision contains raw secrets or authorization tokens
-  assert.ok(!serializedTask.includes("Bearer"));
-  assert.ok(!serializedTask.includes("synth-key"));
-  assert.ok(!serializedDecision.includes("Bearer"));
-  assert.ok(!serializedDecision.includes("synth-key"));
+    // Simulate error during transport containing the raw token
+    throw new Error(`401 Unauthorized from upstream: token ${syntheticSecret} expired`);
+  });
+
+  const runtime = new WorkerRuntime(registry);
+  const task = createWorkerTask({
+    taskId: "task-secret-boundary-test",
+    taskType: TaskType.DISCOVERY_EXECUTION,
+    sourceId: "src-1",
+    metadata: {
+      credentialRef: "cred:source:trustmrr:bearer" // Only logical ref
+    }
+  });
+
+  // 3. Execute task and assert failure containment + value-aware redaction
+  const execResult = await runtime.executeTask(task);
+
+  // 4. Assert WorkerTask, AttemptHistory, and Errors NEVER contain the raw synthetic secret
+  const serializedTask = JSON.stringify(task);
+  const serializedAttempts = JSON.stringify(execResult.attempts);
+  const serializedResult = JSON.stringify(execResult);
+
+  assert.ok(!serializedTask.includes(syntheticSecret), "WorkerTask must not contain raw secret");
+  assert.ok(!serializedAttempts.includes(syntheticSecret), "AttemptHistory must not contain raw secret");
+  assert.ok(!serializedResult.includes(syntheticSecret), "ExecResult must not contain raw secret");
+
+  // Verify value-aware redaction replaced the secret in the error message
+  assert.ok(execResult.error.message.includes("[REDACTED_SECRET]"), "Error message must have value-aware redaction");
 });
