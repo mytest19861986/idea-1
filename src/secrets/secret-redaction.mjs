@@ -2,9 +2,11 @@
  * ============================================================================
  * SECRET REDACTION UTILITIES (PKG-SECRETS-016)
  * Invariants: SEC-I017 through SEC-I020
+ * Bounded secret set to prevent memory growth in long-running processes.
  * ============================================================================
  */
 
+const MAX_KNOWN_SECRETS = 500;
 const KNOWN_SECRET_VALUES = new Set();
 
 /**
@@ -12,7 +14,12 @@ const KNOWN_SECRET_VALUES = new Set();
  */
 export function registerSecretForRedaction(secretValue) {
   if (typeof secretValue === "string" && secretValue.trim().length >= 4) {
-    KNOWN_SECRET_VALUES.add(secretValue.trim());
+    const trimmed = secretValue.trim();
+    if (KNOWN_SECRET_VALUES.size >= MAX_KNOWN_SECRETS) {
+      const first = KNOWN_SECRET_VALUES.values().next().value;
+      KNOWN_SECRET_VALUES.delete(first);
+    }
+    KNOWN_SECRET_VALUES.add(trimmed);
   }
 }
 

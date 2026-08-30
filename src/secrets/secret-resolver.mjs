@@ -55,14 +55,15 @@ export class SecretResolver {
   }
 
   _evaluateAccess(credentialRef, purpose, env = this.environment) {
-    const policy = this.policies[credentialRef];
-    if (!policy) {
+    if (typeof credentialRef !== "string" || !Object.hasOwn(this.policies, credentialRef)) {
       return { allowed: false, reason: "UNKNOWN_CREDENTIAL_REF" };
     }
-    if (!policy.allowedPurposes.includes(purpose)) {
+
+    const policy = this.policies[credentialRef];
+    if (!policy || !Array.isArray(policy.allowedPurposes) || !policy.allowedPurposes.includes(purpose)) {
       return { allowed: false, reason: "UNAUTHORIZED_PURPOSE" };
     }
-    if (!policy.allowedEnvironments.includes(env)) {
+    if (!Array.isArray(policy.allowedEnvironments) || !policy.allowedEnvironments.includes(env)) {
       return { allowed: false, reason: "ENVIRONMENT_DISALLOWED" };
     }
     return { allowed: true, policy };

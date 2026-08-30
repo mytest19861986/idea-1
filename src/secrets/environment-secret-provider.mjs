@@ -24,9 +24,13 @@ export class EnvironmentSecretProvider {
       throw new TypeError("credentialRef must be a valid string");
     }
 
-    // Strict allowlist validation (SEC-I007: Reject arbitrary env var requests)
+    // Prototype pollution & allowlist validation (Finding 1 fix)
+    if (!Object.hasOwn(this.mappings, credentialRef)) {
+      return null;
+    }
+
     const mappedEnvVarName = this.mappings[credentialRef];
-    if (!mappedEnvVarName) {
+    if (!mappedEnvVarName || typeof mappedEnvVarName !== "string") {
       return null;
     }
 
