@@ -12,7 +12,10 @@ const PG_CONFIG = {
 
 function psqlExec(sql, { expectError = false } = {}) {
   const cleanSql = sql.replace(/\r/g, "");
-  const cmd = `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host}"`;
+  const isInsideWsl = process.platform === "linux";
+  const cmd = isInsideWsl
+    ? `export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host}`
+    : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host}"`;
   try {
     return execSync(cmd, { input: cleanSql, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
   } catch (err) {
@@ -24,7 +27,10 @@ function psqlExec(sql, { expectError = false } = {}) {
 }
 
 function psqlExecFile(wslPath) {
-  const cmd = `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host} -f ${wslPath}"`;
+  const isInsideWsl = process.platform === "linux";
+  const cmd = isInsideWsl
+    ? `export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host} -f ${wslPath}`
+    : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -v ON_ERROR_STOP=1 -U ${PG_CONFIG.user} -d ${PG_CONFIG.database} -h ${PG_CONFIG.host} -f ${wslPath}"`;
   return execSync(cmd, { encoding: "utf8" });
 }
 
