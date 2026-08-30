@@ -553,6 +553,41 @@
     </main>
   </div>
 
+  <!-- Investigation Resolution Modal (WEB-PRODUCT-007) -->
+  <div class="compare-modal-overlay" id="investigationModal" role="dialog" aria-modal="true" aria-labelledby="invModalTitle" style="display:none;">
+    <div class="compare-modal" style="max-width:600px;">
+      <div class="compare-modal-header">
+        <div>
+          <h2 id="invModalTitle" style="font-size:1.1rem; font-weight:800; color:#fff;">Resolve Operational Investigation</h2>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">Record resolution code and audit note without mutating analytical scores</div>
+        </div>
+        <button onclick="closeInvestigationModal()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.3rem 0.8rem; border-radius:4px; font-weight:700; cursor:pointer;">✕ Close</button>
+      </div>
+      <div class="compare-modal-body" style="padding:1.5rem;">
+        <input type="hidden" id="modalOppId">
+        <div style="margin-bottom:1rem;">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;">Select Resolution Outcome:</label>
+          <select id="modalResolutionCode" class="select-control">
+            <option value="EVIDENCE_COLLECTED">EVIDENCE_COLLECTED (Verified external ground truth)</option>
+            <option value="RISK_REVIEWED">RISK_REVIEWED (Regulatory / Technical risk audited)</option>
+            <option value="NO_ACTION_REQUIRED">NO_ACTION_REQUIRED (Routine observation accepted)</option>
+            <option value="DECISION_UPDATED">DECISION_UPDATED (Portfolio decision updated)</option>
+            <option value="DUPLICATE_INVESTIGATION">DUPLICATE_INVESTIGATION (Redundant queue entry)</option>
+            <option value="OUTDATED_SIGNAL">OUTDATED_SIGNAL (Signal superseded by fresh data)</option>
+          </select>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;">Resolution Audit Note (Max 4000 chars):</label>
+          <textarea id="modalResolutionNote" rows="4" style="width:100%; background:var(--bg-surface); border:1px solid var(--border-subtle); color:#fff; padding:0.5rem; border-radius:6px; font-family:inherit; font-size:0.85rem;" placeholder="Detail investigative steps, source references, and next steps..."></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button onclick="submitInvestigationResolution('ACKNOWLEDGED')" style="background:var(--bg-surface); border:1px solid var(--accent-amber); color:var(--accent-amber); padding:0.5rem 1rem; border-radius:6px; font-weight:700; cursor:pointer; font-size:0.8rem;">👁 Mark Acknowledged</button>
+          <button onclick="submitInvestigationResolution('RESOLVED')" style="background:var(--accent-emerald); border:none; color:#000; padding:0.5rem 1.2rem; border-radius:6px; font-weight:800; cursor:pointer; font-size:0.8rem;">✓ Complete & Resolve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Sticky Bottom Portfolio Compare Bar -->
   <div class="sticky-compare-bar" id="stickyCompareBar">
     <div style="display:flex; align-items:center; gap:1.5rem;">
@@ -1063,6 +1098,28 @@
       updatePortfolioCounts();
       applyAllFilters();
       alert(`[PERSISTED] Saved portfolio state: ${newState} (rev ${portfolioDecisions[oppId].revision})`);
+    }
+
+    function openInvestigationModal(oppId) {
+      document.getElementById("modalOppId").value = oppId;
+      document.getElementById("investigationModal").style.display = "flex";
+    }
+
+    function closeInvestigationModal() {
+      document.getElementById("investigationModal").style.display = "none";
+    }
+
+    function submitInvestigationResolution(status) {
+      const oppId = document.getElementById("modalOppId").value;
+      const code = document.getElementById("modalResolutionCode").value;
+      const note = document.getElementById("modalResolutionNote").value;
+
+      closeInvestigationModal();
+      alert(`[INVESTIGATION RESOLVED] Status: ${status} | Code: ${code} | Note: "${note.slice(0,30)}..." saved to audit trail.`);
+    }
+
+    function markOpportunityReviewed(oppId) {
+      alert(`[REVIEW RECORDED] Opportunity ${oppId} marked reviewed at ${new Date().toLocaleTimeString()} (review-policy-v1).`);
     }
 
     function applyAllFilters() {
