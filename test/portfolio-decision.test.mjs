@@ -91,6 +91,7 @@ describe("WEB-PRODUCT-005: Portfolio Persistence & Optimistic Concurrency", () =
 
   it("1. Persists new portfolio decision into PostgreSQL (SHORTLIST, revision 1)", async () => {
     const oppId = "disc:hacker-news-official-api:https://news.ycombinator.com/item?id=49497227";
+    psqlExec(`DELETE FROM portfolio_decision_events WHERE opportunity_id = '${oppId}'; DELETE FROM portfolio_decisions WHERE opportunity_id = '${oppId}';`);
     const res = await store.setDecision({
       opportunityId: oppId,
       state: PortfolioState.SHORTLIST,

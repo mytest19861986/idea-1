@@ -2,9 +2,10 @@ import { deepFreeze } from "./discovery-intake.mjs";
 
 /**
  * ============================================================================
- * PORTFOLIO DECISION STORE & WORKFLOW SERVICE (WEB-PRODUCT-005)
+ * PORTFOLIO DECISION STORE & WORKFLOW SERVICE (WEB-PRODUCT-005R2)
  * Manages durable manager decisions (SHORTLIST, WATCH, INVESTIGATE, HOLD),
- * optimistic concurrency revision control, and append-only decision audit events.
+ * optimistic concurrency revision control, input bounds enforcement,
+ * and append-only decision audit events.
  * Strictly decoupled from SourceStatus, Candidate Identity, and Evidence State.
  * ============================================================================
  */
@@ -16,49 +17,21 @@ export const PortfolioState = Object.freeze({
   HOLD: "HOLD"
 });
 
+export const BOUNDS = Object.freeze({
+  NOTE_LENGTH_MAX: 4000,
+  TAG_COUNT_MAX: 20,
+  TAG_LENGTH_MAX: 64,
+  REASON_LENGTH_MAX: 1000
+});
+
 export class PostgresPortfolioDecisionStore {
   constructor(pgClient) {
     this.client = pgClient;
   }
 
   /**
-   * Initializes portfolio tables if not exist.
-   */
-  async initializeSchema() {
-    const ddl = `
-      CREATE TABLE IF NOT EXISTS portfolio_decisions (
-        decision_id TEXT PRIMARY KEY,
-        opportunity_id TEXT NOT NULL UNIQUE,
-        state TEXT NOT NULL,
-        decision_reason TEXT,
-        priority TEXT DEFAULT 'MEDIUM',
-        tags JSONB DEFAULT '[]'::jsonb,
-        revision INTEGER NOT NULL DEFAULT 1,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_portfolio_opportunity ON portfolio_decisions(opportunity_id);
-      CREATE INDEX IF NOT EXISTS idx_portfolio_state ON portfolio_decisions(state);
-
-      CREATE TABLE IF NOT EXISTS portfolio_decision_events (
-        event_id TEXT PRIMARY KEY,
-        decision_id TEXT NOT NULL REFERENCES portfolio_decisions(decision_id),
-        opportunity_id TEXT NOT NULL,
-        from_state TEXT,
-        to_state TEXT NOT NULL,
-        occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        actor TEXT NOT NULL,
-        reason TEXT
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_portfolio_events_decision ON portfolio_decision_events(decision_id);
-    `;
-    await this.client.query(ddl);
-  }
-
-  /**
-   * Saves or updates a manager portfolio decision with optimistic concurrency control.
+   * Saves or updates a manager portfolio decision with optimistic concurrency control
+   * and strict payload bound validation.
    */
   async setDecision({
     opportunityId,
@@ -75,6 +48,21 @@ export class PostgresPortfolioDecisionStore {
     }
     if (!opportunityId || typeof opportunityId !== "string") {
       throw new Error("INVALID_OPPORTUNITY_ID: opportunityId is strictly required.");
+    }
+
+    // Strict input bounds enforcement
+    if (decisionReason && decisionReason.length > BOUNDS.REASON_LENGTH_MAX) {
+      throw new Error(`OVERSIZED_REASON: Reason exceeds maximum limit of ${BOUNDS.REASON_LENGTH_MAX} characters.`);
+    }
+    if (tags && Array.isArray(tags)) {
+      if (tags.length > BOUNDS.TAG_COUNT_MAX) {
+        throw new Error(`OVERSIZED_TAG_COLLECTION: Tag count exceeds maximum limit of ${BOUNDS.TAG_COUNT_MAX}.`);
+      }
+      for (const t of tags) {
+        if (typeof t === "string" && t.length > BOUNDS.TAG_LENGTH_MAX) {
+          throw new Error(`OVERSIZED_TAG: Tag '${t.slice(0, 10)}...' exceeds limit of ${BOUNDS.TAG_LENGTH_MAX} characters.`);
+        }
+      }
     }
 
     // Check existing decision
