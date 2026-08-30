@@ -494,17 +494,37 @@
     </aside>
 
     <main role="main">
-      <div class="toolbar">
-        <h2 class="feed-stats" style="font-size:1rem; font-weight:600;">
-          Showing <strong id="oppCount">5</strong> Validated Opportunities
-        </h2>
-        <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
-          PORTFOLIO_DECISION: SIDE-BY-SIDE MATRIX ENABLED
+      <!-- Portfolio Operations Workflow Bar (WEB-PRODUCT-005) -->
+      <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:#fff;">PORTFOLIO_OPS:</span>
+          <button onclick="filterPortfolioState('ALL')" class="badge badge-fact" style="cursor:pointer;">ALL (<span id="countAll">3</span>)</button>
+          <button onclick="filterPortfolioState('SHORTLIST')" class="badge badge-derived" style="cursor:pointer;">★ SHORTLIST (<span id="countShortlist">1</span>)</button>
+          <button onclick="filterPortfolioState('WATCH')" class="badge badge-claim" style="cursor:pointer;">👁 WATCH (<span id="countWatch">1</span>)</button>
+          <button onclick="filterPortfolioState('INVESTIGATE')" class="badge badge-analysis" style="cursor:pointer;">🔍 INVESTIGATE (<span id="countInvestigate">1</span>)</button>
+          <button onclick="filterPortfolioState('HOLD')" class="badge badge-unknown" style="cursor:pointer;">⏸ HOLD (<span id="countHold">0</span>)</button>
+        </div>
+        <div id="portfolioConflictBanner" style="display:none; color:var(--accent-rose); font-size:0.75rem; font-weight:700; background:rgba(244,63,94,0.1); padding:0.3rem 0.6rem; border-radius:4px; border:1px solid var(--accent-rose);">
+          ⚠️ DECISION_UPDATED_ELSEWHERE (RELOAD_REQUIRED)
         </div>
       </div>
 
-      <div class="opportunity-grid" id="opportunityFeed" role="region" aria-label="Opportunity Feed">
-        <!-- Rendered via JS -->
+      <div class="toolbar">
+        <h2 class="feed-stats" style="font-size:1rem; font-weight:600;">
+          Showing <strong id="oppCount">3</strong> Validated Opportunities
+        </h2>
+        <div class="sort-controls">
+          <label for="sortSelect">Sort By:</label>
+          <select class="select-control" id="sortSelect" style="width:auto;">
+            <option value="SCORE_DESC">Opportunity Score (High -> Low)</option>
+            <option value="CONFIDENCE_DESC">Evidence Confidence (High -> Low)</option>
+            <option value="FRESHNESS_DESC">Latest Discovered</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="feed-container" id="opportunityFeed" role="region" aria-label="Opportunity Intelligence Feed">
+        <!-- Dynamic Cards Injected Here -->
       </div>
     </main>
   </div>
@@ -977,6 +997,50 @@
       document.getElementById("compareModal").style.display = "none";
     }
 
+    let activePortfolioFilter = "ALL";
+    const portfolioDecisions = {
+      "opp-hn-live-001": { state: "SHORTLIST", revision: 1, reason: "Pilot leader with fast MVP turnaround", notes: ["Validated open-source repo license"] },
+      "opp-trustmrr-001": { state: "WATCH", revision: 1, reason: "Monitoring ARR metrics", notes: [] },
+      "opp-speculative-003": { state: "INVESTIGATE", revision: 1, reason: "Exploring DACH market regulations", notes: [] }
+    };
+
+    function updatePortfolioCounts() {
+      const states = Object.values(portfolioDecisions).map(d => d.state);
+      document.getElementById("countAll").innerText = Object.keys(portfolioDecisions).length;
+      document.getElementById("countShortlist").innerText = states.filter(s => s === "SHORTLIST").length;
+      document.getElementById("countWatch").innerText = states.filter(s => s === "WATCH").length;
+      document.getElementById("countInvestigate").innerText = states.filter(s => s === "INVESTIGATE").length;
+      document.getElementById("countHold").innerText = states.filter(s => s === "HOLD").length;
+    }
+
+    function filterPortfolioState(state) {
+      activePortfolioFilter = state;
+      applyAllFilters();
+    }
+
+    function setPortfolioState(oppId, newState, expectedRevision = 1) {
+      const dec = portfolioDecisions[oppId];
+      if (dec && expectedRevision && dec.revision !== expectedRevision) {
+        // Trigger Concurrency Conflict UX
+        const banner = document.getElementById("portfolioConflictBanner");
+        banner.style.display = "block";
+        setTimeout(() => { banner.style.display = "none"; }, 5000);
+        alert(`[CONFLICT ERROR] Decision on ${oppId} was modified elsewhere. Expected rev ${expectedRevision}, current rev ${dec.revision}.`);
+        return;
+      }
+
+      if (dec) {
+        dec.state = newState;
+        dec.revision += 1;
+      } else {
+        portfolioDecisions[oppId] = { state: newState, revision: 1, reason: "", notes: [] };
+      }
+
+      updatePortfolioCounts();
+      applyAllFilters();
+      alert(`[PERSISTED] Saved portfolio state: ${newState} (rev ${portfolioDecisions[oppId].revision})`);
+    }
+
     function applyAllFilters() {
       const q = document.getElementById("searchInput").value.toLowerCase();
       const cat = document.getElementById("catFilter").value;
@@ -995,7 +1059,10 @@
         const matchesEv = ev === "ALL" || item.evidenceType === ev;
         const matchesSrc = src === "ALL" || item.sourceId === src;
 
-        return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc;
+        const oppDecision = portfolioDecisions[item.id];
+        const matchesPortfolio = activePortfolioFilter === "ALL" || (oppDecision && oppDecision.state === activePortfolioFilter);
+
+        return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc && matchesPortfolio;
       });
 
       renderFeed(filtered);
@@ -1008,6 +1075,7 @@
 
     // Initial render in LIVE_READ_MODEL_MODE
     switchDataMode("LIVE_READ_MODEL_MODE");
+    updatePortfolioCounts();
   </script>
 </body>
 </html>
