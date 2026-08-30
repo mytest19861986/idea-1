@@ -134,7 +134,7 @@ test("SECRETS: value-aware redaction masks resolved secret in subsequent logs an
   assert.ok(sanitized.includes("[REDACTED_SECRET]"));
 });
 
-test("SECRETS: End-to-end secret resolution and collector injection boundary test (SEC-I008 to SEC-I016)", async () => {
+test("SECRETS: End-to-end secret resolution and collector injection failure boundary test (SEC-I008 to SEC-I016)", async () => {
   const syntheticSecret = "synth-distinct-secret-999888";
   const provider = new InMemorySecretProvider({
     "cred:source:trustmrr:bearer": syntheticSecret
@@ -158,7 +158,7 @@ test("SECRETS: End-to-end secret resolution and collector injection boundary tes
 
   const runtime = new WorkerRuntime(registry);
   const task = createWorkerTask({
-    taskId: "task-secret-boundary-test",
+    taskId: "task-secret-boundary-test-failure",
     taskType: TaskType.DISCOVERY_EXECUTION,
     sourceId: "src-1",
     metadata: {
@@ -180,4 +180,49 @@ test("SECRETS: End-to-end secret resolution and collector injection boundary tes
 
   // Verify value-aware redaction replaced the secret in the error message
   assert.ok(execResult.error.message.includes("[REDACTED_SECRET]"), "Error message must have value-aware redaction");
+});
+
+test("SECRETS: End-to-end secret resolution and collector injection SUCCESS boundary test (SEC-I008 to SEC-I016)", async () => {
+  const successSecret = "synth-success-secret-777666";
+  const provider = new InMemorySecretProvider({
+    "cred:source:trustmrr:bearer": successSecret
+  });
+  const resolver = new SecretResolver(provider);
+
+  // 1. Resolve distinct secret at execution boundary
+  const resolvedToken = await resolver.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
+  assert.strictEqual(resolvedToken, successSecret);
+
+  // 2. Set up worker handler returning a payload that accidentally echoed the token in a nested field
+  const registry = new HandlerRegistry();
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task) => {
+    return {
+      fetchedCount: 10,
+      debugContext: `Fetched using token ${resolvedToken} successfully`
+    };
+  });
+
+  const runtime = new WorkerRuntime(registry);
+  const task = createWorkerTask({
+    taskId: "task-secret-boundary-test-success",
+    taskType: TaskType.DISCOVERY_EXECUTION,
+    sourceId: "src-1",
+    metadata: {
+      credentialRef: "cred:source:trustmrr:bearer"
+    }
+  });
+
+  // 3. Execute task and assert success return value AND attempt record are redacted
+  const execResult = await runtime.executeTask(task);
+  assert.strictEqual(execResult.state, "SUCCEEDED");
+
+  const serializedTask = JSON.stringify(task);
+  const serializedAttempts = JSON.stringify(execResult.attempts);
+  const serializedResult = JSON.stringify(execResult);
+
+  assert.ok(!serializedTask.includes(successSecret), "WorkerTask must not contain raw secret");
+  assert.ok(!serializedAttempts.includes(successSecret), "AttemptHistory must not contain raw secret");
+  assert.ok(!serializedResult.includes(successSecret), "Top-level ExecResult must not contain raw secret");
+
+  assert.ok(execResult.result.debugContext.includes("[REDACTED_SECRET]"), "Top-level result must have value-aware redaction");
 });

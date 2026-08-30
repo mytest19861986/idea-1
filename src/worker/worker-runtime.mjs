@@ -10,8 +10,8 @@ import {
 
 /**
  * ============================================================================
- * DISCOVERY WORKER RUNTIME & EXECUTION ENGINE (PKG-WORKER-014)
- * Invariants: WORK-I001 through WORK-I027
+ * DISCOVERY WORKER RUNTIME & EXECUTION ENGINE (PKG-WORKER-014 / PKG-SECRETS-016)
+ * Invariants: WORK-I001 through WORK-I027, SEC-I008 through SEC-I016
  * ============================================================================
  */
 
@@ -82,8 +82,9 @@ export class WorkerRuntime {
     let attemptRecord;
 
     try {
-      const result = await handler(task, { attemptNumber });
+      const rawResult = await handler(task, { attemptNumber });
       const durationMs = Date.now() - startTime;
+      const sanitizedResult = redactSensitiveData(rawResult);
 
       span.setStatus("OK", "Task completed successfully");
       span.end();
@@ -92,7 +93,7 @@ export class WorkerRuntime {
         attemptNumber,
         status: TaskState.SUCCEEDED,
         durationMs,
-        result: redactSensitiveData(result),
+        result: sanitizedResult,
         timestamp: new Date().toISOString()
       });
 
@@ -105,7 +106,7 @@ export class WorkerRuntime {
       return deepFreeze({
         taskId: task.taskId,
         state: TaskState.SUCCEEDED,
-        result,
+        result: sanitizedResult,
         attempts: this.getAttemptsForTask(task.taskId)
       });
     } catch (error) {
