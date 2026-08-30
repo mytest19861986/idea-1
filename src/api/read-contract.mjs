@@ -14,6 +14,36 @@ export function parseOpportunityListQuery(input = {}) {
 
 export function toPublicOpportunity(record) {
   if (!record || typeof record !== "object" || record.publicationState !== "APPROVED") throw new RangeError("only approved records are publicly readable");
+
+  if (record.isConfidential) {
+    return Object.freeze({
+      slug: text(record.slug, "slug"),
+      title: "[CONFIDENTIAL OPPORTUNITY]",
+      summary: "[REDACTED - PRIVILEGED ACCESS REQUIRED]",
+      score: null,
+      scoringModelVersion: null,
+      evidenceConfidence: null,
+      confidenceBreakdown: null,
+      corroborationStatus: "UNCONFIRMED",
+      freshnessStatus: "CURRENT",
+      clusterId: null,
+      contradictions: Object.freeze([]),
+      unknownFactors: Object.freeze([]),
+      tractionMetrics: Object.freeze([]),
+      competitors: Object.freeze([]),
+      marketGaps: Object.freeze([]),
+      localization: null,
+      monetization: null,
+      complexity: null,
+      regulatoryRisk: null,
+      facts: Object.freeze([]),
+      inferences: Object.freeze([]),
+      citations: Object.freeze([]),
+      isConfidential: true,
+      accessState: "REDACTED"
+    });
+  }
+
   const citations = Array.isArray(record.citations) ? record.citations : [];
   if (!record.slug || !record.title || !record.summary || citations.length === 0) throw new TypeError("public record is incomplete");
   return Object.freeze({
@@ -26,7 +56,7 @@ export function toPublicOpportunity(record) {
     confidenceBreakdown: Object.freeze(record.confidenceBreakdown || null),
     corroborationStatus: record.corroborationStatus || "UNCONFIRMED",
     freshnessStatus: record.freshnessStatus || "CURRENT",
-    clusterId: record.isConfidential ? null : (record.clusterId || null),
+    clusterId: record.clusterId || null,
     contradictions: Object.freeze(Array.isArray(record.contradictions) ? record.contradictions : []),
     unknownFactors: Object.freeze(Array.isArray(record.unknownFactors) ? record.unknownFactors : []),
     tractionMetrics: Object.freeze(Array.isArray(record.tractionMetrics) ? record.tractionMetrics : []),

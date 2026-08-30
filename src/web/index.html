@@ -1031,8 +1031,8 @@
               ${selected.map(o => `<td><span class="badge badge-hypothesis" style="font-size:0.65rem;">[AI_HYPOTHESIS]</span> <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">${o.monetization || 'UNKNOWN'}</div></td>`).join('')}
             </tr>
             <tr>
-              <td>Governed Monetization Portfolio</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--accent-blue);">Includes: UsageBased, SeatTiered, FlatRate, Freemium, EnterpriseContract, OpenSourceDualLicense, MarketplaceRevShare, ComputeMargin</td>`).join('')}
+              <td>Governed Monetization Portfolio (12 Models)</td>
+              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--accent-blue);">Includes: SUBSCRIPTION, TRANSACTION_FEE, MARKETPLACE_TAKE_RATE, ADVERTISEMENT, LEAD_GENERATION, LICENSING, FREEMIUM, USAGE_BASED, COMMISSION, SAAS_SEAT, SERVICE_FEE, HYBRID</td>`).join('')}
             </tr>
 
             <tr class="matrix-section-row"><td colspan="${selected.length + 1}">5. Buildability, Dependencies & MVP Scope (9 Complexity Dimensions)</td></tr>
