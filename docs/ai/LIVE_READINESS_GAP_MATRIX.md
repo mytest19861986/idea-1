@@ -1,33 +1,53 @@
-# LIVE READINESS GAP MATRIX (PKG-LIVE-READINESS-017)
+# LIVE READINESS GAP MATRIX (PKG-LIVE-READINESS-017R)
 
-## 1. Component Readiness Matrix
+## 1. Subsystem Evidence Classification
 
-| Component | Current Implementation | Evidence Level | Pilot Requirement | Gap Description | Severity | Blocking | Next Action |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Source Registry** | In-memory `SourceStore` + schema validator | `REFERENCE_RUNTIME_PROVEN` | Postgres-backed source lifecycle persistence | In-memory store does not survive process restarts | `P1` | YES | Wire `PostgresSourceStore` adapter to runtime |
-| **Collector Contract** | Unified Collector Interface & normalizer | `CONTRACT_PROVEN` | Strict contract validation | None (Contract complete) | `P3` | NO | Maintain contract stability |
-| **TrustMRR Collector** | Deterministic normalizer & mock transport | `REFERENCE_RUNTIME_PROVEN` | Live API credential & transport execution | Parked on `PKG-COL-002B` (Missing real API token) | `P0` | YES | Obtain pilot API key & execute `PKG-COL-002B` |
-| **Discovery Intake** | URL sanitizer, deduplicator, deep freeze | `REFERENCE_RUNTIME_PROVEN` | Gated candidate intake | None | `P3` | NO | Ingestion pipeline ready |
-| **Candidate Store** | In-memory state & entity resolution | `REFERENCE_RUNTIME_PROVEN` | Durable candidate deduplication | Requires Postgres persistence in live runs | `P1` | YES | Connect to `candidates` table |
-| **PostgreSQL Schema** | Production DDL (`migrations/001_initial_schema.sql`) | `CONTRACT_PROVEN` | Applied to disposable PostgreSQL instance | Parked on `PKG-DBRUN-012B` (Schema written, live migration pending) | `P0` | YES | Spin up disposable Postgres & apply migration |
-| **PostgreSQL Adapter** | `src/persistence/postgres-adapter.mjs` | `REFERENCE_RUNTIME_PROVEN` | Executed against live PG client | Integration test against running database instance pending | `P1` | YES | Execute integration tests in `PKG-DBRUN-012B` |
-| **Worker Runtime** | Execution engine, backoff, ephemeral secrets | `REFERENCE_RUNTIME_PROVEN` | Resilient task execution | Queue is in-memory; needs durable leasing for distributed pilot | `P2` | NO (Pilot single-instance) | Implement DB-backed task leasing |
-| **Scheduler** | Deterministic scheduling engine, cadence | `REFERENCE_RUNTIME_PROVEN` | Slot calculation & deduplication | Scheduler state is in-memory | `P1` | YES | Persist slot dispatch records to PG |
-| **Secret Resolver** | Ephemeral scoped resolver & redaction | `REFERENCE_RUNTIME_PROVEN` | Secure secret injection | Production Secret Manager provider (AWS Secrets / Vault) | `P2` | NO (Env provider pilot-ready) | Add AWS/Vault secret provider |
-| **Observability** | Telemetry facade & redaction | `REFERENCE_RUNTIME_PROVEN` | Structured metrics/logs/spans | OpenTelemetry exporter sink | `P2` | NO (Console/Noop pilot-ready) | Wire OTel Collector exporter |
+| Subsystem | Classification | Status / Implementation | Pilot Level | Gap Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL Adapter** | `CONTRACT_PROVEN` | `src/persistence/postgres-adapter.mjs` | `P0` | Live runtime execution is `ENVIRONMENT_BLOCKED` (`PKG-DBRUN-012B`) |
+| **Source State Authority** | `EXTERNAL` | In-memory `SourceStore` owns lifecycle | `P1` | Database does not own primary lifecycle state (`DB-GOV-STATE-001`) |
+| **Governance Atomicity** | `ARCHITECTURE_GAP` | Multi-table audit without DB transaction | `P1` | Unproven under process failure; can be disabled for pilot |
+| **Task Executor** | `REFERENCE_PROVEN` | `WorkerRuntime` + `calculateBackoffMs` | `P0` | Queue is in-memory (`DURABLE_QUEUE=NOT_IMPLEMENTED`) |
+| **Distributed Leasing** | `NOT_PROVEN` | Single process memory only | `P2` | Multi-instance locking not implemented |
+| **Scheduler Engine** | `REFERENCE_PROVEN` | `evaluateSchedule` + `slotId` replay safe | `P0` | Schedule state in-memory (`DURABLE_SCHEDULER_STATE=NOT_IMPLEMENTED`) |
+| **Secret Management** | `CONTRACT_PROVEN` | Scoped resolver + Env provider | `P0` | Live authorized credential missing (`REAL_CREDENTIAL_AVAILABLE=NO`) |
+| **Production Secret Manager** | `NOT_IMPLEMENTED` | Vault/AWS Secrets Manager adapter | `P2` | Environment variable provider used for Pilot |
+| **Observability Sinks** | `REFERENCE_PROVEN` | In-memory telemetry facade + sanitization | `P2` | `REAL_LOG_SINK=NOT_PROVEN`, `REAL_METRICS_EXPORT=NOT_PROVEN`, `REAL_TRACE_EXPORT=NOT_PROVEN` |
+| **Runtime Composition** | `NOT_IMPLEMENTED` | Individual modules tested separately | `P0` | No executable top-level orchestration loop (`PKG-COMPOSITION-018`) |
+| **Deployment Readiness** | `NOT_PILOT_READY` | Unit scripts only | `P0` | No production startup or process management entry point |
 
 ---
 
-## 2. Blocker Classification Summary
-- **P0_BLOCKERS** (Hard blockers preventing Pilot execution):
-  1. `PKG-DBRUN-012B`: Disposable PostgreSQL instance execution and migration verification.
-  2. `PKG-COL-002B`: Authorized live TrustMRR API credential availability.
-- **P1_REQUIRED_BEFORE_PILOT** (Required before production pilot deployment):
-  1. Runtime composition wiring `WorkerRuntime` + `SchedulingEngine` + `PostgresAdapter`.
-  2. Durable source lifecycle and schedule state persistence in PostgreSQL.
-- **P2_REQUIRED_FOR_PRODUCTION** (Production enterprise readiness):
-  1. Distributed lease lock / distributed queue broker.
-  2. Production Cloud Secret Manager adapter (AWS/GCP/Vault).
-  3. OpenTelemetry OTLP Collector metrics/trace exporter sink.
-- **P3_OPTIMIZATION** (Non-blocking improvements):
-  1. Fine-grained performance profiling and telemetry histogram optimization.
+## 2. Multi-Level Idempotency Trace
+
+| Idempotency Level | Status | Evidence & Boundary Authority |
+| :--- | :--- | :--- |
+| **DOMAIN_IDEMPOTENCY** | `PROVEN` | Normalizer URL canonicalization, deduplication hash, source key uniqueness |
+| **REFERENCE_REPLAY** | `PROVEN` | Replaying identical observation streams yields deterministic identical scores & states |
+| **DATABASE_RUNTIME_IDEMPOTENCY** | `NOT_PROVEN` | Database unique constraints and upsert idempotency unproven against live PG instance |
+| **CONCURRENT_IDEMPOTENCY** | `PROVEN_IN_PROCESS` | In-process concurrent tasks do not create duplicate slots or cross-contaminate secrets |
+| **DISTRIBUTED_IDEMPOTENCY** | `NOT_PROVEN` | Cross-node deduplication and lease locking not implemented |
+
+---
+
+## 3. Authoritative Pilot Blocker Hierarchy
+
+### P0_BLOCKERS (Must be resolved before Pilot can safely run)
+1. **`P0-1: ACTUAL_DURABLE_POSTGRESQL_PATH_NOT_PROVEN`** (`PKG-DBRUN-012B`):
+   - Database schema and adapter must be verified against an active PostgreSQL instance.
+2. **`P0-2: COMPLETE_RUNTIME_COMPOSITION_NOT_PROVEN`** (`PKG-COMPOSITION-018`):
+   - Scheduler → Worker → SecretResolver → Collector → Persistence → Telemetry must be composed into an executable runtime loop.
+3. **`P0-3: NO_AUTHORIZED_LIVE_SOURCE_PATH_PROVEN`** (`PKG-COL-002B`):
+   - At least one authorized live source credential and network transport path must be validated.
+
+### P1_REQUIREMENTS (Required for durable operational pilot)
+1. **Durable Source Lifecycle Authority**: Migrate primary source lifecycle authority to PostgreSQL (`DB-GOV-STATE-001`).
+2. **Durable Scheduler & Queue State**: Persist slot dispatch and task queue state to database.
+
+### P2_PRODUCTION_GAPS (Enterprise Production Requirements)
+1. Distributed lease lock manager for multi-node deployments.
+2. Production Cloud Secret Manager adapter (AWS Secrets Manager / HashiCorp Vault).
+3. OpenTelemetry OTLP Collector metric and trace exporter sinks.
+
+### P3_OPTIMIZATIONS (Performance Tuning)
+1. High-throughput query optimization and memory profiling.

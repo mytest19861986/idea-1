@@ -1,9 +1,9 @@
-# SYSTEM LIVE READINESS AUDIT & PRODUCTION GAP REPORT (PKG-LIVE-READINESS-017)
+# SYSTEM LIVE READINESS AUDIT & PRODUCTION GAP REPORT (PKG-LIVE-READINESS-017R)
 
 ## 1. Executive Summary
-- **Package ID**: `PKG-LIVE-READINESS-017`
+- **Package ID**: `PKG-LIVE-READINESS-017R`
 - **Audit Date**: 2026-08-30
-- **Auditing Authority**: Lead Systems Architect (Antigravity & GLM-5.3)
+- **Auditing Authority**: Lead Systems Architect (Antigravity & Gemini Trace)
 - **Final Pilot Verdict**: **`PILOT_READY=NO`**
 - **Current Safe Operating Model**: **`SINGLE_PROCESS_REFERENCE`**
 
@@ -18,24 +18,62 @@
 4. `DURABLE_RUNTIME_PROVEN`: Executed against persistent, durable external infrastructure (e.g. live PostgreSQL).
 5. `DISTRIBUTED_RUNTIME_PROVEN`: Multi-node execution, lease locking, and network partition resiliency verified.
 
-### Subsystem Verification Status
-- **Source Registry & Governance (`PKG-SRC-001`, `PKG-GOV-010`, `PKG-SRC-011R`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Zero automatic activation (`AUTO_ACTIVATION=NONE`), zero automatic rejection (`AUTO_REJECTION=NONE`), deterministic windowed evaluation (`EVAL-R001` to `EVAL-R010`), and state-stale decision protection (`SCHED-I022`).
-- **Collector Engine & Normalization (`PKG-COL-001`, `PKG-NORM-003`, `PKG-COL-002A`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Confidential listing isolation (`TRUSTMRR-G003`), exact slug generation, provenance retention (`TRUSTMRR-G001`), and backoff classification.
-- **Worker Execution Engine (`PKG-WORKER-014`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Bounded retry backoff (`calculateBackoffMs`), isolated attempt history, and failure taxonomy.
-- **Deterministic Scheduler (`PKG-SCHED-015R`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Cadence safety (`DEGRADED >= ACTIVE`), slot replay protection (`SCHED-I010`), and multi-factor slot keying (`taskType` + `policyVersion`).
-- **Secret Architecture (`PKG-SECRETS-016R`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Zero global raw secret storage, atomic execution-scoped registration, per-execution cleanup in `finally`, and 100% secret-free telemetry and state boundaries.
-- **Observability & Telemetry (`PKG-OBS-013`)**: `REFERENCE_RUNTIME_PROVEN`
-  - Invariants: Zero high-cardinality metric label leaks, failure isolation, and value-aware redaction.
-- **PostgreSQL Persistence (`PKG-DB-012A`)**: `CONTRACT_PROVEN` (DDL & Adapter written; Live runtime pending `PKG-DBRUN-012B`).
+### Subsystem Breakdown
+- **Architecture Proven**: `YES`
+- **Contract Proven**: `YES`
+- **Reference Runtime Proven**: `YES`
+- **Durable Runtime Proven**: `NO`
+- **Distributed Runtime Proven**: `NO`
+
+### Detailed Subsystem Audit
+- **PostgreSQL Persistence**:
+  - `POSTGRES_ADAPTER_CONTRACT = CONTRACT_PROVEN`
+  - `POSTGRES_RUNTIME = ENVIRONMENT_BLOCKED` (Pending `PKG-DBRUN-012B`)
+  - `MIGRATION_EXECUTED = NO`
+  - `POSTGRES_SOURCE_STATE_AUTHORITY = EXTERNAL` (In-memory `SourceStore` currently holds primary state)
+  - `GOVERNANCE_DURABLE_ATOMICITY = ARCHITECTURE_GAP_NOT_PROVEN` (`DB-GOV-STATE-001`)
+- **Worker & Execution**:
+  - `REFERENCE_TASK_EXECUTOR = PROVEN`
+  - `DURABLE_QUEUE = NOT_IMPLEMENTED`
+  - `DISTRIBUTED_LEASE = NOT_PROVEN`
+- **Scheduler**:
+  - `REFERENCE_SCHEDULER = PROVEN`
+  - `DURABLE_SCHEDULER_STATE = NOT_IMPLEMENTED`
+  - `DISTRIBUTED_SCHEDULER = NOT_PROVEN`
+- **Secrets & Credentials**:
+  - `SECRET_BOUNDARY = CONTRACT_PROVEN_SECURITY_REVIEWED`
+  - `ENVIRONMENT_SECRET_PROVIDER = PROVEN`
+  - `PRODUCTION_SECRET_MANAGER = NOT_IMPLEMENTED`
+  - `REAL_CREDENTIAL_AVAILABLE = NO`
+- **Observability**:
+  - `TELEMETRY_CONTRACT = PROVEN`
+  - `IN_MEMORY_TELEMETRY = PROVEN`
+  - `REAL_LOG_SINK = NOT_PROVEN`
+  - `REAL_METRICS_EXPORT = NOT_PROVEN`
+  - `REAL_TRACE_EXPORT = NOT_PROVEN`
 
 ---
 
-## 3. Pilot Safety Matrix
+## 3. Idempotency & Invariant Chains
+
+### Multi-Level Idempotency
+- `DOMAIN_IDEMPOTENCY = PROVEN`
+- `REFERENCE_REPLAY = PROVEN`
+- `DATABASE_RUNTIME_IDEMPOTENCY = NOT_PROVEN`
+- `CONCURRENT_IDEMPOTENCY = PROVEN_IN_PROCESS`
+- `DISTRIBUTED_IDEMPOTENCY = NOT_PROVEN`
+
+### Confidentiality & Provenance Chains
+- `CONFIDENTIALITY_CONTRACT = PROVEN`
+- `CONFIDENTIALITY_REFERENCE_RUNTIME = PROVEN` (`TRUSTMRR-G003`)
+- `LIVE_DURABLE_CONFIDENTIALITY = NOT_PROVEN`
+- `SOURCE_CLAIM_CONTRACT = PROVEN`
+- `SOURCE_CLAIM_REFERENCE_RUNTIME = PROVEN` (`TRUSTMRR-G001`)
+- `SOURCE_CLAIM_SILENT_UPGRADE = NONE`
+
+---
+
+## 4. Pilot Safety Matrix
 
 | Question / Safety Invariant | Audit Result | Evidence & Code Authority |
 | :--- | :--- | :--- |
@@ -53,30 +91,20 @@
 
 ---
 
-## 4. Chain Invariants
-1. **Idempotency Chain (`IDEMPOTENT_AT_EVERY_BOUNDARY=YES`)**:
-   - Discovery Intake deduplicates URLs deterministically.
-   - Collector normalizer generates deterministic external IDs and canonical URLs.
-   - Scheduler generates deterministic `slotId` keys preventing replay.
-2. **Confidentiality Chain (`CONFIDENTIAL_LISTING_STRICT_ISOLATION=PROVEN`)**:
-   - `TRUSTMRR-G003` isolation ensures confidential listings never expose buyer/seller identities.
-3. **Fact/Claim Chain (`SOURCE_CLAIM_TO_FACT_SILENT_UPGRADE=NONE`)**:
-   - Raw documents preserve `metadata.sourceClaim` provenance without fabricated inferences.
-
----
-
 ## 5. Deployment, Recovery & Operating Model
-- **Current Operating Model**: `SINGLE_PROCESS_REFERENCE`.
-- **Pilot Readiness Verdict**: **`PILOT_READY=NO`**.
-- **Blockers to Pilot**:
-  - `P0_BLOCKER 1`: `PKG-DBRUN-012B` (Postgres live runtime verification).
-  - `P0_BLOCKER 2`: `PKG-COL-002B` (Live TrustMRR API credential).
-  - `P1_REQUIREMENT`: Runtime composition module connecting Scheduler, Worker, and Postgres persistence.
+- **Current Operating Model**: `SINGLE_PROCESS_REFERENCE`
+- **Runtime Composition**: `NOT_IMPLEMENTED`
+- **Deployment Readiness**: `NOT_PILOT_READY`
+- **Automatic Governance Policy for Pilot**: `ASSESSMENT_ONLY` (Can be set to `DISABLED_FOR_PILOT` to safely defer durable governance atomicity gap `DB-GOV-STATE-001`)
+- **Pilot Readiness Verdict**: **`PILOT_READY=NO`**
 
 ---
 
-## 6. Recommended Execution Sequence to Achieve `PILOT_READY=YES`
-1. **Step 1 (`PKG-DBRUN-012B`)**: Spin up disposable PostgreSQL instance, apply migrations, and verify live adapter integration tests.
-2. **Step 2 (`PKG-COMPOSITION-018`)**: Build runtime composition orchestrator wiring the worker loop, scheduler cadence, and persistent store.
-3. **Step 3 (`PKG-COL-002B`)**: Inject authorized live TrustMRR API credentials into `EnvironmentSecretProvider` and perform controlled live collector verification.
-4. **Step 4 (`PILOT_CERTIFICATION`)**: Issue formal `PILOT_READY=YES` certification.
+## 6. Authoritative Blocker Sequence
+1. **`P0-1: ACTUAL_DURABLE_POSTGRESQL_PATH_NOT_PROVEN`** (`PKG-DBRUN-012B`)
+2. **`P0-2: COMPLETE_RUNTIME_COMPOSITION_NOT_PROVEN`** (`PKG-COMPOSITION-018`)
+3. **`P0-3: NO_AUTHORIZED_LIVE_SOURCE_PATH_PROVEN`** (`PKG-COL-002B`)
+
+### Recommended Execution Path
+- Proceed directly to **`PKG-COMPOSITION-018`** to assemble the standalone executable runtime loop:
+  `Scheduler → Worker → SecretResolver → Collector → Persistence → Telemetry`.
