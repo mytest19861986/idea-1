@@ -588,6 +588,64 @@
     </div>
   </div>
 
+  <!-- Executive Production Readiness Workspace Modal (WEB-PRODUCT-008) -->
+  <div class="compare-modal-overlay" id="readinessModal" role="dialog" aria-modal="true" aria-labelledby="readinessModalTitle" style="display:none;">
+    <div class="compare-modal" style="max-width:950px; max-height:85vh; overflow-y:auto;">
+      <div class="compare-modal-header" style="position:sticky; top:0; background:var(--bg-secondary); z-index:10;">
+        <div>
+          <h2 id="readinessModalTitle" style="font-size:1.2rem; font-weight:800; color:#fff;">🛡️ Production Readiness & Gap Assessment Workspace</h2>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">Deterministic Audit: Pilot-Proven Capabilities vs Production Blockers</div>
+        </div>
+        <button onclick="closeReadinessModal()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.3rem 0.8rem; border-radius:4px; font-weight:700; cursor:pointer;">✕ Close</button>
+      </div>
+      <div class="compare-modal-body" style="padding:1.5rem;">
+        <!-- Executive Go/No-Go Verdict Banner -->
+        <div style="background:rgba(244,63,94,0.15); border:1px solid var(--accent-rose); border-radius:8px; padding:1rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.75rem; font-weight:800; color:var(--accent-rose); font-family:var(--font-mono);">EXECUTIVE ASSESSMENT VERDICT:</div>
+            <div style="font-size:1.3rem; font-weight:900; color:#fff;">🛑 PRODUCTION_NO_GO (Tightly Restricted Pilot Approved)</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">Controlled Pilot Proven. Launch to general production blocked pending Multi-User Auth & Automated S3 Backups.</div>
+          </div>
+          <div style="text-align:right; font-family:var(--font-mono); font-size:0.8rem;">
+            <div>Target: <strong>Modular Monolith</strong></div>
+            <div>Database: <strong>PostgreSQL 16</strong></div>
+          </div>
+        </div>
+
+        <!-- Production Readiness Gates Table -->
+        <h3 style="font-size:0.95rem; font-weight:800; margin-bottom:0.75rem; color:var(--accent-blue);">1. Deterministic Production Gates</h3>
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:1.5rem;">
+          <thead>
+            <tr style="background:var(--bg-surface-elevated); text-align:left; color:var(--text-secondary);">
+              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Gate ID</th>
+              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Category</th>
+              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Pilot State</th>
+              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Production Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-001</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Multi-User Auth & RBAC</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Single Op)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-rose); font-weight:700;">NOT_PROVEN (P0_BLOCKER)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-002</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Automated Backup & Restore</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (pg_dump)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-003</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">SQL Injection & Input Security</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN ($1..$12)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald); font-weight:700;">PASS (100% Parameterized)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-004</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Database Schema Migrations</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (001..004)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald); font-weight:700;">PASS (Additive Versioned)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-005</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Confidentiality Projection</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Masked)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald); font-weight:700;">PASS (Prohibited URLs Masked)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-006</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Observability & Alerting</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (TAP / Console)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
+            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">GATE-007</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Containerization & TLS Boundary</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Local WSL2)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Target Production Profile Summary -->
+        <h3 style="font-size:0.95rem; font-weight:800; margin-bottom:0.5rem; color:var(--accent-blue);">2. Smallest Credible Production Target</h3>
+        <div style="font-size:0.8rem; color:var(--text-secondary); background:var(--bg-surface); padding:1rem; border-radius:6px; border:1px solid var(--border-subtle);">
+          <p><strong>Architecture:</strong> Modular Monolith Node.js runtime with single-region PostgreSQL 16 primary.</p>
+          <p style="margin-top:0.3rem;"><strong>Security:</strong> OAuth2 / OIDC proxy layer terminates authentication; TLS 1.3 reverse proxy.</p>
+          <p style="margin-top:0.3rem;"><strong>Storage:</strong> Automated WAL archiving to S3 with daily pg_dump point-in-time recovery testing.</p>
+          <p style="margin-top:0.3rem;"><strong>Zero Scope Creep:</strong> No Kubernetes, no Kafka, no multi-region complexity required.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Sticky Bottom Portfolio Compare Bar -->
   <div class="sticky-compare-bar" id="stickyCompareBar">
     <div style="display:flex; align-items:center; gap:1.5rem;">
@@ -1120,6 +1178,14 @@
 
     function markOpportunityReviewed(oppId) {
       alert(`[REVIEW RECORDED] Opportunity ${oppId} marked reviewed at ${new Date().toLocaleTimeString()} (review-policy-v1).`);
+    }
+
+    function openReadinessModal() {
+      document.getElementById("readinessModal").style.display = "flex";
+    }
+
+    function closeReadinessModal() {
+      document.getElementById("readinessModal").style.display = "none";
     }
 
     function applyAllFilters() {
