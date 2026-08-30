@@ -4,7 +4,7 @@ import { redactSecretText } from "../secrets/secret-redaction.mjs";
 
 /**
  * ============================================================================
- * OBSERVABILITY & TELEMETRY FACADE (PKG-OBS-013)
+ * OBSERVABILITY & TELEMETRY FACADE (PKG-OBS-013 / PKG-SECRETS-016R)
  * Invariants: OBS-I001 through OBS-I020, SEC-I017 through SEC-I020
  * Telemetry Schema Version: discovery-observability-v1
  * ============================================================================
@@ -25,14 +25,13 @@ const FORBIDDEN_METRIC_LABEL_KEYS = new Set([
 
 const SENSITIVE_KEY_PATTERN = /^(authorization|bearer|password|secret|token|apikey|api_key|cookie|credentials)$/i;
 
-export function redactSensitiveData(val) {
+export function redactSensitiveData(val, knownSecrets = []) {
   if (val === null || val === undefined) return val;
   if (typeof val === "string") {
-    // Value-aware dynamic redaction + regex redaction
-    return redactSecretText(val);
+    return redactSecretText(val, knownSecrets);
   }
   if (Array.isArray(val)) {
-    return val.map((item) => redactSensitiveData(item));
+    return val.map((item) => redactSensitiveData(item, knownSecrets));
   }
   if (typeof val === "object") {
     const res = {};
@@ -42,7 +41,7 @@ export function redactSensitiveData(val) {
       } else if (k === "is_confidential" && v === true) {
         res[k] = true;
       } else {
-        res[k] = redactSensitiveData(v);
+        res[k] = redactSensitiveData(v, knownSecrets);
       }
     }
     return res;
@@ -70,9 +69,9 @@ export class TelemetryFacade {
     this.adapter = adapter || new NoopTelemetryAdapter();
   }
 
-  startSpan(name, attributes = {}) {
+  startSpan(name, attributes = {}, knownSecrets = []) {
     try {
-      const sanitizedAttrs = redactSensitiveData(attributes);
+      const sanitizedAttrs = redactSensitiveData(attributes, knownSecrets);
       const span = this.adapter.startSpan(name, {
         ...sanitizedAttrs,
         "telemetry.version": OBSERVABILITY_VERSION
@@ -93,7 +92,7 @@ export class TelemetryFacade {
         setStatus: (status, description) => {
           try {
             if (span && typeof span.setStatus === "function") {
-              span.setStatus(status, description);
+              span.setStatus(status, redactSensitiveData(description, knownSecrets));
             }
           } catch (_) {}
         }
@@ -128,9 +127,9 @@ export class TelemetryFacade {
     }
   }
 
-  log(level, eventName, payload = {}) {
+  log(level, eventName, payload = {}, knownSecrets = []) {
     try {
-      const sanitized = redactSensitiveData(payload);
+      const sanitized = redactSensitiveData(payload, knownSecrets);
       this.adapter.log(level, eventName, {
         ...sanitized,
         "telemetry.version": OBSERVABILITY_VERSION,

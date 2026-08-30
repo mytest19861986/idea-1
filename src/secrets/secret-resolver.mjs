@@ -1,12 +1,12 @@
 import { deepFreeze } from "../discovery/discovery-intake.mjs";
 import { telemetry } from "../observability/telemetry.mjs";
-import { registerSecretForRedaction } from "./secret-redaction.mjs";
 
 /**
  * ============================================================================
- * SECRET RESOLVER PORT & PURPOSE BINDING (PKG-SECRETS-016)
+ * SECRET RESOLVER PORT & PURPOSE BINDING (PKG-SECRETS-016R)
  * Invariants: SEC-I001 through SEC-I035
  * Secrets Contract Version: secrets-contract-v1
+ * Zero global secret retention; pure ephemeral resolution.
  * ============================================================================
  */
 
@@ -140,9 +140,6 @@ export class SecretResolver {
       err.classification = "ACCESS_CONFIGURATION_FAILURE";
       throw err;
     }
-
-    // Dynamic value-aware redaction registration
-    registerSecretForRedaction(secretValue);
 
     span.setStatus("OK", "Secret resolved successfully");
     span.end();

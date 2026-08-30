@@ -10,8 +10,9 @@ import {
 
 /**
  * ============================================================================
- * DISCOVERY WORKER RUNTIME & EXECUTION ENGINE (PKG-WORKER-014 / PKG-SECRETS-016)
- * Invariants: WORK-I001 through WORK-I027, SEC-I008 through SEC-I016
+ * DISCOVERY WORKER RUNTIME & EXECUTION ENGINE (PKG-WORKER-014 / PKG-SECRETS-016R)
+ * Invariants: WORK-I001 through WORK-I027, SEC-I008 through SEC-I020
+ * Ephemeral Execution Scope & Per-Execution Secret Isolation
  * ============================================================================
  */
 
@@ -38,7 +39,7 @@ export class WorkerRuntime {
     this.attemptHistory = new Map(); // taskId -> [attemptRecord]
   }
 
-  async executeTask(taskInput, attemptNumber = 1) {
+  async executeTask(taskInput, attemptNumber = 1, executionContext = {}) {
     let task;
     try {
       task = createWorkerTask(taskInput);
@@ -66,12 +67,26 @@ export class WorkerRuntime {
       });
     }
 
+    const scopedSecrets = new Set(
+      Array.isArray(executionContext.knownSecrets) ? executionContext.knownSecrets : []
+    );
+
+    const executionScope = {
+      attemptNumber,
+      registerSecretForRedaction: (sec) => {
+        if (typeof sec === "string" && sec.trim().length >= 4) {
+          scopedSecrets.add(sec.trim());
+        }
+      },
+      ...executionContext
+    };
+
     // Telemetry trace span (taskId included in trace correlation, excluded from metric labels)
     const span = telemetry.startSpan("worker.task.execute", {
       taskType: task.taskType,
       sourceId: task.sourceId,
       attemptNumber
-    });
+    }, scopedSecrets);
 
     telemetry.recordCounter("worker_task_started", 1, {
       taskType: task.taskType,
@@ -82,9 +97,9 @@ export class WorkerRuntime {
     let attemptRecord;
 
     try {
-      const rawResult = await handler(task, { attemptNumber });
+      const rawResult = await handler(task, executionScope);
       const durationMs = Date.now() - startTime;
-      const sanitizedResult = redactSensitiveData(rawResult);
+      const sanitizedResult = redactSensitiveData(rawResult, scopedSecrets);
 
       span.setStatus("OK", "Task completed successfully");
       span.end();
@@ -115,7 +130,7 @@ export class WorkerRuntime {
       const isRetryable = isRetryableFailure(classification);
       const isExhausted = attemptNumber >= task.maxAttempts;
 
-      const sanitizedErrMsg = redactSensitiveData(error.message || String(error));
+      const sanitizedErrMsg = redactSensitiveData(error.message || String(error), scopedSecrets);
       span.recordException(error);
       span.setStatus("ERROR", sanitizedErrMsg);
       span.end();
@@ -170,6 +185,9 @@ export class WorkerRuntime {
         nextBackoffMs,
         attempts: this.getAttemptsForTask(task.taskId)
       });
+    } finally {
+      // Ephemeral cleanup: clear scoped secrets on execution termination
+      scopedSecrets.clear();
     }
   }
 

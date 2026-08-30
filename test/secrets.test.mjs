@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { SecretResolver, SecretPurpose, SecretPresence } from "../src/secrets/secret-resolver.mjs";
 import { InMemorySecretProvider } from "../src/secrets/in-memory-secret-provider.mjs";
 import { EnvironmentSecretProvider } from "../src/secrets/environment-secret-provider.mjs";
-import { redactSecretText, redactSecretPayload } from "../src/secrets/secret-redaction.mjs";
+import {
+  redactSecretText,
+  redactSecretPayload,
+  createSecretRedactionScope
+} from "../src/secrets/secret-redaction.mjs";
 import { createWorkerTask, TaskType } from "../src/worker/worker-task.mjs";
 import { HandlerRegistry, WorkerRuntime } from "../src/worker/worker-runtime.mjs";
 import { evaluateSchedule, DEFAULT_SCHEDULING_POLICY } from "../src/scheduler/scheduling-engine.mjs";
@@ -118,20 +122,75 @@ test("SECRETS: credential rotation immediately returns updated value (SECRET_VAL
   assert.strictEqual(s2, "v2-synth-token-rotated");
 });
 
-test("SECRETS: value-aware redaction masks resolved secret in subsequent logs and errors", async () => {
-  const provider = new InMemorySecretProvider({
-    "cred:source:trustmrr:bearer": "super-secret-token-xyz"
+test("SECRETS: createSecretRedactionScope provides ephemeral scoped redaction and zero global retention", () => {
+  const scope = createSecretRedactionScope();
+  scope.register("ephemeral-secret-12345");
+
+  assert.strictEqual(scope.getRegisteredCount(), 1);
+  const text = "Error with token ephemeral-secret-12345 at endpoint";
+  const redacted = scope.redactText(text);
+
+  assert.ok(!redacted.includes("ephemeral-secret-12345"));
+  assert.ok(redacted.includes("[REDACTED_SECRET]"));
+
+  // Disposing / clearing the scope immediately removes the secret from the scope
+  scope.dispose();
+  assert.strictEqual(scope.getRegisteredCount(), 0);
+
+  // After dispose, new redaction through this scope does not retain the previous secret
+  const textAfter = "Another error with token ephemeral-secret-12345";
+  const unredactedAfter = scope.redactText(textAfter);
+  assert.strictEqual(unredactedAfter, textAfter);
+});
+
+test("SECRETS: Concurrent task secret isolation (Finding 2 fix - SEC-I018)", async () => {
+  const registry = new HandlerRegistry();
+
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
+    // Each task registers its own secret in its isolated execution context
+    const taskSecret = task.metadata.secret;
+    context.registerSecretForRedaction(taskSecret);
+
+    if (task.sourceId === "src-task-a") {
+      throw new Error(`Task A failed with ${taskSecret}`);
+    } else {
+      return { msg: `Task B succeeded with ${taskSecret}` };
+    }
   });
-  const resolver = new SecretResolver(provider);
 
-  const resolved = await resolver.resolveSecret("cred:source:trustmrr:bearer", SecretPurpose.COLLECTOR_EXECUTION);
-  assert.strictEqual(resolved, "super-secret-token-xyz");
+  const runtime = new WorkerRuntime(registry);
 
-  const errorText = `Failed request with token super-secret-token-xyz at host`;
-  const sanitized = redactSecretText(errorText);
+  const taskA = createWorkerTask({
+    taskId: "task-concurrent-a",
+    taskType: TaskType.DISCOVERY_EXECUTION,
+    sourceId: "src-task-a",
+    metadata: { secret: "distinct-secret-AAAAA" }
+  });
 
-  assert.ok(!sanitized.includes("super-secret-token-xyz"));
-  assert.ok(sanitized.includes("[REDACTED_SECRET]"));
+  const taskB = createWorkerTask({
+    taskId: "task-concurrent-b",
+    taskType: TaskType.DISCOVERY_EXECUTION,
+    sourceId: "src-task-b",
+    metadata: { secret: "distinct-secret-BBBBB" }
+  });
+
+  // Execute concurrently
+  const [resA, resB] = await Promise.all([
+    runtime.executeTask(taskA),
+    runtime.executeTask(taskB)
+  ]);
+
+  // Assert Task A error sanitized secret A
+  assert.ok(!resA.error.message.includes("distinct-secret-AAAAA"));
+  assert.ok(resA.error.message.includes("[REDACTED_SECRET]"));
+
+  // Assert Task B result sanitized secret B
+  assert.ok(!resB.result.msg.includes("distinct-secret-BBBBB"));
+  assert.ok(resB.result.msg.includes("[REDACTED_SECRET]"));
+
+  // Assert no cross-contamination: serialized result A doesn't know about secret B
+  assert.ok(!JSON.stringify(resA).includes("distinct-secret-BBBBB"));
+  assert.ok(!JSON.stringify(resB).includes("distinct-secret-AAAAA"));
 });
 
 test("SECRETS: End-to-end secret resolution and collector injection failure boundary test (SEC-I008 to SEC-I016)", async () => {
@@ -147,8 +206,8 @@ test("SECRETS: End-to-end secret resolution and collector injection failure boun
 
   // 2. Set up worker handler simulating collector execution with ephemeral secret injection
   const registry = new HandlerRegistry();
-  registry.register(TaskType.DISCOVERY_EXECUTION, async (task) => {
-    // Ephemeral header construction inside execution boundary
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
+    context.registerSecretForRedaction(resolvedToken);
     const headers = { Authorization: `Bearer ${resolvedToken}` };
     assert.strictEqual(headers.Authorization, `Bearer ${syntheticSecret}`);
 
@@ -195,7 +254,8 @@ test("SECRETS: End-to-end secret resolution and collector injection SUCCESS boun
 
   // 2. Set up worker handler returning a payload that accidentally echoed the token in a nested field
   const registry = new HandlerRegistry();
-  registry.register(TaskType.DISCOVERY_EXECUTION, async (task) => {
+  registry.register(TaskType.DISCOVERY_EXECUTION, async (task, context) => {
+    context.registerSecretForRedaction(resolvedToken);
     return {
       fetchedCount: 10,
       debugContext: `Fetched using token ${resolvedToken} successfully`
