@@ -280,10 +280,32 @@ export function sanitizeClusterProjection(candidateList = [], isPrivileged = fal
 
   return Object.freeze(candidateList.map(cand => {
     if (!cand) return cand;
+
+    // For unprivileged/public viewers: if candidate is confidential, return strict closed redacted stub
+    if (!isPrivileged && cand.isConfidential) {
+      return Object.freeze({
+        opportunityId: cand.opportunityId,
+        clusterId: null,
+        isDeduplicated: false,
+        isConfidential: true,
+        problem: "[REDACTED - CONFIDENTIAL]",
+        targetCustomer: "[REDACTED - CONFIDENTIAL]",
+        valueProposition: "[REDACTED - CONFIDENTIAL]",
+        businessModel: "[REDACTED - CONFIDENTIAL]",
+        supportingEvidenceIds: Object.freeze([]),
+        contradictoryEvidenceIds: Object.freeze([]),
+        assumptions: Object.freeze([]),
+        unknowns: Object.freeze([]),
+        riskFlags: Object.freeze([]),
+        lifecycleState: "ACTIVE_CANDIDATE",
+        accessState: "REDACTED"
+      });
+    }
+
     const belongsToConfidentialCluster = cand.clusterId && confidentialClusters.has(cand.clusterId);
     
-    // For unprivileged/public viewers: suppress clusterId if confidential or belongs to confidential cluster
-    if (!isPrivileged && (cand.isConfidential || belongsToConfidentialCluster)) {
+    // For unprivileged/public viewers: suppress clusterId on public sibling to prevent cluster existence disclosure
+    if (!isPrivileged && belongsToConfidentialCluster) {
       return Object.freeze({
         ...cand,
         clusterId: null,

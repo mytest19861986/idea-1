@@ -189,7 +189,11 @@ describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and U
     const confSibling = publicProjected.find(c => c.opportunityId === "cand-confidential-002");
 
     assert.equal(pubSibling.clusterId, null, "Public sibling MUST have clusterId suppressed to avoid disclosing confidential cluster existence");
+    assert.equal(pubSibling.problem, "Public Problem", "Public sibling content remains intact");
     assert.equal(confSibling.clusterId, null, "Confidential member MUST have clusterId suppressed");
+    assert.equal(confSibling.problem, "[REDACTED - CONFIDENTIAL]", "Confidential candidate content MUST be redacted for unprivileged viewers");
+    assert.equal(confSibling.businessModel, "[REDACTED - CONFIDENTIAL]", "Confidential candidate business model MUST be redacted for unprivileged viewers");
+    assert.equal(confSibling.accessState, "REDACTED");
 
     // When viewed by privileged Analyst/Admin:
     const privilegedProjected = sanitizeClusterProjection([publicCand, confidentialCand], true);
