@@ -134,7 +134,7 @@ test("HN-LIVE-PROOF: Bounded Live Collection -> Pipeline -> PostgreSQL -> Observ
     ) VALUES (
       'attr-${executionId}', '${candidate.discoveryId}', '${SOURCE_ID}', 'public_community_feed', '${collectedDoc.idempotencyKey}',
       'SOURCE_CLAIM', '${collectedDoc.metadata.externalId}', '${COLLECTOR_VERSION}', NOW(), '${rawMetadata}'::jsonb
-    );
+    ) ON CONFLICT DO NOTHING;
   `);
 
   // Insert Authoritative Observation
