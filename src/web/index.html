@@ -591,8 +591,12 @@
           { name: "OpenAssistant Widget", type: "Open Source Substitute" }
         ],
         risks: [
-          { risk: "LLM Hallucination Risk in Enterprise Support", severity: "HIGH", confidence: "90%" },
-          { risk: "SaaS Widget Copycat Vulnerability", severity: "MEDIUM", confidence: "75%" }
+          { dimension: "Market Risk", risk: "Market demand shifts towards big-tech bundled assistants", severity: "MEDIUM", confidence: "80%", basis: "SOURCE_CLAIM" },
+          { dimension: "Technical Risk", risk: "LLM hallucination rate in enterprise customer queries", severity: "HIGH", confidence: "90%", basis: "AI_ANALYSIS" },
+          { dimension: "Regulatory Risk", risk: "EU AI Act transparency and data sovereignty rules", severity: "LOW", confidence: "95%", basis: "FACT" },
+          { dimension: "Distribution Risk", risk: "SaaS Widget copycat saturation on open-source repositories", severity: "MEDIUM", confidence: "75%", basis: "DERIVED_METRIC" },
+          { dimension: "Monetization Risk", risk: "Self-hosting users reluctant to convert to paid seats", severity: "HIGH", confidence: "85%", basis: "AI_HYPOTHESIS" },
+          { dimension: "Evidence Risk", risk: "Public forum upvotes are unverified commercial traction signals", severity: "HIGH", confidence: "95%", basis: "FACT" }
         ],
         monetization: "Dual-license model: AGPL open-source with paid commercial seats and white-label enterprise deployment packages.",
         localization: "Zero hardcoded locale strings; immediate translation support for DACH (German), US, and APAC markets.",
@@ -885,13 +889,19 @@
       document.getElementById("wsMonetization").innerText = opp.monetization;
       document.getElementById("wsMvp").innerText = opp.mvp;
 
-      // Competitors & Risks
+      // Competitors & 6-Dimensional Risk Register
       document.getElementById("wsCompetitors").innerHTML = opp.competitors.map(c => `
         <div class="metric-row"><span>${c.name}</span><span style="color:var(--text-muted); font-size:0.75rem;">${c.type}</span></div>
       `).join('');
 
-      document.getElementById("wsRisks").innerHTML = opp.risks.map(r => `
-        <div class="metric-row"><span>${r.risk}</span><strong style="color:${r.severity==='CRITICAL'||r.severity==='HIGH'?'var(--accent-rose)':'var(--accent-amber)'}; font-size:0.75rem;">[${r.severity}]</strong></div>
+      document.getElementById("wsRisks").innerHTML = (opp.risks || []).map(r => `
+        <div class="metric-row" style="flex-direction:column; align-items:flex-start; gap:0.2rem; padding:0.4rem 0;">
+          <div style="display:flex; justify-content:space-between; width:100%;">
+            <strong style="color:#fff; font-size:0.8rem;">${r.dimension || 'Risk'}: ${r.risk}</strong>
+            <span style="color:${r.severity==='CRITICAL'||r.severity==='HIGH'?'var(--accent-rose)':'var(--accent-amber)'}; font-size:0.75rem; font-weight:700;">[${r.severity}]</span>
+          </div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">Confidence: ${r.confidence} | Basis: <span class="badge ${getBadgeClass(r.basis || 'UNKNOWN')}" style="font-size:0.6rem; padding:0.1rem 0.3rem;">${r.basis || 'UNKNOWN'}</span></div>
+        </div>
       `).join('');
 
       // Provenance Panel
