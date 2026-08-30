@@ -912,6 +912,12 @@
                 <span class="badge ${getBadgeClass(item.evidenceType)}">
                   ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
                 </span>
+                <span class="badge badge-derived" style="font-size:0.65rem;">
+                  ⚙️ ${item.scoringModelVersion || 'v1.0.0-balanced'}
+                </span>
+                <span class="badge ${item.corroborationStatus === 'CORROBORATED' ? 'badge-fact' : 'badge-claim'}" style="font-size:0.65rem;">
+                  🔗 ${item.corroborationStatus || 'CORROBORATED'}
+                </span>
               </div>
               <div class="opp-meta">
                 <span>Category: <strong>${item.category}</strong></span>
