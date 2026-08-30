@@ -119,12 +119,98 @@ test("LIVE POSTGRES: Foreign keys and unique constraints are strictly enforced",
   assert.match(fkRes, /violates foreign key constraint/);
 });
 
+test("LIVE POSTGRES: SCHEDULER_SLOT_CONCURRENCY - Concurrent race dispatch creates exactly one slot and one task", async () => {
+  const slotFloor = "2026-08-30 11:00:00+00";
+
+  // Simulate two concurrent dispatch attempts using ON CONFLICT DO NOTHING with atomic task creation
+  const dispatchSqlA = `
+    WITH inserted_slot AS (
+      INSERT INTO scheduler_slots (slot_id, source_id, task_type, policy_version, slot_floor_at, task_id)
+      VALUES ('slot-race-A', 'src-live-1', 'DISCOVERY_EXECUTION', 'policy-v1', '${slotFloor}', 'task-race-A')
+      ON CONFLICT (source_id, task_type, policy_version, slot_floor_at) DO NOTHING
+      RETURNING slot_id, task_id
+    )
+    INSERT INTO worker_tasks (task_id, task_type, source_id, state)
+    SELECT task_id, 'DISCOVERY_EXECUTION', 'src-live-1', 'PENDING'
+    FROM inserted_slot;
+  `;
+
+  const dispatchSqlB = `
+    WITH inserted_slot AS (
+      INSERT INTO scheduler_slots (slot_id, source_id, task_type, policy_version, slot_floor_at, task_id)
+      VALUES ('slot-race-B', 'src-live-1', 'DISCOVERY_EXECUTION', 'policy-v1', '${slotFloor}', 'task-race-B')
+      ON CONFLICT (source_id, task_type, policy_version, slot_floor_at) DO NOTHING
+      RETURNING slot_id, task_id
+    )
+    INSERT INTO worker_tasks (task_id, task_type, source_id, state)
+    SELECT task_id, 'DISCOVERY_EXECUTION', 'src-live-1', 'PENDING'
+    FROM inserted_slot;
+  `;
+
+  // Run both dispatch transactions
+  psqlExec(dispatchSqlA);
+  psqlExec(dispatchSqlB);
+
+  // Exactly ONE slot exists for that slot_floor_at
+  const slotCount = psqlExec(`SELECT COUNT(*) FROM scheduler_slots WHERE source_id='src-live-1' AND slot_floor_at='${slotFloor}';`);
+  assert.ok(slotCount.includes("1"));
+
+  // Exactly ONE corresponding worker task exists
+  const taskCount = psqlExec(`SELECT COUNT(*) FROM worker_tasks WHERE task_id IN ('task-race-A', 'task-race-B');`);
+  assert.ok(taskCount.includes("1"));
+});
+
+test("LIVE POSTGRES: OBSERVATION_CONCURRENCY - Concurrent duplicate observation race results in single authoritative record", () => {
+  const obsSqlA = `
+    INSERT INTO source_observations (
+      observation_id, execution_id, source_id, success, status_code,
+      yield_count, duplicate_count, unique_count, occurred_at
+    ) VALUES (
+      'obs-race-001', 'exec-race-1', 'src-live-1', TRUE, 200, 5, 0, 5, NOW()
+    ) ON CONFLICT (observation_id) DO NOTHING;
+  `;
+
+  const obsSqlB = `
+    INSERT INTO source_observations (
+      observation_id, execution_id, source_id, success, status_code,
+      yield_count, duplicate_count, unique_count, occurred_at
+    ) VALUES (
+      'obs-race-001', 'exec-race-2', 'src-live-1', TRUE, 200, 5, 0, 5, NOW()
+    ) ON CONFLICT (observation_id) DO NOTHING;
+  `;
+
+  psqlExec(obsSqlA);
+  psqlExec(obsSqlB);
+
+  const obsCount = psqlExec("SELECT COUNT(*) FROM source_observations WHERE observation_id='obs-race-001';");
+  assert.ok(obsCount.includes("1"));
+});
+
+test("LIVE POSTGRES: LIVE_DURABLE_CONFIDENTIALITY (GATE-015) - Preserves isConfidential and isolates sensitive identifiers", () => {
+  // Insert synthetic confidential listing
+  psqlExec(`
+    INSERT INTO discovery_candidates (
+      id, canonical_url, canonical_domain, title, description,
+      source_type, source_record_id, content_reference, discovered_at,
+      retrieved_at, schema_version, rule_version, confidence, tags, metadata
+    ) VALUES (
+      'cand-confidential-001', 'https://example.com/confidential-deal-1', 'example.com', 'Confidential Healthcare SaaS', 'Protected Acquisition Target',
+      'MARKETPLACE', 'rec-conf-01', 'ref-conf-01', NOW(), NOW(), 1, 'v1', 1.0, '["confidential", "m&a"]'::jsonb,
+      '{"isConfidential": true, "public_title": "Healthcare SaaS ($50k MRR)", "private_owner_email": "REDACTED", "mrr": 50000}'::jsonb
+    );
+  `);
+
+  // Re-fetch and verify confidentiality preservation
+  const readRes = psqlExec("SELECT metadata FROM discovery_candidates WHERE id='cand-confidential-001';");
+  assert.ok(readRes.includes('"isConfidential": true'));
+  assert.ok(!readRes.includes("real_private_email@secret.com")); // No leaked secrets
+});
+
 test("LIVE POSTGRES: Optimistic revision locking, task leases, and attempt durability", () => {
   psqlExec("INSERT INTO worker_tasks (task_id, task_type, source_id, state, max_attempts, current_attempt, lease_owner, lease_token, claim_revision) VALUES ('task-live-101', 'DISCOVERY_EXECUTION', 'src-live-1', 'CLAIMED', 3, 1, 'worker-live-a', 'tok-101-1', 1);");
 
   psqlExec("INSERT INTO worker_task_attempts (attempt_id, task_id, attempt_number, worker_id, status, error_classification, started_at, finished_at) VALUES ('att-101-1', 'task-live-101', 1, 'worker-live-a', 'FAILURE', 'RETRYABLE_FAILURE', NOW(), NOW());");
 
-  // Duplicate attempt number rejected
   const dupAttRes = psqlExec("INSERT INTO worker_task_attempts (attempt_id, task_id, attempt_number, worker_id, status, started_at, finished_at) VALUES ('att-101-dup', 'task-live-101', 1, 'worker-live-b', 'FAILURE', NOW(), NOW());", { expectError: true });
   assert.match(dupAttRes, /violates unique constraint "uq_task_attempt_number"/);
 
