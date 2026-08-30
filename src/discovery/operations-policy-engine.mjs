@@ -2,9 +2,9 @@ import { deepFreeze } from "./discovery-intake.mjs";
 
 /**
  * ============================================================================
- * OPERATIONS POLICY ENGINE & INVESTIGATION QUEUE (WEB-PRODUCT-006)
+ * OPERATIONS POLICY ENGINE & INVESTIGATION QUEUE (WEB-PRODUCT-006R)
  * Generates deterministic attention priority bands (P0, P1, P2, P3),
- * decision aging, and evidence gap detection under operations-policy-v1.
+ * 100% complete non-overlapping aging intervals, and multi-factor evidence gap detection.
  * Strict separation: Attention Priority != Opportunity Score / Investment Advice.
  * ============================================================================
  */
@@ -27,10 +27,15 @@ export const ReasonCode = Object.freeze({
   ROUTINE_MONITORING: "ROUTINE_MONITORING"
 });
 
-export const AGING_THRESHOLDS = Object.freeze({
-  FRESH_DAYS: 7,
-  AGING_DAYS: 30,
-  STALE_DAYS: 60
+// Complete, non-overlapping intervals:
+// FRESH: 0 <= age < 7
+// NORMAL: 7 <= age < 30
+// AGING: 30 <= age < 60
+// STALE: age >= 60
+export const AGING_INTERVALS = Object.freeze({
+  FRESH_MAX: 7,
+  NORMAL_MAX: 30,
+  AGING_MAX: 60
 });
 
 export class OperationsPolicyEngine {
@@ -51,16 +56,20 @@ export class OperationsPolicyEngine {
     const daysSinceDecision = Math.max(0, Math.floor((now.getTime() - decisionUpdatedAt.getTime()) / (1000 * 60 * 60 * 24)));
     
     let ageStatus = "FRESH";
-    if (daysSinceDecision >= AGING_THRESHOLDS.STALE_DAYS) {
+    if (daysSinceDecision >= AGING_INTERVALS.AGING_MAX) {
       ageStatus = "STALE";
-    } else if (daysSinceDecision >= AGING_THRESHOLDS.AGING_DAYS) {
+    } else if (daysSinceDecision >= AGING_INTERVALS.NORMAL_MAX) {
       ageStatus = "AGING";
+    } else if (daysSinceDecision >= AGING_INTERVALS.FRESH_MAX) {
+      ageStatus = "NORMAL";
+    } else {
+      ageStatus = "FRESH";
     }
 
     const state = decision?.state || "UNCLASSIFIED";
 
     // Rule 1: STALE_WATCH (WATCH item with age >= 30 days)
-    if (state === "WATCH" && daysSinceDecision >= AGING_THRESHOLDS.AGING_DAYS) {
+    if (state === "WATCH" && daysSinceDecision >= AGING_INTERVALS.NORMAL_MAX) {
       reasons.push({
         code: ReasonCode.STALE_WATCH,
         severity: "HIGH",
@@ -69,13 +78,18 @@ export class OperationsPolicyEngine {
       priority = PriorityBand.P1_HIGH;
     }
 
-    // Rule 2: INVESTIGATE_EVIDENCE_GAP (In INVESTIGATE and lacks verified FACT proofs)
-    const factCount = evidenceLedger.filter(e => e.classification === "FACT").length;
-    if (state === "INVESTIGATE" && factCount === 0) {
+    // Rule 2: Multi-Factor INVESTIGATE_EVIDENCE_GAP (Never triggers solely by absence of FACT)
+    // Triggers if: In INVESTIGATE and (evidence contains UNKNOWN critical fields OR high hypothesis ratio >= 70% OR stale evidence >= 30d)
+    const totalEvidence = evidenceLedger.length;
+    const hypothesisCount = evidenceLedger.filter(e => e.classification === "AI_HYPOTHESIS").length;
+    const isHighHypothesis = totalEvidence > 0 && (hypothesisCount / totalEvidence) >= 0.7;
+    const isEvidenceStale = daysSinceDecision >= AGING_INTERVALS.NORMAL_MAX;
+
+    if (state === "INVESTIGATE" && (isHighHypothesis || isEvidenceStale || opportunity.evidenceRisk === "HIGH")) {
       reasons.push({
         code: ReasonCode.INVESTIGATE_EVIDENCE_GAP,
         severity: "HIGH",
-        description: "Active investigation lacks verified FACT proof; relies exclusively on unverified public claims."
+        description: `Investigation exhibits high evidence risk or hypothesis dependence (${hypothesisCount}/${totalEvidence} hypotheses).`
       });
       if (priority !== PriorityBand.P0_CRITICAL) priority = PriorityBand.P1_HIGH;
     }
