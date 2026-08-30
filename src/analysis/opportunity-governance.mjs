@@ -154,42 +154,76 @@ export function calculateEvidenceFreshness(observedAt, nowTimestamp = new Date()
  * 4. Granular 8-Factor Evidence Confidence Breakdown Engine
  */
 export function calculateGranularEvidenceConfidence({
-  sourceReliability = 50,      // 0-100
-  sourceDiversity = 50,        // 0-100
-  corroborationScore = 50,     // 0-100
-  recencyScore = 50,           // 0-100
-  directnessScore = 50,        // 0-100
-  contradictionLevel = 0,      // 0-100 (penalty)
-  dataCompleteness = 50,       // 0-100
-  claimSpecificity = 50,       // 0-100
+  sourceReliability = null,
+  sourceDiversity = null,
+  corroborationScore = null,
+  recencyScore = null,
+  directnessScore = null,
+  contradictionLevel = 0,
+  dataCompleteness = null,
+  claimSpecificity = null,
   confidenceVersion = "v1.0.0"
-}) {
+} = {}) {
+  const factors = [
+    { val: sourceReliability, weight: 0.20 },
+    { val: sourceDiversity, weight: 0.15 },
+    { val: corroborationScore, weight: 0.20 },
+    { val: recencyScore, weight: 0.15 },
+    { val: directnessScore, weight: 0.10 },
+    { val: dataCompleteness, weight: 0.10 },
+    { val: claimSpecificity, weight: 0.10 }
+  ];
+
+  // If all positive factors are null/absent, confidence is strictly UNKNOWN (null)
+  const presentFactors = factors.filter(f => typeof f.val === "number" && !Number.isNaN(f.val));
+  if (presentFactors.length === 0) {
+    return deepFreeze({
+      confidenceVersion,
+      finalConfidence: null,
+      breakdown: {
+        sourceReliability: null,
+        sourceDiversity: null,
+        corroborationScore: null,
+        recencyScore: null,
+        directnessScore: null,
+        contradictionLevel: typeof contradictionLevel === "number" ? Math.max(0, Math.min(100, contradictionLevel)) : 0,
+        dataCompleteness: null,
+        claimSpecificity: null
+      },
+      status: "UNKNOWN_CONFIDENCE",
+      calculatedAt: new Date().toISOString()
+    });
+  }
+
+  // Validate bounds [0, 100] for all present factors
+  const clamp = (v) => Math.max(0, Math.min(100, Number(v) || 0));
   const basePositive = (
-    (sourceReliability * 0.20) +
-    (sourceDiversity * 0.15) +
-    (corroborationScore * 0.20) +
-    (recencyScore * 0.15) +
-    (directnessScore * 0.10) +
-    (dataCompleteness * 0.10) +
-    (claimSpecificity * 0.10)
+    ((sourceReliability !== null ? clamp(sourceReliability) : 0) * 0.20) +
+    ((sourceDiversity !== null ? clamp(sourceDiversity) : 0) * 0.15) +
+    ((corroborationScore !== null ? clamp(corroborationScore) : 0) * 0.20) +
+    ((recencyScore !== null ? clamp(recencyScore) : 0) * 0.15) +
+    ((directnessScore !== null ? clamp(directnessScore) : 0) * 0.10) +
+    ((dataCompleteness !== null ? clamp(dataCompleteness) : 0) * 0.10) +
+    ((claimSpecificity !== null ? clamp(claimSpecificity) : 0) * 0.10)
   );
 
-  const penalty = (contradictionLevel * 0.35);
+  const penalty = (clamp(contradictionLevel) * 0.35);
   const finalConfidence = Math.max(0, Math.min(100, Number((basePositive - penalty).toFixed(2))));
 
   return deepFreeze({
     confidenceVersion,
     finalConfidence,
     breakdown: {
-      sourceReliability,
-      sourceDiversity,
-      corroborationScore,
-      recencyScore,
-      directnessScore,
-      contradictionLevel,
-      dataCompleteness,
-      claimSpecificity
+      sourceReliability: sourceReliability !== null ? clamp(sourceReliability) : null,
+      sourceDiversity: sourceDiversity !== null ? clamp(sourceDiversity) : null,
+      corroborationScore: corroborationScore !== null ? clamp(corroborationScore) : null,
+      recencyScore: recencyScore !== null ? clamp(recencyScore) : null,
+      directnessScore: directnessScore !== null ? clamp(directnessScore) : null,
+      contradictionLevel: clamp(contradictionLevel),
+      dataCompleteness: dataCompleteness !== null ? clamp(dataCompleteness) : null,
+      claimSpecificity: claimSpecificity !== null ? clamp(claimSpecificity) : null
     },
+    status: "ASSESSED",
     calculatedAt: new Date().toISOString()
   });
 }
@@ -227,5 +261,36 @@ export function createOpportunityCandidate({
     riskFlags: deepFreeze([...riskFlags]),
     lifecycleState: "ACTIVE_CANDIDATE"
   });
+}
+
+/**
+ * 6. Cluster Confidentiality Barrier & Deduplication Filter (B4 Gate)
+ * If a cluster contains ANY confidential member, suppresses clusterId and cluster-aggregated
+ * handles on public projections across ALL members, preventing sibling existence disclosure.
+ */
+export function sanitizeClusterProjection(candidateList = [], isPrivileged = false) {
+  if (!Array.isArray(candidateList)) throw new TypeError("candidateList must be an array");
+  
+  // Find all clusterIds that have at least one confidential candidate
+  const confidentialClusters = new Set(
+    candidateList
+      .filter(c => c && c.isConfidential && c.clusterId)
+      .map(c => c.clusterId)
+  );
+
+  return Object.freeze(candidateList.map(cand => {
+    if (!cand) return cand;
+    const belongsToConfidentialCluster = cand.clusterId && confidentialClusters.has(cand.clusterId);
+    
+    // For unprivileged/public viewers: suppress clusterId if confidential or belongs to confidential cluster
+    if (!isPrivileged && (cand.isConfidential || belongsToConfidentialCluster)) {
+      return Object.freeze({
+        ...cand,
+        clusterId: null,
+        isDeduplicated: false
+      });
+    }
+    return cand;
+  }));
 }
 

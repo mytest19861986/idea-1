@@ -215,7 +215,7 @@ export class CryptographicAuthService {
         evidenceConfidence: typeof opportunity.evidenceConfidence === "number" ? opportunity.evidenceConfidence : null,
         confidenceBreakdown: opportunity.confidenceBreakdown || null,
         corroborationStatus: opportunity.corroborationStatus || "UNCONFIRMED",
-        freshnessStatus: opportunity.freshnessStatus || "CURRENT",
+        freshnessStatus: opportunity.freshnessStatus || "UNKNOWN",
         isConfidential: false,
         category: opportunity.category,
         market: opportunity.market,

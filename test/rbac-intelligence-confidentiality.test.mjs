@@ -1,7 +1,15 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { CryptographicAuthService, UserRole } from "../src/security/auth-boundary-service.mjs";
-import { createOpportunityCandidate, createRegulatoryRiskAssessment, calculateEvidenceFreshness } from "../src/analysis/opportunity-governance.mjs";
+import {
+  createOpportunityCandidate,
+  createRegulatoryRiskAssessment,
+  calculateEvidenceFreshness,
+  calculateGranularEvidenceConfidence,
+  sanitizeClusterProjection
+} from "../src/analysis/opportunity-governance.mjs";
+import { createTractionMetric } from "../src/analysis/opportunity-intelligence.mjs";
 import { toPublicOpportunity } from "../src/api/read-contract.mjs";
 
 describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and UNKNOWN Semantics", () => {
@@ -51,18 +59,27 @@ describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and U
     assert.equal(viewerProjection.accessState, "REDACTED");
   });
 
-  it("4. TOKEN_REQUIRED_CLAIMS: verifyToken rejects missing required JWT claims", () => {
-    const tokenWithoutSub = auth.signToken({ userId: "u1", role: UserRole.VIEWER });
-    // Tamper with payload to strip 'sub'
-    const parts = tokenWithoutSub.split(".");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-    delete payload.sub;
-    const tamperedPayloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-    const fakeToken = `${parts[0]}.${tamperedPayloadB64}.${parts[2]}`;
+  it("4. TOKEN_REQUIRED_CLAIMS: verifyToken rejects missing required JWT claims on authentically signed token", () => {
+    const header = { alg: "HS256", typ: "JWT" };
+    const payloadMissingSub = {
+      role: UserRole.VIEWER,
+      iss: "discovery-auth-service",
+      aud: "discovery-platform-api",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600
+    };
 
-    const res = auth.verifyToken(`Bearer ${fakeToken}`);
+    const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url");
+    const payloadB64 = Buffer.from(JSON.stringify(payloadMissingSub)).toString("base64url");
+    const sig = crypto.createHmac("sha256", secret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest("base64url");
+
+    const validSigMissingSubToken = `${headerB64}.${payloadB64}.${sig}`;
+    const res = auth.verifyToken(`Bearer ${validSigMissingSubToken}`);
     assert.equal(res.ok, false);
     assert.equal(res.status, 401);
+    assert.match(res.error, /Missing required JWT claims/);
   });
 
   it("5. CONFIDENTIAL_CLUSTER_PROJECTION_TEST: Confidential candidates do not leak clusterId to public contracts", () => {
@@ -79,7 +96,6 @@ describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and U
     assert.equal(confidentialCandidate.isConfidential, true);
     assert.equal(confidentialCandidate.clusterId, "cluster-stealth-alpha");
 
-    // When processed through toPublicOpportunity, confidential records must never expose clusterId
     const record = {
       slug: "public-view",
       title: "Public Title",
@@ -109,5 +125,78 @@ describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and U
     const res2 = calculateEvidenceFreshness(observedAt, refTime);
     assert.equal(res1, res2);
     assert.equal(res1, "CURRENT");
+  });
+
+  it("8. D5_CONFIDENCE_UNKNOWN_PRESERVATION_TEST: Absent evidence returns null confidence without midpoint-50 fabrication", () => {
+    const emptyConf = calculateGranularEvidenceConfidence({});
+    assert.equal(emptyConf.finalConfidence, null, "Empty evidence MUST produce null confidence, never 50");
+    assert.equal(emptyConf.status, "UNKNOWN_CONFIDENCE");
+    assert.equal(emptyConf.breakdown.sourceReliability, null);
+    assert.equal(emptyConf.breakdown.sourceDiversity, null);
+  });
+
+  it("9. D6_TRACTION_OBSERVED_AT_FABRICATION_TEST: Absent observedAt produces null, never new Date()", () => {
+    const metric = createTractionMetric({
+      metricType: "ARR",
+      value: 1000000
+    });
+    assert.equal(metric.observedAt, null, "Missing observedAt must be null rather than fabricated timestamp");
+  });
+
+  it("10. D7C_FRESHNESS_UNKNOWN_PROJECTION_TEST: Missing freshness preserves UNKNOWN in both projection layers", () => {
+    const oppWithoutFreshness = {
+      opportunityId: "opp-fresh-001",
+      slug: "freshness-test",
+      title: "Freshness Test Opp",
+      summary: "Summary",
+      score: 75,
+      isConfidential: false,
+      publicationState: "APPROVED",
+      citations: [{ sourceId: "s1", url: "https://example.com" }]
+    };
+
+    const viewer = auth.projectOpportunityForRole(oppWithoutFreshness, UserRole.VIEWER);
+    assert.equal(viewer.freshnessStatus, "UNKNOWN", "Viewer projection must preserve UNKNOWN freshness");
+
+    const pub = toPublicOpportunity(oppWithoutFreshness);
+    assert.equal(pub.freshnessStatus, "UNKNOWN", "Public read contract must preserve UNKNOWN freshness");
+  });
+
+  it("11. B4_ADVERSARIAL_CLUSTER_SIBLING_LEAK_TEST: Public sibling sharing cluster with confidential record suppresses clusterId", () => {
+    const publicCand = createOpportunityCandidate({
+      opportunityId: "cand-public-001",
+      clusterId: "cluster-classified-merger-99",
+      isConfidential: false,
+      problem: "Public Problem",
+      targetCustomer: "Public Customer",
+      valueProposition: "Public Prop",
+      businessModel: "SaaS"
+    });
+
+    const confidentialCand = createOpportunityCandidate({
+      opportunityId: "cand-confidential-002",
+      clusterId: "cluster-classified-merger-99",
+      isConfidential: true,
+      problem: "Secret Problem",
+      targetCustomer: "Secret Customer",
+      valueProposition: "Secret Prop",
+      businessModel: "Stealth"
+    });
+
+    // When sanitized for public/viewer:
+    const publicProjected = sanitizeClusterProjection([publicCand, confidentialCand], false);
+    const pubSibling = publicProjected.find(c => c.opportunityId === "cand-public-001");
+    const confSibling = publicProjected.find(c => c.opportunityId === "cand-confidential-002");
+
+    assert.equal(pubSibling.clusterId, null, "Public sibling MUST have clusterId suppressed to avoid disclosing confidential cluster existence");
+    assert.equal(confSibling.clusterId, null, "Confidential member MUST have clusterId suppressed");
+
+    // When viewed by privileged Analyst/Admin:
+    const privilegedProjected = sanitizeClusterProjection([publicCand, confidentialCand], true);
+    const privPub = privilegedProjected.find(c => c.opportunityId === "cand-public-001");
+    const privConf = privilegedProjected.find(c => c.opportunityId === "cand-confidential-002");
+
+    assert.equal(privPub.clusterId, "cluster-classified-merger-99", "Privileged roles retain full cluster view");
+    assert.equal(privConf.clusterId, "cluster-classified-merger-99", "Privileged roles retain full cluster view");
   });
 });

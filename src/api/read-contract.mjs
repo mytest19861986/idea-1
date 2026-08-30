@@ -55,7 +55,7 @@ export function toPublicOpportunity(record) {
     evidenceConfidence: typeof record.evidenceConfidence === "number" ? record.evidenceConfidence : null,
     confidenceBreakdown: Object.freeze(record.confidenceBreakdown || null),
     corroborationStatus: record.corroborationStatus || "UNCONFIRMED",
-    freshnessStatus: record.freshnessStatus || "CURRENT",
+    freshnessStatus: record.freshnessStatus || "UNKNOWN",
     clusterId: record.clusterId || null,
     contradictions: Object.freeze(Array.isArray(record.contradictions) ? record.contradictions : []),
     unknownFactors: Object.freeze(Array.isArray(record.unknownFactors) ? record.unknownFactors : []),

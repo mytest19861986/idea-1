@@ -117,7 +117,7 @@ export function createTractionMetric({
     metricType: type,
     value: value !== undefined && value !== null ? value : "UNKNOWN",
     unit: typeof unit === "string" ? unit.trim() : "",
-    observedAt: typeof observedAt === "string" ? observedAt : new Date().toISOString(),
+    observedAt: typeof observedAt === "string" && observedAt.trim() ? observedAt.trim() : null,
     sourceEvidenceIds: deepFreeze([...sourceEvidenceIds]),
     classification,
     provenance: {
