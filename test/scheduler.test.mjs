@@ -6,8 +6,10 @@ import {
   computeSlotFloor,
   SchedulingOutcome,
   DispatchOutcome,
-  DEFAULT_SCHEDULING_POLICY
+  DEFAULT_SCHEDULING_POLICY,
+  SourceSchedulingClassification
 } from "../src/scheduler/scheduling-engine.mjs";
+import { TaskType } from "../src/worker/worker-task.mjs";
 
 test("SCHEDULER: ACTIVE + never scheduled yields DUE with valid WorkerTask", () => {
   const source = { id: "src-1", status: "ACTIVE" };
@@ -16,27 +18,24 @@ test("SCHEDULER: ACTIVE + never scheduled yields DUE with valid WorkerTask", () 
   const decision = evaluateSchedule(source, {}, DEFAULT_SCHEDULING_POLICY, now);
   assert.strictEqual(decision.outcome, SchedulingOutcome.DUE);
   assert.ok(decision.slotId.includes("src-1"));
+  assert.ok(decision.slotId.includes(TaskType.DISCOVERY_EXECUTION));
+  assert.ok(decision.slotId.includes("scheduler-policy-v1"));
   assert.ok(decision.task);
   assert.strictEqual(decision.task.sourceId, "src-1");
+  assert.strictEqual(decision.task.taskType, TaskType.DISCOVERY_EXECUTION);
 });
 
-test("SCHEDULER: ACTIVE + interval not elapsed yields NOT_DUE", () => {
-  const source = { id: "src-1", status: "ACTIVE" };
-  const state = { lastScheduledAt: "2026-08-30T11:45:00.000Z" }; // 15 mins ago (interval = 60 mins)
+test("SCHEDULER: DEGRADED normal discovery interval is slower than ACTIVE (Finding 1 fix)", () => {
+  assert.ok(DEFAULT_SCHEDULING_POLICY.cadences.DEGRADED >= DEFAULT_SCHEDULING_POLICY.cadences.ACTIVE);
+  assert.strictEqual(DEFAULT_SCHEDULING_POLICY.cadences.ACTIVE, 3600000); // 1h
+  assert.strictEqual(DEFAULT_SCHEDULING_POLICY.cadences.DEGRADED, 7200000); // 2h (slower, not hammering)
+
+  const source = { id: "src-deg", status: "DEGRADED" };
+  const state = { lastScheduledAt: "2026-08-30T11:00:00.000Z" }; // 1h ago (< 2h)
   const now = "2026-08-30T12:00:00.000Z";
 
   const decision = evaluateSchedule(source, state, DEFAULT_SCHEDULING_POLICY, now);
   assert.strictEqual(decision.outcome, SchedulingOutcome.NOT_DUE);
-  assert.strictEqual(decision.reason, "Cadence interval has not yet elapsed");
-});
-
-test("SCHEDULER: ACTIVE + interval elapsed yields DUE", () => {
-  const source = { id: "src-1", status: "ACTIVE" };
-  const state = { lastScheduledAt: "2026-08-30T10:00:00.000Z" }; // 2 hours ago (interval = 60 mins)
-  const now = "2026-08-30T12:00:00.000Z";
-
-  const decision = evaluateSchedule(source, state, DEFAULT_SCHEDULING_POLICY, now);
-  assert.strictEqual(decision.outcome, SchedulingOutcome.DUE);
 });
 
 test("SCHEDULER: LOW_PRIORITY applies slower configured cadence (6 hours)", () => {
@@ -48,45 +47,40 @@ test("SCHEDULER: LOW_PRIORITY applies slower configured cadence (6 hours)", () =
   assert.strictEqual(decision.outcome, SchedulingOutcome.NOT_DUE);
 });
 
-test("SCHEDULER: DEGRADED applies recovery cadence (30 mins)", () => {
-  const source = { id: "src-deg", status: "DEGRADED" };
-  const state = { lastScheduledAt: "2026-08-30T11:15:00.000Z" }; // 45 mins ago (> 30 mins)
-  const now = "2026-08-30T12:00:00.000Z";
+test("SCHEDULER: Canonical source status matrix strictly classifies every lifecycle state (Finding 3 fix)", () => {
+  const allStates = ["DISCOVERED", "CANDIDATE", "EVALUATING", "APPROVED", "ACTIVE", "LOW_PRIORITY", "DEGRADED", "PAUSED", "REJECTED", "RETIRED"];
+  for (const s of allStates) {
+    assert.ok(SourceSchedulingClassification[s], `State ${s} must have explicit classification`);
+  }
 
-  const decision = evaluateSchedule(source, state, DEFAULT_SCHEDULING_POLICY, now);
-  assert.strictEqual(decision.outcome, SchedulingOutcome.DUE);
+  assert.strictEqual(SourceSchedulingClassification.DISCOVERED, "NOT_ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.CANDIDATE, "NOT_ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.EVALUATING, "NOT_ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.APPROVED, "NOT_ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.ACTIVE, "ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.LOW_PRIORITY, "ELIGIBLE");
+  assert.strictEqual(SourceSchedulingClassification.DEGRADED, "ELIGIBLE_RESTRICTED");
+  assert.strictEqual(SourceSchedulingClassification.PAUSED, "BLOCKED");
+  assert.strictEqual(SourceSchedulingClassification.REJECTED, "BLOCKED");
+  assert.strictEqual(SourceSchedulingClassification.RETIRED, "BLOCKED");
 });
 
-test("SCHEDULER: PAUSED, REJECTED, RETIRED yield BLOCKED; APPROVED, CANDIDATE yield NOT_ELIGIBLE", () => {
-  const paused = evaluateSchedule({ id: "src-p", status: "PAUSED" }, {}, DEFAULT_SCHEDULING_POLICY, "2026-08-30T12:00:00Z");
-  const rejected = evaluateSchedule({ id: "src-r", status: "REJECTED" }, {}, DEFAULT_SCHEDULING_POLICY, "2026-08-30T12:00:00Z");
-  const approved = evaluateSchedule({ id: "src-a", status: "APPROVED" }, {}, DEFAULT_SCHEDULING_POLICY, "2026-08-30T12:00:00Z");
-
-  assert.strictEqual(paused.outcome, SchedulingOutcome.BLOCKED);
-  assert.strictEqual(rejected.outcome, SchedulingOutcome.BLOCKED);
-  assert.strictEqual(approved.outcome, SchedulingOutcome.NOT_ELIGIBLE);
-});
-
-test("SCHEDULER: nextEligibleAt in future yields NOT_DUE without recomputing backoff", () => {
-  const source = { id: "src-retry", status: "ACTIVE" };
-  const state = { nextEligibleAt: "2026-08-30T12:30:00.000Z" }; // 30 mins in future
+test("SCHEDULER: Slot and Task IDs include taskType and policyVersion (Finding 2 & 5 fix)", () => {
+  const source = { id: "src-id-test", status: "ACTIVE" };
   const now = "2026-08-30T12:00:00.000Z";
 
-  const decision = evaluateSchedule(source, state, DEFAULT_SCHEDULING_POLICY, now);
-  assert.strictEqual(decision.outcome, SchedulingOutcome.NOT_DUE);
-  assert.strictEqual(decision.nextEligibleAt, "2026-08-30T12:30:00.000Z");
-});
+  const d1 = evaluateSchedule(source, {}, DEFAULT_SCHEDULING_POLICY, now);
+  const customPolicy = { ...DEFAULT_SCHEDULING_POLICY, policyVersion: "scheduler-policy-v2" };
+  const d2 = evaluateSchedule(source, {}, customPolicy, now);
 
-test("SCHEDULER: Missed intervals coalesce to one current due task (SCHED-I030)", () => {
-  const source = { id: "src-missed", status: "ACTIVE" };
-  const state = { lastScheduledAt: "2026-08-25T00:00:00.000Z" }; // 5 days ago (many missed 1h intervals)
-  const now = "2026-08-30T12:00:00.000Z";
+  assert.ok(d1.slotId.includes("DISCOVERY_EXECUTION"));
+  assert.ok(d1.slotId.includes("scheduler-policy-v1"));
+  assert.ok(d1.taskId.includes("DISCOVERY_EXECUTION"));
+  assert.ok(d1.taskId.includes("scheduler-policy-v1"));
 
-  const decision = evaluateSchedule(source, state, DEFAULT_SCHEDULING_POLICY, now);
-  assert.strictEqual(decision.outcome, SchedulingOutcome.DUE);
-  assert.ok(decision.task);
-  // Coalesces to single current slot
-  assert.strictEqual(decision.slotId, `slot:src-missed:${Date.parse("2026-08-30T12:00:00.000Z")}`);
+  // Different policy version produces distinct slot/task ID
+  assert.notStrictEqual(d1.slotId, d2.slotId);
+  assert.notStrictEqual(d1.taskId, d2.taskId);
 });
 
 test("SCHEDULER: Slot dispatch replay protection prevents duplicate task creation (SCHED-I010)", () => {

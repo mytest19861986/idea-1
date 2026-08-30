@@ -4,7 +4,7 @@ import { TaskType, createWorkerTask } from "../worker/worker-task.mjs";
 
 /**
  * ============================================================================
- * DISCOVERY SCHEDULING ENGINE (PKG-SCHED-015)
+ * DISCOVERY SCHEDULING ENGINE (PKG-SCHED-015R)
  * Invariants: SCHED-I001 through SCHED-I032
  * Scheduling Policy Version: scheduler-policy-v1
  * ============================================================================
@@ -26,12 +26,32 @@ export const DispatchOutcome = Object.freeze({
   BLOCKED_NOT_ELIGIBLE: "BLOCKED_NOT_ELIGIBLE"
 });
 
+/**
+ * Canonical Source Lifecycle Classification Matrix (Finding 3)
+ */
+export const SourceSchedulingClassification = Object.freeze({
+  DISCOVERED: "NOT_ELIGIBLE",
+  CANDIDATE: "NOT_ELIGIBLE",
+  EVALUATING: "NOT_ELIGIBLE",
+  APPROVED: "NOT_ELIGIBLE",
+  ACTIVE: "ELIGIBLE",
+  LOW_PRIORITY: "ELIGIBLE",
+  DEGRADED: "ELIGIBLE_RESTRICTED",
+  PAUSED: "BLOCKED",
+  REJECTED: "BLOCKED",
+  RETIRED: "BLOCKED"
+});
+
+/**
+ * Default Scheduling Policy (Finding 1: DEGRADED cadence is slower than ACTIVE)
+ */
 export const DEFAULT_SCHEDULING_POLICY = Object.freeze({
   policyVersion: SCHEDULING_POLICY_VERSION,
+  normalTaskType: TaskType.DISCOVERY_EXECUTION,
   cadences: {
-    ACTIVE: 3600000, // 1 hour
-    LOW_PRIORITY: 21600000, // 6 hours
-    DEGRADED: 1800000 // 30 minutes (diagnostic/recovery)
+    ACTIVE: 3600000, // 1 hour (normal collection)
+    LOW_PRIORITY: 21600000, // 6 hours (slower collection)
+    DEGRADED: 7200000 // 2 hours (slower/restricted collection; Finding 1 fix)
   }
 });
 
@@ -57,38 +77,60 @@ export function evaluateSchedule(source, state = {}, policy = DEFAULT_SCHEDULING
     throw new TypeError("valid source with id is required");
   }
 
+  const policyVersion = policy.policyVersion || SCHEDULING_POLICY_VERSION;
+  const taskType = policy.normalTaskType || TaskType.DISCOVERY_EXECUTION;
+
   const span = telemetry.startSpan("scheduler.evaluate", {
     sourceId: source.id,
-    sourceState: source.status
+    sourceState: source.status,
+    taskType,
+    policyVersion
   });
 
   telemetry.recordCounter("scheduler_evaluated", 1, {
     sourceState: source.status || "UNKNOWN"
   });
 
-  // Source state eligibility gate (SCHED-I004)
-  const eligibleStates = ["ACTIVE", "LOW_PRIORITY", "DEGRADED"];
-  if (!eligibleStates.includes(source.status)) {
-    const isBlocked = ["PAUSED", "REJECTED", "RETIRED"].includes(source.status);
-    const outcome = isBlocked ? SchedulingOutcome.BLOCKED : SchedulingOutcome.NOT_ELIGIBLE;
+  // Explicit Canonical Source State Gate (Finding 3)
+  const classification = SourceSchedulingClassification[source.status] || "NOT_ELIGIBLE";
 
-    span.setStatus("OK", `Source ${source.status} not eligible for scheduling`);
+  if (classification === "BLOCKED") {
+    span.setStatus("OK", `Source ${source.status} is BLOCKED from scheduling`);
     span.end();
 
-    telemetry.recordCounter(isBlocked ? "scheduler_blocked" : "scheduler_not_due", 1, {
+    telemetry.recordCounter("scheduler_blocked", 1, {
       sourceState: source.status || "UNKNOWN",
-      reason: outcome
+      reason: "BLOCKED"
     });
 
     return deepFreeze({
       sourceId: source.id,
-      outcome,
-      reason: `Source state ${source.status} is not eligible for automatic dispatch`,
+      outcome: SchedulingOutcome.BLOCKED,
+      reason: `Source state ${source.status} is strictly BLOCKED from automatic dispatch`,
       evaluatedAt: nowIso,
-      policyVersion: policy.policyVersion || SCHEDULING_POLICY_VERSION
+      policyVersion
     });
   }
 
+  if (classification === "NOT_ELIGIBLE") {
+    span.setStatus("OK", `Source ${source.status} is NOT_ELIGIBLE for scheduling`);
+    span.end();
+
+    telemetry.recordCounter("scheduler_not_due", 1, {
+      sourceState: source.status || "UNKNOWN",
+      reason: "NOT_ELIGIBLE"
+    });
+
+    return deepFreeze({
+      sourceId: source.id,
+      outcome: SchedulingOutcome.NOT_ELIGIBLE,
+      reason: `Source state ${source.status} is not eligible for automatic dispatch`,
+      evaluatedAt: nowIso,
+      policyVersion
+    });
+  }
+
+  // Eligible states: ACTIVE, LOW_PRIORITY, DEGRADED
   const intervalMs = policy.cadences?.[source.status] || DEFAULT_SCHEDULING_POLICY.cadences.ACTIVE;
   if (!Number.isInteger(intervalMs) || intervalMs <= 0) {
     span.setStatus("ERROR", "Invalid policy cadence interval");
@@ -115,7 +157,7 @@ export function evaluateSchedule(source, state = {}, policy = DEFAULT_SCHEDULING
         reason: "Source is in backoff/cooldown until nextEligibleAt",
         nextEligibleAt: state.nextEligibleAt,
         evaluatedAt: nowIso,
-        policyVersion: policy.policyVersion || SCHEDULING_POLICY_VERSION
+        policyVersion
       });
     }
   }
@@ -141,26 +183,27 @@ export function evaluateSchedule(source, state = {}, policy = DEFAULT_SCHEDULING
         reason: "Cadence interval has not yet elapsed",
         nextEligibleAt,
         evaluatedAt: nowIso,
-        policyVersion: policy.policyVersion || SCHEDULING_POLICY_VERSION
+        policyVersion
       });
     }
   }
 
   // Source is DUE (SCHED-I006)
-  // Deterministic slot identity and missed run coalescing (SCHED-I008, SCHED-I030)
+  // Hardened Slot & Task Identity with TaskType & PolicyVersion (Finding 2 & 5)
   const slotFloorMs = computeSlotFloor(nowMs, intervalMs);
-  const slotId = `slot:${source.id}:${slotFloorMs}`;
-  const taskId = `task:sched:${source.id}:${slotFloorMs}`;
+  const slotId = `slot:${source.id}:${taskType}:${slotFloorMs}:${policyVersion}`;
+  const taskId = `task:sched:${source.id}:${taskType}:${slotFloorMs}:${policyVersion}`;
 
   const generatedTask = createWorkerTask({
     taskId,
-    taskType: TaskType.DISCOVERY_EXECUTION,
+    taskType,
     sourceId: source.id,
     createdAt: nowIso,
     metadata: {
       slotId,
       scheduledCadence: source.status,
-      cadenceIntervalMs: intervalMs
+      cadenceIntervalMs: intervalMs,
+      policyVersion
     }
   });
 
@@ -174,12 +217,13 @@ export function evaluateSchedule(source, state = {}, policy = DEFAULT_SCHEDULING
   return deepFreeze({
     sourceId: source.id,
     outcome: SchedulingOutcome.DUE,
+    taskType,
     slotId,
     taskId,
     task: generatedTask,
     nextEligibleAt: new Date(slotFloorMs + intervalMs).toISOString(),
     evaluatedAt: nowIso,
-    policyVersion: policy.policyVersion || SCHEDULING_POLICY_VERSION
+    policyVersion
   });
 }
 
@@ -202,9 +246,9 @@ export function dispatchScheduledTask(decision, currentSource, dispatchedSlots =
     slotId: decision.slotId
   });
 
-  // Stale decision protection (SCHED-I022): Verify current source state
-  const eligibleStates = ["ACTIVE", "LOW_PRIORITY", "DEGRADED"];
-  if (!currentSource || !eligibleStates.includes(currentSource.status)) {
+  // Stale decision protection (SCHED-I022): Verify current source state against canonical matrix
+  const classification = SourceSchedulingClassification[currentSource?.status] || "NOT_ELIGIBLE";
+  if (classification !== "ELIGIBLE" && classification !== "ELIGIBLE_RESTRICTED") {
     span.setStatus("ERROR", "Stale schedule decision: source state changed to ineligible");
     span.end();
 
