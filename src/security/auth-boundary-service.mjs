@@ -159,4 +159,44 @@ export class CryptographicAuthService {
 
     return { ok: true };
   }
+
+  /**
+   * Server-Side RBAC Data Projection & Confidentiality Redaction (PRODUCT-EXPANSION-001)
+   * Redacts confidential intelligence, source evidence, and unapproved items for VIEWERs.
+   */
+  projectOpportunityForRole(opportunity, role = UserRole.VIEWER) {
+    if (!opportunity || typeof opportunity !== "object") throw new TypeError("opportunity is required");
+    const isPrivileged = [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST].includes(role);
+
+    if (opportunity.isConfidential && !isPrivileged) {
+      return deepFreeze({
+        opportunityId: opportunity.opportunityId,
+        title: "[CONFIDENTIAL OPPORTUNITY]",
+        summary: "[REDACTED - PRIVILEGED ACCESS REQUIRED]",
+        score: opportunity.score,
+        isConfidential: true,
+        accessState: "REDACTED"
+      });
+    }
+
+    const projected = { ...opportunity };
+    if (!isPrivileged) {
+      // Redact sensitive competitor notes, unredacted raw source signals, and internal audit notes
+      if (Array.isArray(projected.competitors)) {
+        projected.competitors = projected.competitors.map(c => ({
+          name: c.name,
+          type: c.type,
+          pricingModel: c.pricingModel
+        }));
+      }
+      if (Array.isArray(projected.citations)) {
+        projected.citations = projected.citations.map(c => ({
+          sourceId: c.sourceId,
+          url: c.url
+        }));
+      }
+    }
+
+    return deepFreeze(projected);
+  }
 }
