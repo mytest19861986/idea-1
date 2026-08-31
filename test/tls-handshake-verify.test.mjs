@@ -10,8 +10,8 @@ import { SECURITY_HEADERS } from "../src/security/security-perimeter-service.mjs
 describe("PROD-READINESS-001R2: P0-003 Local Cryptographic TLS Handshake & HTTPS Proof", () => {
   let httpsServer;
   let httpServer;
-  const httpsPort = 8443;
-  const httpPort = 8080;
+  let httpsPort;
+  let httpPort;
 
   // Generate self-signed certificate in-memory for testing TLS handshake
   const { privateKey, certificate } = crypto.generateKeyPairSync("rsa", {
@@ -42,7 +42,6 @@ describe("PROD-READINESS-001R2: P0-003 Local Cryptographic TLS Handshake & HTTPS
       cert = fs.readFileSync("/tmp/tls_cert.pem");
     }
 
-    // HTTPS Server enforcing TLS & Security Headers
     httpsServer = https.createServer({
       key,
       cert,
@@ -53,14 +52,17 @@ describe("PROD-READINESS-001R2: P0-003 Local Cryptographic TLS Handshake & HTTPS
       res.end(JSON.stringify({ status: "SECURE_TLS_OK", tlsVersion: req.socket.getProtocol() }));
     });
 
+    await new Promise(r => httpsServer.listen(0, "127.0.0.1", r));
+    httpsPort = httpsServer.address().port;
+
     // HTTP Plaintext Server rejecting / redirecting to HTTPS
     httpServer = http.createServer((req, res) => {
       res.writeHead(301, { "Location": `https://127.0.0.1:${httpsPort}${req.url}` });
       res.end();
     });
 
-    await new Promise(r => httpsServer.listen(httpsPort, r));
-    await new Promise(r => httpServer.listen(httpPort, r));
+    await new Promise(r => httpServer.listen(0, "127.0.0.1", r));
+    httpPort = httpServer.address().port;
   });
 
   after(() => {
@@ -68,28 +70,41 @@ describe("PROD-READINESS-001R2: P0-003 Local Cryptographic TLS Handshake & HTTPS
     httpServer.close();
   });
 
-  it("1. Plaintext HTTP is rejected with 301 Redirect to HTTPS", (_, done) => {
-    http.get(`http://127.0.0.1:${httpPort}/api/v1/health`, (res) => {
-      assert.equal(res.statusCode, 301);
-      assert.equal(res.headers.location, `https://127.0.0.1:${httpsPort}/api/v1/health`);
-      done();
+  it("1. Plaintext HTTP is rejected with 301 Redirect to HTTPS", async () => {
+    await new Promise((resolve, reject) => {
+      http.get(`http://127.0.0.1:${httpPort}/api/v1/health`, (res) => {
+        try {
+          assert.equal(res.statusCode, 301);
+          assert.equal(res.headers.location, `https://127.0.0.1:${httpsPort}/api/v1/health`);
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      }).on('error', reject);
     });
   });
 
-  it("2. Validates cryptographic TLS Handshake, HTTPS request & Security Headers", (_, done) => {
-    const req = https.request({
-      host: "127.0.0.1",
-      port: httpsPort,
-      path: "/api/v1/health",
-      method: "GET",
-      rejectUnauthorized: false // Local test certificate acceptance
-    }, (res) => {
-      assert.equal(res.statusCode, 200);
-      assert.equal(res.headers["x-frame-options"], "DENY");
-      assert.equal(res.headers["x-content-type-options"], "nosniff");
-      assert.ok(res.headers["strict-transport-security"].includes("max-age=31536000"));
-      done();
+  it("2. Validates cryptographic TLS Handshake, HTTPS request & Security Headers", async () => {
+    await new Promise((resolve, reject) => {
+      const req = https.request({
+        host: "127.0.0.1",
+        port: httpsPort,
+        path: "/api/v1/health",
+        method: "GET",
+        rejectUnauthorized: false
+      }, (res) => {
+        try {
+          assert.equal(res.statusCode, 200);
+          assert.equal(res.headers["x-frame-options"], "DENY");
+          assert.equal(res.headers["x-content-type-options"], "nosniff");
+          assert.ok(res.headers["strict-transport-security"].includes("max-age=31536000"));
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+      req.on('error', reject);
+      req.end();
     });
-    req.end();
   });
 });

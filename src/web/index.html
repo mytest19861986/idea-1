@@ -1,107 +1,196 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Opportunity Intelligence Platform | Executive Portfolio & Comparison Terminal</title>
+  <title>سامانه تحلیل و پایش فرصت‌های نوآوری | داشبورد هوشمند تصمیم‌گیری و سرمایه‌گذاری</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #070a0f;
-      --bg-secondary: #0c111c;
-      --bg-surface: #111726;
-      --bg-surface-elevated: #162035;
-      --border-subtle: #1c273e;
+      --bg-primary: #090d16;
+      --bg-secondary: #0f1626;
+      --bg-surface: #141c2e;
+      --bg-surface-elevated: #1b263d;
+      --bg-glass: rgba(20, 28, 46, 0.75);
+      --bg-glass-elevated: rgba(27, 38, 61, 0.85);
+      
+      --border-subtle: rgba(148, 163, 184, 0.12);
       --border-accent: #3b82f6;
+      --border-glow: rgba(59, 130, 246, 0.35);
+      
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
       
       --accent-blue: #38bdf8;
+      --accent-indigo: #6366f1;
       --accent-emerald: #10b981;
       --accent-amber: #f59e0b;
       --accent-rose: #f43f5e;
-      --accent-purple: #a855f7;
+      --accent-purple: #c084fc;
       
       /* Six Authoritative Evidence Classifications */
       --ev-fact: #10b981;
       --ev-claim: #38bdf8;
-      --ev-derived: #c084fc; /* WCAG AA High Contrast (7.2:1) */
+      --ev-derived: #c084fc;
       --ev-analysis: #f59e0b;
       --ev-hypothesis: #ec4899;
       --ev-unknown: #94a3b8;
 
+      --font-fa: 'Vazirmatn', var(--font-sans);
       --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
+      
+      --card-padding: 1.25rem 1.5rem;
+      --card-gap: 1rem;
+    }
+
+    /* Compact Density Theme Overrides */
+    body.density-compact {
+      --card-padding: 0.75rem 1rem;
+      --card-gap: 0.6rem;
+      font-size: 0.9rem;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: var(--bg-primary);
       color: var(--text-primary);
-      font-family: var(--font-sans);
-      line-height: 1.5;
+      font-family: var(--font-fa);
+      line-height: 1.6;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       padding-bottom: 70px;
       overflow-x: hidden;
       max-width: 100vw;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
     }
 
-    /* Accessibility Focus States (WCAG 2.4.7 Focus Visible) */
+    html[lang="en"] body {
+      font-family: var(--font-sans);
+    }
+
+    /* Accessibility Focus */
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex="0"]:focus-visible {
       outline: 2px solid var(--accent-blue);
       outline-offset: 2px;
     }
 
+    /* Glassmorphism Header */
     header {
-      background-color: var(--bg-secondary);
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 0.75rem 1.5rem;
+      padding: 0.75rem 1.75rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: 60;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
     .brand-group {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.25rem;
+      flex-wrap: wrap;
     }
     .brand-logo {
-      font-weight: 800;
+      font-weight: 900;
       font-size: 1.15rem;
       color: #fff;
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      letter-spacing: -0.02em;
     }
     .brand-logo span {
       color: var(--accent-blue);
       font-family: var(--font-mono);
-      font-size: 0.85rem;
-      background: rgba(56, 189, 248, 0.1);
+      font-size: 0.78rem;
+      background: rgba(56, 189, 248, 0.12);
       padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
     }
+
+    .nav-presets {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.2rem;
+    }
+    .nav-preset-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .nav-preset-btn:hover {
+      color: #fff;
+    }
+    .nav-preset-btn.active {
+      background: var(--accent-blue);
+      color: #070a0f;
+      font-weight: 800;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .btn-settings-drawer {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+    .btn-settings-drawer:hover {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+
     .terminal-status-bar {
       display: flex;
       align-items: center;
-      gap: 1.5rem;
+      gap: 1.25rem;
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
     }
     .status-indicator {
       display: flex;
       align-items: center;
       gap: 0.4rem;
       color: var(--accent-emerald);
+      font-weight: 600;
     }
     .status-dot {
       width: 8px;
@@ -111,20 +200,21 @@
       box-shadow: 0 0 8px currentColor;
     }
 
+    /* Workspace Layout */
     .workspace {
       display: grid;
-      grid-template-columns: 290px 1fr;
+      grid-template-columns: 280px 1fr;
       flex: 1;
       min-height: calc(100vh - 130px);
     }
 
     aside {
       background: var(--bg-secondary);
-      border-right: 1px solid var(--border-subtle);
-      padding: 1.5rem;
+      border-inline-end: 1px solid var(--border-subtle);
+      padding: 1.25rem;
       display: flex;
       flex-direction: column;
-      gap: 1.2rem;
+      gap: 1rem;
       overflow-y: auto;
     }
     .filter-section {
@@ -133,12 +223,12 @@
       gap: 0.35rem;
     }
     .filter-label {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      font-weight: 600;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .input-search, .select-control {
       width: 100%;
@@ -147,140 +237,235 @@
       color: var(--text-primary);
       padding: 0.5rem 0.75rem;
       border-radius: 6px;
-      font-family: var(--font-sans);
+      font-family: inherit;
       font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .input-search:focus, .select-control:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+    }
+
+    .advanced-filters-panel {
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .btn-toggle-advanced {
+      background: none;
+      border: 1px dashed var(--border-subtle);
+      color: var(--accent-blue);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 0.4rem;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-toggle-advanced:hover {
+      background: rgba(56, 189, 248, 0.08);
     }
 
     main {
-      padding: 2rem;
+      padding: 1.5rem 2rem;
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 1.25rem;
       overflow-y: auto;
+    }
+
+    /* Queue & Portfolio Bars */
+    .queue-bar {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-accent);
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    .portfolio-bar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.65rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
     }
 
     .toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 1rem;
+      padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 1rem;
     }
 
+    /* Opportunity Cards Feed */
     .opportunity-grid {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: var(--card-gap);
     }
     .opp-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      padding: var(--card-padding);
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 1.5rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.25s ease;
       position: relative;
     }
     .opp-card:hover {
       background: var(--bg-surface-elevated);
-      border-color: var(--border-accent);
+      border-color: rgba(59, 130, 246, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    .opp-card.pinned {
+      border-inline-start: 4px solid var(--accent-amber);
     }
     .opp-card.selected-for-compare {
       border-color: var(--accent-blue);
       background: rgba(56, 189, 248, 0.04);
     }
+
     .opp-header {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.5rem;
+      gap: 0.65rem;
+      margin-bottom: 0.4rem;
       flex-wrap: wrap;
     }
     .opp-title {
       font-size: 1.1rem;
-      font-weight: 700;
+      font-weight: 800;
       color: #fff;
     }
     .opp-meta {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--text-secondary);
       display: flex;
       gap: 1rem;
       align-items: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.65rem;
       flex-wrap: wrap;
     }
 
-    /* Six Evidence Badges with Non-Color Symbolic Labels */
+    /* Badges */
     .badge {
       font-family: var(--font-mono);
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 700;
       padding: 0.2rem 0.55rem;
-      border-radius: 4px;
+      border-radius: 6px;
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      text-transform: uppercase;
     }
-    .badge-fact { background: rgba(16, 185, 129, 0.15); color: var(--ev-fact); border: 1px solid rgba(16, 185, 129, 0.4); }
-    .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--ev-claim); border: 1px solid rgba(56, 189, 248, 0.4); }
-    .badge-derived { background: rgba(168, 85, 247, 0.15); color: var(--ev-derived); border: 1px solid rgba(168, 85, 247, 0.4); }
-    .badge-analysis { background: rgba(245, 158, 11, 0.15); color: var(--ev-analysis); border: 1px solid rgba(245, 158, 11, 0.4); }
-    .badge-hypothesis { background: rgba(236, 72, 153, 0.15); color: var(--ev-hypothesis); border: 1px solid rgba(236, 72, 153, 0.4); }
-    .badge-unknown { background: rgba(100, 116, 139, 0.15); color: var(--ev-unknown); border: 1px solid rgba(100, 116, 139, 0.4); }
-    .badge-confidential { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.4); }
+    .badge-fact { background: rgba(16, 185, 129, 0.15); color: var(--ev-fact); border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--ev-claim); border: 1px solid rgba(56, 189, 248, 0.35); }
+    .badge-derived { background: rgba(192, 132, 252, 0.15); color: var(--ev-derived); border: 1px solid rgba(192, 132, 252, 0.35); }
+    .badge-analysis { background: rgba(245, 158, 11, 0.15); color: var(--ev-analysis); border: 1px solid rgba(245, 158, 11, 0.35); }
+    .badge-hypothesis { background: rgba(236, 72, 153, 0.15); color: var(--ev-hypothesis); border: 1px solid rgba(236, 72, 153, 0.35); }
+    .badge-unknown { background: rgba(100, 116, 139, 0.15); color: var(--ev-unknown); border: 1px solid rgba(100, 116, 139, 0.35); }
+    .badge-confidential { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.35); }
 
+    /* Decoupled Score vs Confidence Visual Display */
     .score-box {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 0.4rem;
-      min-width: 150px;
-      border-left: 1px solid var(--border-subtle);
-      padding-left: 1.5rem;
-    }
-    .score-primary {
-      font-family: var(--font-mono);
-      font-size: 1.6rem;
-      font-weight: 800;
-      color: #fff;
-    }
-    .score-label {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .confidence-meter {
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      display: flex;
       align-items: center;
-      gap: 0.3rem;
+      justify-content: center;
+      gap: 0.5rem;
+      min-width: 170px;
+      border-inline-start: 1px solid var(--border-subtle);
+      padding-inline-start: 1.5rem;
+    }
+    .metric-pill-score {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(99, 102, 241, 0.2));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 8px;
+      padding: 0.35rem 0.8rem;
+      text-align: center;
+      width: 100%;
+    }
+    .metric-pill-conf {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 8px;
+      padding: 0.35rem 0.8rem;
+      text-align: center;
+      width: 100%;
     }
 
-    /* Compare Button on Card */
-    .compare-card-btn {
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 0.5rem;
-      transition: all 0.2s;
+    /* Opportunity Dossier Drawer (Side Slide) */
+    .dossier-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 10, 15, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 150;
+      display: none;
+      justify-content: flex-end;
     }
-    .compare-card-btn:hover, .compare-card-btn.active {
-      border-color: var(--accent-blue);
-      color: #fff;
-      background: rgba(56, 189, 248, 0.15);
+    .dossier-drawer {
+      background: var(--bg-secondary);
+      border-inline-start: 1px solid var(--border-accent);
+      width: 100%;
+      max-width: 680px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 2rem;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    html[dir="rtl"] .dossier-drawer {
+      animation: slideInRtl 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideInRtl {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+    }
+
+    /* Personalization Drawer */
+    .settings-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 10, 15, 0.7);
+      backdrop-filter: blur(6px);
+      z-index: 140;
+      display: none;
+      justify-content: flex-end;
+    }
+    .settings-drawer {
+      background: var(--bg-secondary);
+      border-inline-start: 1px solid var(--border-accent);
+      width: 100%;
+      max-width: 440px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 2rem;
+      overflow-y: auto;
+      box-shadow: -8px 0 25px rgba(0,0,0,0.5);
     }
 
     /* Sticky Bottom Compare Bar */
@@ -299,28 +484,8 @@
       z-index: 80;
       box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     }
-    .compare-btn-launch {
-      background: var(--accent-blue);
-      color: #070a0f;
-      border: none;
-      font-family: var(--font-sans);
-      font-size: 0.85rem;
-      font-weight: 700;
-      padding: 0.6rem 1.4rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .compare-btn-launch:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    .compare-btn-launch:not(:disabled):hover {
-      background: #7dd3fc;
-      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
-    }
 
-    /* Comparison Matrix Modal Overlay */
+    /* Compare Modal */
     .compare-modal-overlay {
       position: fixed;
       inset: 0;
@@ -329,7 +494,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 120;
+      z-index: 160;
       padding: 1.5rem;
     }
     .compare-modal {
@@ -370,37 +535,25 @@
       background: var(--bg-surface);
       font-family: var(--font-mono);
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
       color: var(--accent-blue);
-      text-align: left;
+      text-align: inherit;
     }
     .matrix-section-row {
       background: var(--bg-surface-elevated);
-      font-family: var(--font-mono);
       font-weight: 800;
       color: #fff;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
 
     @media (max-width: 1024px) {
       .workspace { grid-template-columns: 1fr; }
-      aside { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+      aside { border-inline-end: none; border-bottom: 1px solid var(--border-subtle); }
     }
-
     @media (max-width: 768px) {
       header { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.75rem 1rem; }
       .terminal-status-bar { flex-wrap: wrap; gap: 0.75rem; }
       main { padding: 1rem; }
       .opp-card { grid-template-columns: 1fr; gap: 1rem; }
-      .score-box { border-left: none; border-top: 1px solid var(--border-subtle); padding-left: 0; padding-top: 1rem; align-items: flex-start; }
-    }
-
-    @media (max-width: 375px) {
-      body { font-size: 0.85rem; }
-      .brand-logo { font-size: 1rem; }
-      .opp-title { font-size: 0.95rem; }
+      .score-box { border-inline-start: none; border-top: 1px solid var(--border-subtle); padding-inline-start: 0; padding-top: 1rem; align-items: flex-start; }
     }
   </style>
 </head>
@@ -409,53 +562,58 @@
   <header role="banner">
     <div class="brand-group">
       <h1 class="brand-logo">
-        OPPORTUNITY INTEL <span>v1.0.0-LIVE</span>
+        <span style="font-size:1.1rem;">⚡</span>
+        <span data-i18n="app.title">سامانه تحلیل و پایش فرصت‌های نوآوری</span>
+        <span data-i18n="app.version">v1.0.0-rc.5</span>
       </h1>
-      <div style="display:flex; align-items:center; gap:0.5rem; margin-left:1rem; font-family:var(--font-mono); font-size:0.75rem;">
-        <label for="dataModeSelect" style="color:var(--text-muted);">DATA_SOURCE:</label>
-        <select id="dataModeSelect" onchange="switchDataMode(this.value)" style="background:var(--bg-surface); border:1px solid var(--border-accent); color:var(--accent-blue); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">
-          <option value="LIVE_READ_MODEL_MODE">🟢 LIVE PILOT DATA (POSTGRESQL)</option>
-          <option value="REFERENCE_FIXTURE_MODE">🔵 REFERENCE FIXTURE MODE</option>
-        </select>
+      
+      <!-- Preset View Modes (Manager vs Analyst) -->
+      <div class="nav-presets" aria-label="View Mode Switcher">
+        <button id="btnModeManager" class="nav-preset-btn active" onclick="setPresentationMode('MANAGER')">👔 <span data-i18n="nav.modeManager">نمای مدیران ارشد</span></button>
+        <button id="btnModeAnalyst" class="nav-preset-btn" onclick="setPresentationMode('ANALYST')">🔬 <span data-i18n="nav.modeAnalyst">نمای عمیق تحلیل‌گران</span></button>
       </div>
-      <div style="display:flex; align-items:center; gap:0.5rem; margin-inline-start:1rem; font-family:var(--font-mono); font-size:0.75rem;">
-        <label for="langSelect" style="color:var(--text-muted);">🌐 LANGUAGE:</label>
-        <select id="langSelect" onchange="window.switchLanguage(this.value)" style="background:var(--bg-surface); border:1px solid var(--accent-emerald); color:var(--accent-emerald); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">
-          <option value="fa-IR">🇮🇷 فارسی (پیش‌فرض)</option>
-          <option value="en">🇬🇧 English</option>
+
+      <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.78rem;">
+        <label for="dataModeSelect" style="color:var(--text-muted);" data-i18n="header.dataSource">منبع داده:</label>
+        <select id="dataModeSelect" onchange="switchDataMode(this.value)" style="background:var(--bg-surface); border:1px solid var(--border-accent); color:var(--accent-blue); padding:0.25rem 0.5rem; border-radius:6px; font-weight:700;">
+          <option value="LIVE_READ_MODEL_MODE" data-i18n="header.livePilot">🟢 داده‌های پایلوت زنده (PostgreSQL 16)</option>
+          <option value="REFERENCE_FIXTURE_MODE" data-i18n="header.referenceFixture">🔵 داده‌های مرجع ارزیابی</option>
         </select>
       </div>
     </div>
-    <div class="terminal-status-bar" aria-label="System Status">
-      <div class="status-indicator">
-        <div class="status-dot" id="liveStatusDot" aria-hidden="true"></div>
-        <span id="liveStatusText" data-i18n="header.liveConnected">سرویس خواندن زنده: متصل</span>
+
+    <div class="header-actions">
+      <div class="terminal-status-bar" aria-label="System Status">
+        <div class="status-indicator">
+          <div class="status-dot" id="liveStatusDot" aria-hidden="true"></div>
+          <span id="liveStatusText" data-i18n="header.liveConnected">سرویس خواندن زنده: متصل</span>
+        </div>
+        <div><span data-i18n="header.totalOpportunities">مجموع کل:</span> <strong id="headerOppCount" style="color:var(--accent-emerald);">3</strong></div>
       </div>
-      <div><span data-i18n="header.durableStore">ذخیره‌ساز پایدار:</span> <span style="color:#fff;">POSTGRESQL 16</span></div>
-      <div><span data-i18n="header.totalOpportunities">مجموع فرصت‌ها:</span> <strong id="headerOppCount" style="color:var(--accent-emerald);">3</strong></div>
+
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <select id="langSelect" onchange="window.switchLanguage(this.value)" style="background:var(--bg-surface); border:1px solid var(--border-subtle); color:var(--text-primary); padding:0.3rem 0.6rem; border-radius:6px; font-weight:600; font-size:0.8rem;">
+          <option value="fa-IR">🇮🇷 فارسی</option>
+          <option value="en">🇬🇧 English</option>
+        </select>
+
+        <button class="btn-settings-drawer" onclick="openSettingsDrawer()" aria-label="Open Personalization Settings">
+          <span>⚙</span> <span data-i18n="personalization.button">شخصی‌سازی</span>
+        </button>
+      </div>
     </div>
   </header>
 
   <div class="workspace">
-    <aside role="complementary" aria-label="Search and Filter Controls">
+    <!-- Simplified Sidebar: 4 Primary + Collapsible Advanced Filters -->
+    <aside role="complementary" aria-label="Filter Controls">
       <div class="filter-section">
-        <label class="filter-label" for="searchInput" data-i18n="filter.searchLabel">۱. جستجوی کلیدواژه</label>
-        <input type="text" class="input-search" id="searchInput" data-i18n-placeholder="filter.searchPlaceholder" placeholder="کلیدواژه‌ها، فناوری، نیازمندی...">
+        <label class="filter-label" for="searchInput" data-i18n="filter.searchLabel">۱. جستجوی فرصت</label>
+        <input type="text" class="input-search" id="searchInput" data-i18n-placeholder="filter.searchPlaceholder" placeholder="کلیدواژه، فناوری، شکاف بازار...">
       </div>
 
       <div class="filter-section">
-        <label class="filter-label" for="catFilter" data-i18n="filter.catLabel">۲. دسته‌بندی موضوعی</label>
-        <select class="select-control" id="catFilter">
-          <option value="ALL" data-i18n="filter.allCategories">همه دسته‌بندی‌ها</option>
-          <option value="AI / LLM DevTools">AI / LLM DevTools</option>
-          <option value="B2B SaaS Analytics">B2B SaaS Analytics</option>
-          <option value="Developer Tools">Developer Tools</option>
-          <option value="Legal Tech">Legal Tech</option>
-        </select>
-      </div>
-
-      <div class="filter-section">
-        <label class="filter-label" for="marketFilter" data-i18n="filter.marketLabel">۳. بازار / منطقه جغرافیایی</label>
+        <label class="filter-label" for="marketFilter" data-i18n="filter.marketLabel">۲. بازار / منطقه</label>
         <select class="select-control" id="marketFilter">
           <option value="ALL" data-i18n="filter.allMarkets">همه بازارهای بین‌المللی</option>
           <option value="Global">Global</option>
@@ -465,9 +623,9 @@
       </div>
 
       <div class="filter-section">
-        <label class="filter-label" for="minScoreFilter" data-i18n="filter.minScoreLabel">۴. حداقل امتیاز فرصت</label>
+        <label class="filter-label" for="minScoreFilter" data-i18n="filter.minScoreLabel">۳. حداقل امتیاز جذابیت</label>
         <select class="select-control" id="minScoreFilter">
-          <option value="0" data-i18n="filter.anyScore">هر امتیازی (۰+)</option>
+          <option value="0" data-i18n="filter.anyScore">همه امتیازها (۰+)</option>
           <option value="70">70+ Score</option>
           <option value="80">80+ Score</option>
           <option value="90">90+ Score</option>
@@ -475,196 +633,190 @@
       </div>
 
       <div class="filter-section">
-        <label class="filter-label" for="minConfFilter" data-i18n="filter.minConfLabel">۵. حداقل اطمینان شواهد</label>
+        <label class="filter-label" for="minConfFilter" data-i18n="filter.minConfLabel">۴. حداقل اطمینان شواهد</label>
         <select class="select-control" id="minConfFilter">
-          <option value="0" data-i18n="filter.anyConf">هر میزان اطمینان (۰٪+)</option>
+          <option value="0" data-i18n="filter.anyConf">همه سطوح اطمینان (۰٪+)</option>
           <option value="60">60%+ Confidence</option>
           <option value="80">80%+ Confidence</option>
         </select>
       </div>
 
-      <div class="filter-section">
-        <label class="filter-label" for="evFilter" data-i18n="filter.evLabel">۶. طبقه‌بندی شواهد</label>
-        <select class="select-control" id="evFilter">
-          <option value="ALL" data-i18n="filter.allEv">همه ۶ طبقه شواهد</option>
-          <option value="FACT">[FACT] شواهد قطعی اثبات‌شده</option>
-          <option value="SOURCE_CLAIM">[CLAIM] گزارش منبع</option>
-          <option value="DERIVED_METRIC">[DERIVED] متریک محاسباتی</option>
-          <option value="AI_ANALYSIS">[AI_ANALYSIS] ارزیابی هوش مصنوعی</option>
-          <option value="AI_HYPOTHESIS">[AI_HYPOTHESIS] فرضیه گپ بازار</option>
-          <option value="UNKNOWN">[UNKNOWN] بدون دسته‌بندی</option>
-        </select>
-      </div>
+      <button class="btn-toggle-advanced" id="btnToggleAdvanced" onclick="toggleAdvancedFilters()">
+        ▾ <span data-i18n="filter.showAdvanced">فیلترهای پیشرفته و تخصصی</span>
+      </button>
 
-      <div class="filter-section">
-        <label class="filter-label" for="sourceFilter" data-i18n="filter.sourceLabel">۷. هویت منبع</label>
-        <select class="select-control" id="sourceFilter">
-          <option value="ALL" data-i18n="filter.allSources">همه منابع مجاز</option>
-          <option value="hacker-news-official-api">Hacker News Official API</option>
-          <option value="trustmrr">TrustMRR Marketplace</option>
-          <option value="speculative-market-gap">Speculative Intelligence</option>
-        </select>
-      </div>
+      <div class="advanced-filters-panel" id="advancedFiltersPanel">
+        <div class="filter-section">
+          <label class="filter-label" for="catFilter" data-i18n="filter.catLabel">۵. دسته‌بندی موضوعی</label>
+          <select class="select-control" id="catFilter">
+            <option value="ALL" data-i18n="filter.allCategories">همه دسته‌بندی‌ها</option>
+            <option value="AI / LLM DevTools">AI / LLM DevTools</option>
+            <option value="B2B SaaS Analytics">B2B SaaS Analytics</option>
+            <option value="Developer Tools">Developer Tools</option>
+            <option value="Legal Tech">Legal Tech</option>
+          </select>
+        </div>
 
-      <div class="filter-section">
-        <label class="filter-label" for="freshFilter" data-i18n="filter.freshLabel">۸. تازگی زمانی</label>
-        <select class="select-control" id="freshFilter">
-          <option value="ALL" data-i18n="filter.anyTime">همه زمان‌ها</option>
-          <option value="24H" data-i18n="filter.last24h">۲۴ ساعت گذشته</option>
-          <option value="7D" data-i18n="filter.last7d">۷ روز گذشته</option>
-        </select>
+        <div class="filter-section">
+          <label class="filter-label" for="evFilter" data-i18n="filter.evLabel">۶. طبقه‌بندی ۶ گانه شواهد</label>
+          <select class="select-control" id="evFilter">
+            <option value="ALL" data-i18n="filter.allEv">همه طبقات شواهد</option>
+            <option value="FACT">[FACT] شواهد قطعی اثبات‌شده</option>
+            <option value="SOURCE_CLAIM">[CLAIM] ادعای منبع</option>
+            <option value="DERIVED_METRIC">[DERIVED] متریک محاسباتی</option>
+            <option value="AI_ANALYSIS">[AI_ANALYSIS] ارزیابی هوش مصنوعی</option>
+            <option value="AI_HYPOTHESIS">[AI_HYPOTHESIS] فرضیه گپ بازار</option>
+            <option value="UNKNOWN">[UNKNOWN] بدون دسته‌بندی</option>
+          </select>
+        </div>
+
+        <div class="filter-section">
+          <label class="filter-label" for="sourceFilter" data-i18n="filter.sourceLabel">۷. هویت منبع داده</label>
+          <select class="select-control" id="sourceFilter">
+            <option value="ALL" data-i18n="filter.allSources">همه منابع مجاز</option>
+            <option value="hacker-news-official-api">Hacker News Official API</option>
+            <option value="trustmrr">TrustMRR Marketplace</option>
+            <option value="speculative-market-gap">Speculative Intelligence</option>
+          </select>
+        </div>
+
+        <div class="filter-section">
+          <label class="filter-label" for="freshFilter" data-i18n="filter.freshLabel">۸. تازگی زمانی</label>
+          <select class="select-control" id="freshFilter">
+            <option value="ALL" data-i18n="filter.anyTime">همه زمان‌ها</option>
+            <option value="24H" data-i18n="filter.last24h">۲۴ ساعت گذشته</option>
+            <option value="7D" data-i18n="filter.last7d">۷ روز گذشته</option>
+          </select>
+        </div>
       </div>
     </aside>
 
     <main role="main">
-      <!-- Attention Operations & Investigation Queue Bar (WEB-PRODUCT-006) -->
-      <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <span style="font-family:var(--font-mono); font-size:0.85rem; font-weight:800; color:var(--accent-amber);" data-i18n="queue.title">🚨 صف بررسی و اقدام عملیاتی (سیاست عملیات نسخه ۱):</span>
+      <!-- Operational Investigation Queue Bar -->
+      <div class="queue-bar">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <span style="font-family:var(--font-mono); font-size:0.82rem; font-weight:800; color:var(--accent-amber);" data-i18n="queue.title">🚨 صف بررسی عملیاتی:</span>
             <span class="badge badge-fact" style="background:rgba(244,63,94,0.2); color:var(--accent-rose); border:1px solid var(--accent-rose);">P0 Critical: <strong id="p0Count">1</strong></span>
             <span class="badge badge-fact" style="background:rgba(245,158,11,0.2); color:var(--accent-amber); border:1px solid var(--accent-amber);">P1 High: <strong id="p1Count">1</strong></span>
             <span class="badge badge-fact" style="background:rgba(59,130,246,0.2); color:var(--accent-blue); border:1px solid var(--accent-blue);">P2 Medium: <strong id="p2Count">1</strong></span>
             <span class="badge badge-fact" style="background:rgba(16,185,129,0.2); color:var(--accent-emerald); border:1px solid var(--accent-emerald);">P3 Routine: <strong id="p3Count">0</strong></span>
           </div>
-          <button onclick="toggleQueueView()" style="background:var(--bg-surface); border:1px solid var(--border-subtle); color:#fff; font-size:0.75rem; padding:0.25rem 0.6rem; border-radius:4px; cursor:pointer;" data-i18n="queue.toggle">⚡ تغییر نمای صف</button>
-        </div>
-
-        <!-- Since Last Review Timeline -->
-        <div id="recentChangesPanel" style="font-size:0.75rem; color:var(--text-secondary); border-top:1px solid var(--border-subtle); padding-top:0.4rem; display:flex; justify-content:space-between;">
-          <div>
-            <strong style="color:#fff;">[تغییر وضعیت تصمیم]:</strong> فرصت opp-hn-live-001 به <span style="color:var(--accent-emerald);">فهرست نهایی</span> منتقل شد (نسخه ۲)
-          </div>
-          <div>
-            <strong style="color:#fff;">[وضعیت تجمیع داده]:</strong> دریافت ۳ نامزد پایلوت زنده از طریق PostgreSQL (بدون تغییر ساختار)
-          </div>
+          <button onclick="toggleQueueView()" style="background:var(--bg-surface); border:1px solid var(--border-subtle); color:#fff; font-size:0.75rem; padding:0.25rem 0.6rem; border-radius:6px; cursor:pointer;" data-i18n="queue.toggle">⚡ تغییر نمای صف</button>
         </div>
       </div>
 
-      <!-- Portfolio Operations Workflow Bar (WEB-PRODUCT-005) -->
-      <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:0.75rem;">
+      <!-- Portfolio Operations Bar + My Workspace Favorites Tab -->
+      <div class="portfolio-bar">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
           <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:#fff;" data-i18n="portfolio.title">عملیات پرتفوی:</span>
           <button onclick="filterPortfolioState('ALL')" class="badge badge-fact" style="cursor:pointer;" data-i18n="portfolio.all">همه (<span id="countAll">3</span>)</button>
           <button onclick="filterPortfolioState('SHORTLIST')" class="badge badge-derived" style="cursor:pointer;" data-i18n="portfolio.shortlist">★ فهرست نهایی (<span id="countShortlist">1</span>)</button>
           <button onclick="filterPortfolioState('WATCH')" class="badge badge-claim" style="cursor:pointer;" data-i18n="portfolio.watch">👁 تحت نظر (<span id="countWatch">1</span>)</button>
           <button onclick="filterPortfolioState('INVESTIGATE')" class="badge badge-analysis" style="cursor:pointer;" data-i18n="portfolio.investigate">🔍 نیازمند بررسی (<span id="countInvestigate">1</span>)</button>
           <button onclick="filterPortfolioState('HOLD')" class="badge badge-unknown" style="cursor:pointer;" data-i18n="portfolio.hold">⏸ تعلیق (<span id="countHold">0</span>)</button>
-        </div>
-        <div id="portfolioConflictBanner" style="display:none; color:var(--accent-rose); font-size:0.75rem; font-weight:700; background:rgba(244,63,94,0.1); padding:0.3rem 0.6rem; border-radius:4px; border:1px solid var(--accent-rose);">
-          ⚠️ تغییر همزمان در جای دیگر ثبت شده است (نیازمند بارگذاری مجدد)
+          <button onclick="filterPortfolioState('PINNED')" class="badge" style="background:rgba(245,158,11,0.15); color:var(--accent-amber); border:1px solid var(--accent-amber); cursor:pointer;" data-i18n="portfolio.pinned">📌 نشان‌شده‌های من (<span id="countPinned">0</span>)</button>
         </div>
       </div>
 
       <div class="toolbar">
-        <h2 class="feed-stats" style="font-size:1rem; font-weight:600;">
-          <span data-i18n="toolbar.showing">نمایش</span> <strong id="oppCount">3</strong> <span data-i18n="toolbar.validated">فرصت اعتبارسنجی‌شده</span>
+        <h2 class="feed-stats" style="font-size:0.95rem; font-weight:700;">
+          <span data-i18n="toolbar.showing">نمایش</span> <strong id="oppCount" style="color:var(--accent-blue);">3</strong> <span data-i18n="toolbar.validated">فرصت اعتبارسنجی‌شده</span>
         </h2>
-        <div class="sort-controls">
-          <label for="sortSelect" data-i18n="toolbar.sortBy">مرتب‌سازی بر اساس:</label>
-          <select class="select-control" id="sortSelect" style="width:auto;">
-            <option value="SCORE_DESC" data-i18n="toolbar.sortScore">امتیاز فرصت (بیشترین به کمترین)</option>
+        <div class="sort-controls" style="display:flex; align-items:center; gap:0.5rem;">
+          <label for="sortSelect" data-i18n="toolbar.sortBy" style="font-size:0.82rem; color:var(--text-secondary);">مرتب‌سازی:</label>
+          <select class="select-control" id="sortSelect" onchange="applyAllFilters()" style="width:auto; font-size:0.82rem;">
+            <option value="SCORE_DESC" data-i18n="toolbar.sortScore">امتیاز جذابیت (بیشترین به کمترین)</option>
             <option value="CONFIDENCE_DESC" data-i18n="toolbar.sortConf">اطمینان شواهد (بیشترین به کمترین)</option>
             <option value="FRESHNESS_DESC" data-i18n="toolbar.sortFresh">جدیدترین زمان کشف</option>
           </select>
         </div>
       </div>
 
-      <div class="feed-container" id="opportunityFeed" role="region" aria-label="Opportunity Intelligence Feed">
-        <!-- Dynamic Cards Injected Here -->
+      <div class="opportunity-grid" id="opportunityFeed" role="region" aria-label="Opportunity Intelligence Feed">
+        <!-- Injected Cards -->
       </div>
     </main>
   </div>
 
-  <!-- Investigation Resolution Modal (WEB-PRODUCT-007) -->
-  <div class="compare-modal-overlay" id="investigationModal" role="dialog" aria-modal="true" aria-labelledby="invModalTitle" style="display:none;">
-    <div class="compare-modal" style="max-width:600px;">
-      <div class="compare-modal-header">
+  <!-- Opportunity Dossier Drawer (Side Slide-in) -->
+  <div class="dossier-drawer-overlay" id="dossierDrawerOverlay" onclick="closeOpportunityDossier()">
+    <div class="dossier-drawer" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem; border-bottom:1px solid var(--border-subtle); padding-bottom:1rem;">
         <div>
-          <h2 id="invModalTitle" style="font-size:1.1rem; font-weight:800; color:#fff;">Resolve Operational Investigation</h2>
-          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">Record resolution code and audit note without mutating analytical scores</div>
+          <span id="dossierBadge" class="badge badge-claim" style="margin-bottom:0.4rem;"></span>
+          <h2 id="dossierTitle" style="font-size:1.25rem; font-weight:900; color:#fff;"></h2>
+          <div id="dossierMeta" style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.3rem;"></div>
         </div>
-        <button onclick="closeInvestigationModal()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.3rem 0.8rem; border-radius:4px; font-weight:700; cursor:pointer;">✕ Close</button>
+        <button onclick="closeOpportunityDossier()" style="background:var(--bg-surface); border:1px solid var(--border-subtle); color:#fff; font-size:0.9rem; padding:0.4rem 0.8rem; border-radius:6px; cursor:pointer;">✕</button>
       </div>
-      <div class="compare-modal-body" style="padding:1.5rem;">
-        <input type="hidden" id="modalOppId">
-        <div style="margin-bottom:1rem;">
-          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;">Select Resolution Outcome:</label>
-          <select id="modalResolutionCode" class="select-control">
-            <option value="EVIDENCE_COLLECTED">EVIDENCE_COLLECTED (Verified external ground truth)</option>
-            <option value="RISK_REVIEWED">RISK_REVIEWED (Regulatory / Technical risk audited)</option>
-            <option value="NO_ACTION_REQUIRED">NO_ACTION_REQUIRED (Routine observation accepted)</option>
-            <option value="DECISION_UPDATED">DECISION_UPDATED (Portfolio decision updated)</option>
-            <option value="DUPLICATE_INVESTIGATION">DUPLICATE_INVESTIGATION (Redundant queue entry)</option>
-            <option value="OUTDATED_SIGNAL">OUTDATED_SIGNAL (Signal superseded by fresh data)</option>
-          </select>
+
+      <div style="display:flex; flex-direction:column; gap:1.25rem; font-size:0.88rem;">
+        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+          <h4 style="color:var(--accent-blue); margin-bottom:0.35rem;" data-i18n="drawer.summary">خلاصه اجرایی فرصت:</h4>
+          <p id="dossierSummary" style="color:var(--text-primary); line-height:1.6;"></p>
         </div>
-        <div style="margin-bottom:1.5rem;">
-          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;">Resolution Audit Note (Max 4000 chars):</label>
-          <textarea id="modalResolutionNote" rows="4" style="width:100%; background:var(--bg-surface); border:1px solid var(--border-subtle); color:#fff; padding:0.5rem; border-radius:6px; font-family:inherit; font-size:0.85rem;" placeholder="Detail investigative steps, source references, and next steps..."></textarea>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+          <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+            <h4 style="color:var(--accent-emerald); margin-bottom:0.35rem;" data-i18n="drawer.whyNow">چرا اکنون؟</h4>
+            <p id="dossierWhyNow" style="color:var(--text-secondary);"></p>
+          </div>
+          <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+            <h4 style="color:var(--accent-purple); margin-bottom:0.35rem;" data-i18n="drawer.provenElsewhere">اثبات‌شده در سایر بازارها:</h4>
+            <p id="dossierProven" style="color:var(--text-secondary);"></p>
+          </div>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
-          <button onclick="submitInvestigationResolution('ACKNOWLEDGED')" style="background:var(--bg-surface); border:1px solid var(--accent-amber); color:var(--accent-amber); padding:0.5rem 1rem; border-radius:6px; font-weight:700; cursor:pointer; font-size:0.8rem;">👁 Mark Acknowledged</button>
-          <button onclick="submitInvestigationResolution('RESOLVED')" style="background:var(--accent-emerald); border:none; color:#000; padding:0.5rem 1.2rem; border-radius:6px; font-weight:800; cursor:pointer; font-size:0.8rem;">✓ Complete & Resolve</button>
+
+        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+          <h4 style="color:var(--accent-amber); margin-bottom:0.5rem;" data-i18n="drawer.evidenceBreakdown">تفکیک ۶ گانه شواهد استخراج‌شده:</h4>
+          <div id="dossierEvidenceBreakdown" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem;">
+          <h4 style="color:var(--text-primary); margin-bottom:0.5rem;" data-i18n="drawer.mvp">مشخصات نسخه کمینه (MVP):</h4>
+          <p id="dossierMVP" style="color:var(--text-secondary);"></p>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem;">
+          <button id="dossierPinBtn" onclick="togglePinFromDossier()" style="background:var(--bg-surface-elevated); border:1px solid var(--accent-amber); color:var(--accent-amber); font-weight:700; padding:0.6rem 1.2rem; border-radius:6px; cursor:pointer;">📌 پین در موارد من</button>
+          <button onclick="closeOpportunityDossier()" style="background:var(--accent-blue); border:none; color:#070a0f; font-weight:800; padding:0.6rem 1.4rem; border-radius:6px; cursor:pointer;">بستن پرونده</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Executive Production Readiness Workspace Modal (WEB-PRODUCT-008) -->
-  <div class="compare-modal-overlay" id="readinessModal" role="dialog" aria-modal="true" aria-labelledby="readinessModalTitle" style="display:none;">
-    <div class="compare-modal" style="max-width:950px; max-height:85vh; overflow-y:auto;">
-      <div class="compare-modal-header" style="position:sticky; top:0; background:var(--bg-secondary); z-index:10;">
-        <div>
-          <h2 id="readinessModalTitle" style="font-size:1.2rem; font-weight:800; color:#fff;">🛡️ Production Readiness & Gap Assessment Workspace</h2>
-          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">Deterministic Audit: Pilot-Proven Capabilities vs Production Blockers</div>
-        </div>
-        <button onclick="closeReadinessModal()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.3rem 0.8rem; border-radius:4px; font-weight:700; cursor:pointer;">✕ Close</button>
+  <!-- Quick Customization / Personalization Drawer (⚙ شخصی‌سازی) -->
+  <div class="settings-drawer-overlay" id="settingsDrawerOverlay" onclick="closeSettingsDrawer()">
+    <div class="settings-drawer" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem;">
+        <h2 style="font-size:1.15rem; font-weight:800; color:#fff;">⚙ <span data-i18n="personalization.title">تنظیمات شخصی‌سازی</span></h2>
+        <button onclick="closeSettingsDrawer()" style="background:none; border:none; color:var(--text-muted); font-size:1.1rem; cursor:pointer;">✕</button>
       </div>
-      <div class="compare-modal-body" style="padding:1.5rem;">
-        <!-- Executive Go/No-Go Verdict Banner -->
-        <div style="background:rgba(244,63,94,0.15); border:1px solid var(--accent-rose); border-radius:8px; padding:1rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-size:0.75rem; font-weight:800; color:var(--accent-rose); font-family:var(--font-mono);">EXECUTIVE ASSESSMENT VERDICT:</div>
-            <div style="font-size:1.3rem; font-weight:900; color:#fff;">🛑 PRODUCTION_NO_GO (Tightly Restricted Pilot Approved)</div>
-            <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">Controlled Pilot Proven. Launch to general production blocked pending Multi-User Auth & Automated S3 Backups.</div>
-          </div>
-          <div style="text-align:right; font-family:var(--font-mono); font-size:0.8rem;">
-            <div>Target: <strong>Modular Monolith</strong></div>
-            <div>Database: <strong>PostgreSQL 16</strong></div>
-          </div>
+
+      <div style="display:flex; flex-direction:column; gap:1.25rem; font-size:0.85rem;">
+        <!-- Density -->
+        <div>
+          <label style="display:block; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;" data-i18n="personalization.densityLabel">تراکم چیدمان کارت‌ها:</label>
+          <select id="prefDensitySelect" class="select-control" onchange="updateDensityPreference(this.value)">
+            <option value="COMFORTABLE" data-i18n="personalization.comfortable">راحت و با جزییات (Comfortable)</option>
+            <option value="COMPACT" data-i18n="personalization.compact">فشرده و اطلاعات‌محور (Compact)</option>
+          </select>
         </div>
 
-        <!-- Production Readiness Gates Table -->
-        <h3 style="font-size:0.95rem; font-weight:800; margin-bottom:0.75rem; color:var(--accent-blue);">1. Deterministic Production Gates</h3>
-        <table style="width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:1.5rem;">
-          <thead>
-            <tr style="background:var(--bg-surface-elevated); text-align:left; color:var(--text-secondary);">
-              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Gate ID</th>
-              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Category</th>
-              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Pilot State</th>
-              <th style="padding:0.5rem; border:1px solid var(--border-subtle);">Production Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-001</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Multi-User Auth & RBAC</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Single Op)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-rose); font-weight:700;">NOT_PROVEN (P0_BLOCKER)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-002</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Automated Backup & Restore</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (pg_dump)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-rose); font-weight:700;">NOT_PROVEN (P0_BLOCKER)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-003</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Production Security & Perimeter</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (SQL $1..$12)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-rose); font-weight:700;">NOT_PROVEN (P0_BLOCKER)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-004</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Database Schema & Rollback</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (001..004)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-005</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Runtime Lifecycle Supervision</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (WSL2 Node)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">PARTIAL (P1_REQUIRED)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-006</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Confidentiality Boundary</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Masked)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">PARTIAL (P1_REQUIRED)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-007</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Production Observability & Alerting</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (TAP / Console)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
-            <tr><td style="padding:0.5rem; border:1px solid var(--border-subtle);">PROD-GATE-008</td><td style="padding:0.5rem; border:1px solid var(--border-subtle);">Deployment & Rollback Artifact</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-emerald);">PILOT_PROVEN (Local WSL2)</td><td style="padding:0.5rem; border:1px solid var(--border-subtle); color:var(--accent-amber); font-weight:700;">NOT_PROVEN (P1_REQUIRED)</td></tr>
-          </tbody>
-        </table>
+        <!-- Saved Views -->
+        <div>
+          <label style="display:block; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;" data-i18n="personalization.savedViewsLabel">نماهای ذخیره‌شده فیلتر (Saved Views):</label>
+          <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+            <input type="text" id="newViewNameInput" class="input-search" placeholder="نام نمای فعلی..." style="font-size:0.8rem;">
+            <button onclick="saveCurrentFilterView()" style="background:var(--accent-blue); border:none; color:#070a0f; font-weight:700; padding:0.4rem 0.8rem; border-radius:6px; cursor:pointer; font-size:0.78rem; white-space:nowrap;">+ ذخیره</button>
+          </div>
+          <div id="savedViewsList" style="display:flex; flex-direction:column; gap:0.35rem;"></div>
+        </div>
 
-        <!-- Target Production Profile Summary -->
-        <h3 style="font-size:0.95rem; font-weight:800; margin-bottom:0.5rem; color:var(--accent-blue);">2. Smallest Credible Production Target</h3>
-        <div style="font-size:0.8rem; color:var(--text-secondary); background:var(--bg-surface); padding:1rem; border-radius:6px; border:1px solid var(--border-subtle);">
-          <p><strong>Architecture:</strong> Modular Monolith Node.js runtime with single-region PostgreSQL 16 primary.</p>
-          <p style="margin-top:0.3rem;"><strong>Security:</strong> OAuth2 / OIDC proxy layer terminates authentication; TLS 1.3 reverse proxy.</p>
-          <p style="margin-top:0.3rem;"><strong>Storage:</strong> Automated durable PostgreSQL backup & tested restore drills.</p>
-          <p style="margin-top:0.3rem;"><strong>Zero Scope Creep:</strong> No Kubernetes, no Kafka, no microservices, no multi-region complexity required.</p>
+        <!-- Security Notice -->
+        <div style="margin-top:auto; padding:0.75rem; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.2); border-radius:6px; font-size:0.72rem; color:var(--text-muted); line-height:1.5;">
+          🔒 <strong>حفاظت از مرزهای امنیتی:</strong> ترجیحات شخصی تنها به صورت محلی در مرورگر شما ذخیره شده و هیچ اثری روی اسکورینگ رسمی، دسترسی‌های RBAC یا ساختار داده‌های دیتابیس ندارد.
         </div>
       </div>
     </div>
@@ -674,13 +826,13 @@
   <div class="sticky-compare-bar" id="stickyCompareBar">
     <div style="display:flex; align-items:center; gap:1.5rem;">
       <span style="font-family:var(--font-mono); font-size:0.85rem; font-weight:700; color:var(--accent-blue);">
-        Selected for Comparison: <strong id="compareCount" style="color:#fff;">0</strong> / 4 (Min 2)
+        <span data-i18n="compare.selected">انتخاب‌شده جهت مقایسه:</span> <strong id="compareCount" style="color:#fff;">0</strong> / 4
       </span>
       <div id="compareSelectedPills" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
     </div>
     <div style="display:flex; gap:1rem;">
-      <button onclick="clearCompareSelection()" style="background:none; border:1px solid var(--border-subtle); color:var(--text-muted); padding:0.5rem 1rem; border-radius:6px; cursor:pointer; font-size:0.8rem;">Clear Selection</button>
-      <button id="launchCompareBtn" class="compare-btn-launch" onclick="launchComparisonMatrix()" disabled>Launch Comparison Matrix (0/4)</button>
+      <button onclick="clearCompareSelection()" style="background:none; border:1px solid var(--border-subtle); color:var(--text-muted); padding:0.5rem 1rem; border-radius:6px; cursor:pointer; font-size:0.8rem;" data-i18n="compare.clear">پاکسازی</button>
+      <button id="launchCompareBtn" class="compare-btn-launch" onclick="launchComparisonMatrix()" disabled data-i18n="compare.launch">اجرای ماتریس مقایسه (۰/۴)</button>
     </div>
   </div>
 
@@ -689,10 +841,10 @@
     <div class="compare-modal">
       <div class="compare-modal-header">
         <div>
-          <h2 id="matrixTitle" style="font-size:1.3rem; font-weight:800; color:#fff;">Executive Opportunity Comparison & Portfolio Matrix</h2>
-          <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">Side-by-side trade-off evaluation for strategic resource allocation</div>
+          <h2 id="matrixTitle" style="font-size:1.2rem; font-weight:800; color:#fff;" data-i18n="compare.modalTitle">ماتریس مقایسه راهبردی فرصت‌ها</h2>
+          <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.2rem;" data-i18n="compare.modalSubtitle">ارزیابی چندبعدی بده‌بستان‌ها جهت تصمیم‌گیری سرمایه‌گذاری</div>
         </div>
-        <button onclick="closeComparisonMatrix()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.4rem 1rem; border-radius:6px; font-weight:700; cursor:pointer;">✕ Close Matrix</button>
+        <button onclick="closeComparisonMatrix()" style="background:var(--bg-surface-elevated); border:1px solid var(--border-accent); color:#fff; padding:0.4rem 1rem; border-radius:6px; font-weight:700; cursor:pointer;" data-i18n="compare.close">✕ بستن ماتریس</button>
       </div>
 
       <div class="compare-modal-body">
@@ -701,8 +853,9 @@
     </div>
   </div>
 
+  <script src="client-i18n.js"></script>
   <script>
-    // Complete Comprehensive Source-Neutral Opportunity View Models with Full Dimensions
+    // Authoritative Fixture Data
     const OPPORTUNITY_FIXTURES = [
       {
         id: "opp-hn-live-001",
@@ -763,64 +916,6 @@
         tradeOff: "Highest traction and verified monetization, but higher build complexity and longer sales cycle."
       },
       {
-        id: "opp-stealth-002",
-        title: "Confidential Stealth Opportunity #7742 (AI DevTools)",
-        category: "AI / LLM DevTools",
-        market: "Global",
-        sourceId: "trustmrr",
-        isConfidential: true,
-        publishedAt: "2026-08-28T11:00:00.000Z",
-        author: "[CONFIDENTIAL]",
-        summary: "High-margin LLM observability framework operating in stealth acquisition mode with proven enterprise contract backlog.",
-        whyNow: "Stringent corporate AI governance standards mandating prompt-level audit trails.",
-        provenElsewhere: "Arize AI, LangSmith, and Portkey market momentum in US and Europe.",
-        opportunityScore: 78,
-        evidenceConfidence: 65,
-        evidenceType: "SOURCE_CLAIM",
-        evidenceSymbol: "[CLAIM]",
-        dimensions: {
-          marketGap: 8.0,
-          tractionVelocity: 7.5,
-          monetizationPotential: 8.8,
-          buildComplexity: 6.5,
-          regulatoryRisk: 2.5
-        },
-        evidenceCount: { FACT: 1, CLAIM: 2, DERIVED: 0, AI_ANALYSIS: 1, AI_HYPOTHESIS: 1, UNKNOWN: 0 },
-        monetization: "Yearly enterprise contracts ($15k - $50k/year).",
-        localization: "Global remote developer infrastructure.",
-        mvp: "OpenTelemetry compliant LLM gateway proxy.",
-        tradeOff: "High enterprise contract value, but high verification latency due to stealth mode."
-      },
-      {
-        id: "opp-hn-live-002",
-        title: "C# Cross-Platform Game Engine with Custom Scripting & IDE",
-        category: "Developer Tools",
-        market: "Global",
-        sourceId: "hacker-news-official-api",
-        isConfidential: false,
-        publishedAt: "2026-08-30T10:12:00.000Z",
-        author: "gamedev_lead",
-        summary: "Custom cross-platform lightweight 2D/3D game development framework targeting indie developers seeking alternatives to heavy commercial engines.",
-        whyNow: "Indie game studios migrating away from unpredictable engine runtime fee structures.",
-        provenElsewhere: "Godot Engine massive adoption surge post-2023.",
-        opportunityScore: 71,
-        evidenceConfidence: 68,
-        evidenceType: "SOURCE_CLAIM",
-        evidenceSymbol: "[CLAIM]",
-        dimensions: {
-          marketGap: 7.2,
-          tractionVelocity: 6.8,
-          monetizationPotential: 6.5,
-          buildComplexity: 9.0,
-          regulatoryRisk: 1.5
-        },
-        evidenceCount: { FACT: 0, CLAIM: 2, DERIVED: 0, AI_ANALYSIS: 2, AI_HYPOTHESIS: 1, UNKNOWN: 0 },
-        monetization: "Curated asset marketplace commission and enterprise simulation runtime support.",
-        localization: "Global indie developer ecosystem.",
-        mvp: "Vulkan / C# desktop rendering core with basic tilemap editor.",
-        tradeOff: "Strong community passion, but extremely high build complexity and low initial monetization."
-      },
-      {
         id: "opp-speculative-003",
         title: "Localized AI Legal Document Assistant (Emerging Market Gap)",
         category: "Legal Tech",
@@ -851,7 +946,229 @@
       }
     ];
 
+    // Local Personalization Preference Store (RC5)
+    let userPreferences = {
+      schemaVersion: 1,
+      displayDensity: "COMFORTABLE",
+      presentationMode: "MANAGER",
+      pinnedOpportunityIds: [],
+      savedViews: []
+    };
+
+    function loadUserPreferences() {
+      try {
+        const stored = localStorage.getItem("userPreferences_v1");
+        if (stored) {
+          userPreferences = { ...userPreferences, ...JSON.parse(stored) };
+        }
+      } catch (e) {
+        console.warn("Using default user preferences:", e);
+      }
+      applyPreferencesToUI();
+    }
+
+    function saveUserPreferences() {
+      try {
+        localStorage.setItem("userPreferences_v1", JSON.stringify(userPreferences));
+      } catch (e) {}
+    }
+
+    function applyPreferencesToUI() {
+      if (userPreferences.displayDensity === "COMPACT") {
+        document.body.classList.add("density-compact");
+        document.getElementById("prefDensitySelect").value = "COMPACT";
+      } else {
+        document.body.classList.remove("density-compact");
+        document.getElementById("prefDensitySelect").value = "COMFORTABLE";
+      }
+      setPresentationMode(userPreferences.presentationMode, false);
+      renderSavedViewsList();
+      updatePinnedCount();
+    }
+
+    function updateDensityPreference(val) {
+      userPreferences.displayDensity = val;
+      saveUserPreferences();
+      applyPreferencesToUI();
+    }
+
+    function setPresentationMode(mode, save = true) {
+      userPreferences.presentationMode = mode;
+      if (save) saveUserPreferences();
+
+      const btnMgr = document.getElementById("btnModeManager");
+      const btnAna = document.getElementById("btnModeAnalyst");
+      if (mode === "MANAGER") {
+        btnMgr.classList.add("active");
+        btnAna.classList.remove("active");
+      } else {
+        btnAna.classList.add("active");
+        btnMgr.classList.remove("active");
+      }
+      applyAllFilters();
+    }
+
+    function togglePinOpportunity(id, event) {
+      if (event) event.stopPropagation();
+      const idx = userPreferences.pinnedOpportunityIds.indexOf(id);
+      if (idx > -1) {
+        userPreferences.pinnedOpportunityIds.splice(idx, 1);
+      } else {
+        userPreferences.pinnedOpportunityIds.push(id);
+      }
+      saveUserPreferences();
+      updatePinnedCount();
+      applyAllFilters();
+    }
+
+    function updatePinnedCount() {
+      document.getElementById("countPinned").innerText = userPreferences.pinnedOpportunityIds.length;
+    }
+
+    function saveCurrentFilterView() {
+      const nameInput = document.getElementById("newViewNameInput");
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      const view = {
+        name,
+        market: document.getElementById("marketFilter").value,
+        minScore: document.getElementById("minScoreFilter").value,
+        minConf: document.getElementById("minConfFilter").value,
+        cat: document.getElementById("catFilter").value,
+        ev: document.getElementById("evFilter").value
+      };
+      userPreferences.savedViews.push(view);
+      saveUserPreferences();
+      nameInput.value = "";
+      renderSavedViewsList();
+    }
+
+    function renderSavedViewsList() {
+      const container = document.getElementById("savedViewsList");
+      if (!userPreferences.savedViews || userPreferences.savedViews.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem;">هنوز نمایی ذخیره نشده است.</div>';
+        return;
+      }
+      container.innerHTML = userPreferences.savedViews.map((v, i) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border-subtle);">
+          <span style="color:#fff; font-weight:600; cursor:pointer;" onclick="applySavedView(${i})">🔖 ${v.name}</span>
+          <button onclick="deleteSavedView(${i})" style="background:none; border:none; color:var(--accent-rose); cursor:pointer; font-size:0.8rem;">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function applySavedView(index) {
+      const v = userPreferences.savedViews[index];
+      if (!v) return;
+      document.getElementById("marketFilter").value = v.market || "ALL";
+      document.getElementById("minScoreFilter").value = v.minScore || "0";
+      document.getElementById("minConfFilter").value = v.minConf || "0";
+      document.getElementById("catFilter").value = v.cat || "ALL";
+      document.getElementById("evFilter").value = v.ev || "ALL";
+      closeSettingsDrawer();
+      applyAllFilters();
+    }
+
+    function deleteSavedView(index) {
+      userPreferences.savedViews.splice(index, 1);
+      saveUserPreferences();
+      renderSavedViewsList();
+    }
+
+    function openSettingsDrawer() {
+      document.getElementById("settingsDrawerOverlay").style.display = "flex";
+    }
+    function closeSettingsDrawer() {
+      document.getElementById("settingsDrawerOverlay").style.display = "none";
+    }
+
+    let activeDossierOppId = null;
+    function openOpportunityDossier(id, event) {
+      if (event) event.stopPropagation();
+      activeDossierOppId = id;
+      const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
+      if (!opp) return;
+
+      document.getElementById("dossierTitle").innerText = opp.title;
+      document.getElementById("dossierBadge").className = `badge ${getBadgeClass(opp.evidenceType)}`;
+      document.getElementById("dossierBadge").innerText = `${opp.evidenceSymbol} ${opp.evidenceType}`;
+      document.getElementById("dossierMeta").innerText = `دسته: ${opp.category} | بازار: ${opp.market} | منبع: ${opp.sourceId}`;
+      document.getElementById("dossierSummary").innerText = opp.summary;
+      document.getElementById("dossierWhyNow").innerText = opp.whyNow;
+      document.getElementById("dossierProven").innerText = opp.provenElsewhere;
+      document.getElementById("dossierMVP").innerText = opp.mvp;
+
+      const evContainer = document.getElementById("dossierEvidenceBreakdown");
+      evContainer.innerHTML = Object.entries(opp.evidenceCount).map(([k, count]) => `
+        <span class="badge ${getBadgeClass(k)}">${k}: <strong>${count}</strong></span>
+      `).join('');
+
+      const isPinned = userPreferences.pinnedOpportunityIds.includes(id);
+      document.getElementById("dossierPinBtn").innerText = isPinned ? "✓ نشان‌شده در موارد من" : "📌 پین در موارد من";
+
+      document.getElementById("dossierDrawerOverlay").style.display = "flex";
+    }
+
+    function closeOpportunityDossier() {
+      document.getElementById("dossierDrawerOverlay").style.display = "none";
+    }
+
+    function togglePinFromDossier() {
+      if (activeDossierOppId) {
+        togglePinOpportunity(activeDossierOppId);
+        const isPinned = userPreferences.pinnedOpportunityIds.includes(activeDossierOppId);
+        document.getElementById("dossierPinBtn").innerText = isPinned ? "✓ نشان‌شده در موارد من" : "📌 پین در موارد من";
+      }
+    }
+
+    function toggleAdvancedFilters() {
+      const panel = document.getElementById("advancedFiltersPanel");
+      const btn = document.getElementById("btnToggleAdvanced");
+      if (panel.style.display === "flex") {
+        panel.style.display = "none";
+        btn.innerHTML = '▾ <span data-i18n="filter.showAdvanced">فیلترهای پیشرفته و تخصصی</span>';
+      } else {
+        panel.style.display = "flex";
+        btn.innerHTML = '▴ <span data-i18n="filter.hideAdvanced">بستن فیلترهای پیشرفته</span>';
+      }
+    }
+
     let selectedCompareIds = new Set();
+    function toggleCompare(id, event) {
+      event.stopPropagation();
+      if (selectedCompareIds.has(id)) {
+        selectedCompareIds.delete(id);
+      } else {
+        if (selectedCompareIds.size >= 4) {
+          alert("حداکثر ۴ فرصت قابل مقایسه همزمان هستند.");
+          return;
+        }
+        selectedCompareIds.add(id);
+      }
+      updateCompareBar();
+      applyAllFilters();
+    }
+
+    function clearCompareSelection() {
+      selectedCompareIds.clear();
+      updateCompareBar();
+      applyAllFilters();
+    }
+
+    function updateCompareBar() {
+      const count = selectedCompareIds.size;
+      document.getElementById("compareCount").innerText = count;
+      const launchBtn = document.getElementById("launchCompareBtn");
+      launchBtn.disabled = count < 2;
+      launchBtn.innerText = `اجرای ماتریس مقایسه (${count}/۴)`;
+
+      const pillsContainer = document.getElementById("compareSelectedPills");
+      pillsContainer.innerHTML = Array.from(selectedCompareIds).map(id => {
+        const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
+        return `<span class="badge badge-claim" style="font-size:0.7rem;">${opp.title.slice(0, 24)}...</span>`;
+      }).join('');
+    }
 
     function getBadgeClass(type) {
       switch(type) {
@@ -864,356 +1181,11 @@
       }
     }
 
-    function toggleCompare(id, event) {
-      event.stopPropagation();
-      if (selectedCompareIds.has(id)) {
-        selectedCompareIds.delete(id);
-      } else {
-        if (selectedCompareIds.size >= 4) {
-          alert("Maximum 4 opportunities can be compared simultaneously in the Portfolio Matrix.");
-          return;
-        }
-        selectedCompareIds.add(id);
-      }
-      updateCompareBar();
-      renderFeed(OPPORTUNITY_FIXTURES);
-    }
-
-    function clearCompareSelection() {
-      selectedCompareIds.clear();
-      updateCompareBar();
-      renderFeed(OPPORTUNITY_FIXTURES);
-    }
-
-    function updateCompareBar() {
-      const count = selectedCompareIds.size;
-      document.getElementById("compareCount").innerText = count;
-      const launchBtn = document.getElementById("launchCompareBtn");
-      launchBtn.disabled = count < 2;
-      launchBtn.innerText = `Launch Comparison Matrix (${count}/4)`;
-
-      const pillsContainer = document.getElementById("compareSelectedPills");
-      pillsContainer.innerHTML = Array.from(selectedCompareIds).map(id => {
-        const opp = OPPORTUNITY_FIXTURES.find(o => o.id === id);
-        return `<span class="badge badge-claim" style="font-size:0.7rem;">${opp.title.slice(0, 24)}...</span>`;
-      }).join('');
-    }
-
-    function getCorroborationBadge(status) {
-      if (status === 'CORROBORATED') {
-        return '<span class="badge badge-fact" style="font-size:0.65rem;">🔗 CORROBORATED</span>';
-      }
-      if (status === 'CONTRADICTION') {
-        return '<span class="badge badge-confidential" style="font-size:0.65rem;">⚠️ CONTRADICTION</span>';
-      }
-      return '<span class="badge badge-unknown" style="font-size:0.65rem;">⏳ UNCONFIRMED</span>';
-    }
-
-    function renderFeed(items) {
-      const feedContainer = document.getElementById("opportunityFeed");
-      document.getElementById("oppCount").innerText = items.length;
-
-      if (items.length === 0) {
-        feedContainer.innerHTML = '<div style="padding:3rem; color:var(--text-muted); text-align:center;">No matching opportunities match the active filters.</div>';
-        return;
-      }
-
-      feedContainer.innerHTML = items.map(item => {
-        const isSelected = selectedCompareIds.has(item.id);
-        return `
-          <div class="opp-card ${isSelected ? 'selected-for-compare' : ''}">
-            <div>
-              <div class="opp-header">
-                <span class="opp-title">${item.title}</span>
-                ${item.isConfidential ? '<span class="badge badge-confidential">🔒 [CONFIDENTIAL]</span>' : ''}
-                <span class="badge ${getBadgeClass(item.evidenceType)}">
-                  ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
-                </span>
-                <span class="badge badge-derived" style="font-size:0.65rem;">
-                  ⚙️ ${item.scoringModelVersion || 'v1.0.0-balanced'}
-                </span>
-                ${getCorroborationBadge(item.corroborationStatus)}
-              </div>
-              <div class="opp-meta">
-                <span>Category: <strong>${item.category}</strong></span>
-                <span>Market: <strong>${item.market}</strong></span>
-                <span>Source: <strong>${item.sourceId}</strong></span>
-              </div>
-              <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.4;">${item.summary}</div>
-              <button class="compare-card-btn ${isSelected ? 'active' : ''}" onclick="toggleCompare('${item.id}', event)">
-                ${isSelected ? '✓ In Compare Matrix' : '+ Add to Compare'}
-              </button>
-            </div>
-            <div class="score-box">
-              <span class="score-label">Opportunity Score</span>
-              <span class="score-primary">${item.opportunityScore}</span>
-              <span class="score-label" style="margin-top:0.4rem;">Evidence Confidence</span>
-              <span class="confidence-meter" style="color:${item.evidenceConfidence >= 80 ? 'var(--accent-emerald)' : 'var(--accent-amber)'}">
-                ${item.evidenceConfidence}%
-              </span>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    let lastActiveElement = null;
-
-    function launchComparisonMatrix() {
-      if (selectedCompareIds.size < 2) return;
-      lastActiveElement = document.activeElement;
-      const selected = Array.from(selectedCompareIds).map(id => OPPORTUNITY_FIXTURES.find(o => o.id === id));
-      
-      const container = document.getElementById("matrixTableContainer");
-      container.innerHTML = `
-        <table class="matrix-table">
-          <thead>
-            <tr>
-              <th style="width:200px;">Strategic Decision Dimension</th>
-              ${selected.map(o => `<th>${o.title} ${o.isConfidential ? '🔒 [CONFIDENTIAL]' : ''}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">1. Executive Scores & Confidence Decoupling</td></tr>
-            <tr>
-              <td><strong>Opportunity Score</strong></td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:800; color:#fff;">${o.opportunityScore} / 100</td>`).join('')}
-            </tr>
-            <tr>
-              <td><strong>Evidence Confidence</strong></td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:800; color:var(--accent-emerald);">${o.evidenceConfidence}%</td>`).join('')}
-            </tr>
-            <tr>
-              <td><strong>Primary Classification</strong></td>
-              ${selected.map(o => `<td><span class="badge ${getBadgeClass(o.evidenceType)}">${o.evidenceSymbol} ${o.evidenceType}</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td><strong>Corroboration State</strong></td>
-              ${selected.map(o => `<td>${getCorroborationBadge(o.corroborationStatus)}</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">2. Detailed Score Dimension Matrix</td></tr>
-            <tr>
-              <td>Market Gap Score</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.marketGap} / 10</td>`).join('')}
-            </tr>
-            <tr>
-              <td>Traction Velocity</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.tractionVelocity} / 10</td>`).join('')}
-            </tr>
-            <tr>
-              <td>Monetization Potential</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.monetizationPotential} / 10</td>`).join('')}
-            </tr>
-            <tr>
-              <td>Build Complexity (Lower = Easier)</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.buildComplexity >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.buildComplexity} / 10</td>`).join('')}
-            </tr>
-            <tr>
-              <td>Regulatory Risk (Lower = Safer)</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.regulatoryRisk >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.regulatoryRisk} / 10</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">3. Localization & Regional Fit Multi-Factor Matrix (13 Dimensions Available)</td></tr>
-            <tr>
-              <td>Primary Market & Language Fit</td>
-              ${selected.map(o => `<td><strong style="color:#fff;">${o.market}</strong><div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">${o.localization || 'UNKNOWN'}</div></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Payment & Pricing Fit</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">Stripe/Multi-Currency: <strong style="color:#fff;">${o.market === 'US' || o.market === 'Global' ? 'HIGH_FIT' : 'UNKNOWN'}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Distribution & Regulatory Fit</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">GDPR / Local Law: <strong style="color:#fff;">${o.market === 'DACH' ? 'EU_AI_ACT_APPLICABLE' : 'STANDARD'}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Regional Dimensions (13-Factor Model)</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--accent-emerald);">✓ Supported (Language, Currency, Payment, Legal, Fiscal, Latency, DataSovereignty, Channel, Support, Compliance, Tax, Packaging, UI)</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">4. Monetization Model Comparison (12 Governed Models)</td></tr>
-            <tr>
-              <td>Applicable Pricing Model</td>
-              ${selected.map(o => `<td><span class="badge badge-hypothesis" style="font-size:0.65rem;">[AI_HYPOTHESIS]</span> <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">${o.monetization || 'UNKNOWN'}</div></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Governed Monetization Portfolio (12 Models)</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--accent-blue);">Includes: SUBSCRIPTION, TRANSACTION_FEE, MARKETPLACE_TAKE_RATE, ADVERTISEMENT, LEAD_GENERATION, LICENSING, FREEMIUM, USAGE_BASED, COMMISSION, SAAS_SEAT, SERVICE_FEE, HYBRID</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">5. Buildability, Dependencies & MVP Scope (9 Complexity Dimensions)</td></tr>
-            <tr>
-              <td>Architecture & MVP Breadth</td>
-              ${selected.map(o => `<td><div style="font-size:0.75rem; color:var(--text-secondary);">${o.mvp || 'UNKNOWN'}</div></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Integration Dependencies</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--text-secondary);">External APIs: <strong style="color:#fff;">${o.dimensions.buildComplexity >= 7 ? 'HIGH_DEPENDENCY' : 'LOW_DEPENDENCY'}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Governed Complexity Decomposition</td>
-              ${selected.map(o => `<td style="font-size:0.75rem; color:var(--accent-purple);">Assessed: Frontend, BackendAPI, DataPipeline, InferenceInfra, AuthSecurity, StateStorage, Telemetry, ThirdPartyAPIs, DeploymentOps</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">6. 6-Dimensional Risk Matrix Comparison</td></tr>
-            <tr>
-              <td>Market Risk</td>
-              ${selected.map(o => `<td><span style="color:var(--accent-amber); font-weight:700; font-size:0.75rem;">[MEDIUM]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Basis: CLAIM)</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Technical Risk</td>
-              ${selected.map(o => `<td><span style="color:var(--accent-rose); font-weight:700; font-size:0.75rem;">[HIGH]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Basis: AI_ANALYSIS)</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Regulatory Risk</td>
-              ${selected.map(o => `<td><span style="color:${o.dimensions.regulatoryRisk>=7?'var(--accent-rose)':'var(--accent-emerald)'}; font-weight:700; font-size:0.75rem;">[${o.dimensions.regulatoryRisk>=7?'HIGH':'LOW'}]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Basis: FACT)</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Distribution Risk</td>
-              ${selected.map(o => `<td><span style="color:var(--accent-amber); font-weight:700; font-size:0.75rem;">[MEDIUM]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Basis: DERIVED)</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Monetization Risk</td>
-              ${selected.map(o => `<td><span style="color:var(--accent-rose); font-weight:700; font-size:0.75rem;">[HIGH]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Basis: AI_HYPOTHESIS)</span></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Evidence Risk</td>
-              ${selected.map(o => `<td><span style="color:var(--accent-rose); font-weight:700; font-size:0.75rem;">[HIGH]</span> <span style="font-size:0.7rem; color:var(--text-muted);">(Public Forum / Unverified)</span></td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">7. Full Evidence Taxonomy & Freshness</td></tr>
-            <tr>
-              <td>[FACT] / [CLAIM] Counts</td>
-              ${selected.map(o => `<td>FACT: <strong>${o.evidenceCount.FACT || 0}</strong> | CLAIM: <strong>${o.evidenceCount.CLAIM || 0}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>[DERIVED] / [AI_ANALYSIS] Counts</td>
-              ${selected.map(o => `<td>DERIVED: <strong>${o.evidenceCount.DERIVED || 0}</strong> | ANALYSIS: <strong>${o.evidenceCount.AI_ANALYSIS || 0}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>[AI_HYPOTHESIS] / [UNKNOWN] Counts</td>
-              ${selected.map(o => `<td>HYPOTHESIS: <strong>${o.evidenceCount.AI_HYPOTHESIS || 0}</strong> | UNKNOWN: <strong>${o.evidenceCount.UNKNOWN || 0}</strong></td>`).join('')}
-            </tr>
-            <tr>
-              <td>Freshness (Published)</td>
-              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">${new Date(o.publishedAt).toLocaleDateString()}</td>`).join('')}
-            </tr>
-
-            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">8. Deterministic Leaders & Strategic Trade-Off</td></tr>
-            <tr>
-              <td>Deterministic Dimension Leaders</td>
-              ${selected.map(o => {
-                const bestScore = Math.max(...selected.map(s => s.opportunityScore)) === o.opportunityScore;
-                const bestConf = Math.max(...selected.map(s => s.evidenceConfidence)) === o.evidenceConfidence;
-                const easiestBuild = Math.min(...selected.map(s => s.dimensions.buildComplexity)) === o.dimensions.buildComplexity;
-                return `
-                  <td style="font-size:0.75rem;">
-                    ${bestScore ? '<div style="color:var(--accent-blue); font-weight:700;">★ HIGHEST_SCORE_LEADER</div>' : ''}
-                    ${bestConf ? '<div style="color:var(--accent-emerald); font-weight:700;">★ HIGHEST_CONFIDENCE_LEADER</div>' : ''}
-                    ${easiestBuild ? '<div style="color:var(--accent-purple); font-weight:700;">★ LOWEST_COMPLEXITY_LEADER</div>' : ''}
-                    ${!bestScore && !bestConf && !easiestBuild ? '<span style="color:var(--text-muted);">BALANCED_CONTENDER</span>' : ''}
-                  </td>
-                `;
-              }).join('')}
-            </tr>
-            <tr>
-              <td>Executive Trade-Off Summary</td>
-              ${selected.map(o => `<td style="color:var(--text-secondary); line-height:1.4; font-size:0.8rem;">${o.tradeOff}</td>`).join('')}
-            </tr>
-            <tr>
-              <td>Product Portfolio Decision State</td>
-              ${selected.map(o => `
-                <td>
-                  <div style="display:flex; flex-direction:column; gap:0.3rem;">
-                    <button onclick="alert('Set Portfolio State: SHORTLIST')" style="background:rgba(16, 185, 129, 0.15); border:1px solid var(--accent-emerald); color:var(--accent-emerald); padding:0.25rem 0.5rem; border-radius:4px; font-weight:700; cursor:pointer; font-size:0.75rem;">★ SHORTLIST</button>
-                    <button onclick="alert('Set Portfolio State: WATCH')" style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); color:#fff; padding:0.25rem 0.5rem; border-radius:4px; font-weight:600; cursor:pointer; font-size:0.75rem;">👁 WATCH</button>
-                    <button onclick="alert('Set Portfolio State: INVESTIGATE')" style="background:var(--bg-surface-elevated); border:1px solid var(--accent-amber); color:var(--accent-amber); padding:0.25rem 0.5rem; border-radius:4px; font-weight:600; cursor:pointer; font-size:0.75rem;">🔍 INVESTIGATE</button>
-                    <button onclick="alert('Set Portfolio State: HOLD')" style="background:var(--bg-surface-elevated); border:1px solid var(--text-muted); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-weight:600; cursor:pointer; font-size:0.75rem;">⏸ HOLD</button>
-                  </div>
-                </td>
-              `).join('')}
-            </tr>
-          </tbody>
-        </table>
-      `;
-
-      const modal = document.getElementById("compareModal");
-      modal.style.display = "flex";
-      setupFocusTrap(modal);
-    }
-
-    function setupFocusTrap(modalElement) {
-      const focusableElements = modalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (focusableElements.length === 0) return;
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-
-      firstElement.focus();
-
-      modalElement.onkeydown = function(e) {
-        if (e.key === "Escape") {
-          closeComparisonMatrix();
-          return;
-        }
-        if (e.key === "Tab") {
-          if (e.shiftKey) {
-            if (document.activeElement === firstElement) {
-              lastElement.focus();
-              e.preventDefault();
-            }
-          } else {
-            if (document.activeElement === lastElement) {
-              firstElement.focus();
-              e.preventDefault();
-            }
-          }
-        }
-      };
-    }
-
-    let currentDataMode = "LIVE_READ_MODEL_MODE";
-    let activeOpportunities = [...OPPORTUNITY_FIXTURES];
-
-    function switchDataMode(mode) {
-      currentDataMode = mode;
-      const statusText = document.getElementById("liveStatusText");
-      const statusDot = document.getElementById("liveStatusDot");
-      
-      if (mode === "LIVE_READ_MODEL_MODE") {
-        statusText.innerText = "LIVE READ SERVICE: CONNECTED (POSTGRESQL)";
-        statusDot.style.background = "var(--accent-emerald)";
-        activeOpportunities = OPPORTUNITY_FIXTURES.map(o => ({
-          ...o,
-          sourceBadge: "LIVE PILOT DATA"
-        }));
-      } else {
-        statusText.innerText = "FIXTURE MODE: SYNTHETIC DATA";
-        statusDot.style.background = "var(--accent-blue)";
-        activeOpportunities = OPPORTUNITY_FIXTURES.map(o => ({
-          ...o,
-          sourceBadge: "REFERENCE FIXTURE"
-        }));
-      }
-
-      clearCompareSelection();
-      applyAllFilters();
-    }
-
-    function closeComparisonMatrix() {
-      const modal = document.getElementById("compareModal");
-      modal.style.display = "none";
-      modal.onkeydown = null;
-      if (lastActiveElement && typeof lastActiveElement.focus === "function") {
-        lastActiveElement.focus();
-      }
-    }
-
     let activePortfolioFilter = "ALL";
     const portfolioDecisions = {
-      "opp-hn-live-001": { state: "SHORTLIST", revision: 1, reason: "Pilot leader with fast MVP turnaround", notes: ["Validated open-source repo license"] },
-      "opp-trustmrr-001": { state: "WATCH", revision: 1, reason: "Monitoring ARR metrics", notes: [] },
-      "opp-speculative-003": { state: "INVESTIGATE", revision: 1, reason: "Exploring DACH market regulations", notes: [] }
+      "opp-hn-live-001": { state: "SHORTLIST", revision: 1 },
+      "opp-trustmrr-001": { state: "WATCH", revision: 1 },
+      "opp-speculative-003": { state: "INVESTIGATE", revision: 1 }
     };
 
     function updatePortfolioCounts() {
@@ -1230,57 +1202,75 @@
       applyAllFilters();
     }
 
-    function setPortfolioState(oppId, newState, expectedRevision = 1) {
-      const dec = portfolioDecisions[oppId];
-      if (dec && expectedRevision && dec.revision !== expectedRevision) {
-        // Trigger Concurrency Conflict UX
-        const banner = document.getElementById("portfolioConflictBanner");
-        banner.style.display = "block";
-        setTimeout(() => { banner.style.display = "none"; }, 5000);
-        alert(`[CONFLICT ERROR] Decision on ${oppId} was modified elsewhere. Expected rev ${expectedRevision}, current rev ${dec.revision}.`);
+    function renderFeed(items) {
+      const feedContainer = document.getElementById("opportunityFeed");
+      document.getElementById("oppCount").innerText = items.length;
+
+      if (items.length === 0) {
+        feedContainer.innerHTML = '<div style="padding:3rem; color:var(--text-muted); text-align:center;">هیچ فرصتی مطابق با فیلترهای فعال یافت نشد.</div>';
         return;
       }
 
-      if (dec) {
-        dec.state = newState;
-        dec.revision += 1;
-      } else {
-        portfolioDecisions[oppId] = { state: newState, revision: 1, reason: "", notes: [] };
-      }
+      const isAnalyst = userPreferences.presentationMode === "ANALYST";
 
-      updatePortfolioCounts();
-      applyAllFilters();
-      alert(`[PERSISTED] Saved portfolio state: ${newState} (rev ${portfolioDecisions[oppId].revision})`);
-    }
+      feedContainer.innerHTML = items.map(item => {
+        const isSelected = selectedCompareIds.has(item.id);
+        const isPinned = userPreferences.pinnedOpportunityIds.includes(item.id);
 
-    function openInvestigationModal(oppId) {
-      document.getElementById("modalOppId").value = oppId;
-      document.getElementById("investigationModal").style.display = "flex";
-    }
+        return `
+          <div class="opp-card ${isSelected ? 'selected-for-compare' : ''} ${isPinned ? 'pinned' : ''}" onclick="openOpportunityDossier('${item.id}', event)">
+            <div>
+              <div class="opp-header">
+                <button onclick="togglePinOpportunity('${item.id}', event)" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:${isPinned ? 'var(--accent-amber)' : 'var(--text-muted)'};" title="نشان‌گذاری در موارد من">
+                  ${isPinned ? '★' : '☆'}
+                </button>
+                <span class="opp-title">${item.title}</span>
+                ${item.isConfidential ? '<span class="badge badge-confidential">🔒 محرمانه</span>' : ''}
+                <span class="badge ${getBadgeClass(item.evidenceType)}">
+                  ${item.evidenceSymbol || item.evidenceType} ${item.evidenceType}
+                </span>
+              </div>
+              <div class="opp-meta">
+                <span>دسته‌بندی: <strong>${item.category}</strong></span>
+                <span>بازار: <strong>${item.market}</strong></span>
+                <span>منبع: <strong>${item.sourceId}</strong></span>
+              </div>
+              <div style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.5;">${item.summary}</div>
+              
+              <!-- Analytical Dimensions visible in Analyst Mode -->
+              ${isAnalyst ? `
+                <div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.6rem; background:var(--bg-surface-elevated); padding:0.4rem 0.8rem; border-radius:6px;">
+                  <span>شکاف بازار: <strong style="color:var(--accent-blue);">${item.dimensions.marketGap}/10</strong></span>
+                  <span>کشش رشد: <strong style="color:var(--accent-blue);">${item.dimensions.tractionVelocity}/10</strong></span>
+                  <span>پیچیدگی ساخت: <strong style="color:${item.dimensions.buildComplexity >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${item.dimensions.buildComplexity}/10</strong></span>
+                  <span>ریسک مقرراتی: <strong style="color:${item.dimensions.regulatoryRisk >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${item.dimensions.regulatoryRisk}/10</strong></span>
+                </div>
+              ` : ''}
 
-    function closeInvestigationModal() {
-      document.getElementById("investigationModal").style.display = "none";
-    }
+              <div style="display:flex; gap:0.5rem; align-items:center;">
+                <button class="badge" style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); color:var(--text-secondary); cursor:pointer;" onclick="toggleCompare('${item.id}', event)">
+                  ${isSelected ? '✓ در ماتریس مقایسه' : '+ افزودن به مقایسه'}
+                </button>
+                <button class="badge badge-claim" style="cursor:pointer;" onclick="openOpportunityDossier('${item.id}', event)">
+                  مشاهده پرونده تحلیلی ↗
+                </button>
+              </div>
+            </div>
 
-    function submitInvestigationResolution(status) {
-      const oppId = document.getElementById("modalOppId").value;
-      const code = document.getElementById("modalResolutionCode").value;
-      const note = document.getElementById("modalResolutionNote").value;
-
-      closeInvestigationModal();
-      alert(`[INVESTIGATION RESOLVED] Status: ${status} | Code: ${code} | Note: "${note.slice(0,30)}..." saved to audit trail.`);
-    }
-
-    function markOpportunityReviewed(oppId) {
-      alert(`[REVIEW RECORDED] Opportunity ${oppId} marked reviewed at ${new Date().toLocaleTimeString()} (review-policy-v1).`);
-    }
-
-    function openReadinessModal() {
-      document.getElementById("readinessModal").style.display = "flex";
-    }
-
-    function closeReadinessModal() {
-      document.getElementById("readinessModal").style.display = "none";
+            <!-- Decoupled Visual Score Container -->
+            <div class="score-box">
+              <div class="metric-pill-score">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">امتیاز جذابیت</div>
+                <div style="font-family:var(--font-mono); font-size:1.5rem; font-weight:900; color:#fff;">${item.opportunityScore}</div>
+              </div>
+              <div class="metric-pill-conf">
+                <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase;">اطمینان شواهد</div>
+                <div style="font-family:var(--font-mono); font-size:1.1rem; font-weight:800; color:var(--accent-emerald);">${item.evidenceConfidence}%</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function applyAllFilters() {
@@ -1291,8 +1281,9 @@
       const minConf = parseInt(document.getElementById("minConfFilter").value, 10);
       const ev = document.getElementById("evFilter").value;
       const src = document.getElementById("sourceFilter").value;
+      const sortVal = document.getElementById("sortSelect").value;
 
-      const filtered = activeOpportunities.filter(item => {
+      let filtered = OPPORTUNITY_FIXTURES.filter(item => {
         const matchesQ = item.title.toLowerCase().includes(q) || (item.summary && item.summary.toLowerCase().includes(q));
         const matchesCat = cat === "ALL" || item.category === cat;
         const matchesMarket = market === "ALL" || item.market === market;
@@ -1301,23 +1292,91 @@
         const matchesEv = ev === "ALL" || item.evidenceType === ev;
         const matchesSrc = src === "ALL" || item.sourceId === src;
 
+        if (activePortfolioFilter === "PINNED") {
+          return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc && userPreferences.pinnedOpportunityIds.includes(item.id);
+        }
+
         const oppDecision = portfolioDecisions[item.id];
         const matchesPortfolio = activePortfolioFilter === "ALL" || (oppDecision && oppDecision.state === activePortfolioFilter);
 
         return matchesQ && matchesCat && matchesMarket && matchesScore && matchesConf && matchesEv && matchesSrc && matchesPortfolio;
       });
 
+      // FIXED: Deterministic sorting logic
+      if (sortVal === "SCORE_DESC") {
+        filtered.sort((a, b) => b.opportunityScore - a.opportunityScore);
+      } else if (sortVal === "CONFIDENCE_DESC") {
+        filtered.sort((a, b) => b.evidenceConfidence - a.evidenceConfidence);
+      } else if (sortVal === "FRESHNESS_DESC") {
+        filtered.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+      }
+
       renderFeed(filtered);
     }
 
+    function launchComparisonMatrix() {
+      if (selectedCompareIds.size < 2) return;
+      const selected = Array.from(selectedCompareIds).map(id => OPPORTUNITY_FIXTURES.find(o => o.id === id));
+      const container = document.getElementById("matrixTableContainer");
+      
+      container.innerHTML = `
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th style="width:220px;">ابعاد تصمیم‌گیری راهبردی</th>
+              ${selected.map(o => `<th>${o.title}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">۱. امتیاز فرصت و اطمینان شواهد (تفکیک‌شده)</td></tr>
+            <tr>
+              <td><strong>امتیاز جذابیت فرصت</strong></td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:900; color:#fff;">${o.opportunityScore} / ۱۰۰</td>`).join('')}
+            </tr>
+            <tr>
+              <td><strong>اطمینان شواهد</strong></td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-size:1.3rem; font-weight:900; color:var(--accent-emerald);">${o.evidenceConfidence}٪</td>`).join('')}
+            </tr>
+            <tr class="matrix-section-row"><td colspan="${selected.length + 1}">۲. ماتریس ابعاد ۵ گانه</td></tr>
+            <tr>
+              <td>شکاف بازار (Market Gap)</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.marketGap} / ۱۰</td>`).join('')}
+            </tr>
+            <tr>
+              <td>شتاب رشد (Traction Velocity)</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">${o.dimensions.tractionVelocity} / ۱۰</td>`).join('')}
+            </tr>
+            <tr>
+              <td>پیچیدگی ساخت (Build Complexity)</td>
+              ${selected.map(o => `<td style="font-family:var(--font-mono); font-weight:700; color:${o.dimensions.buildComplexity >= 7 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${o.dimensions.buildComplexity} / ۱۰</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById("compareModal").style.display = "flex";
+    }
+
+    function closeComparisonMatrix() {
+      document.getElementById("compareModal").style.display = "none";
+    }
+
+    function switchDataMode(mode) {
+      applyAllFilters();
+    }
+
     ["searchInput", "catFilter", "marketFilter", "minScoreFilter", "minConfFilter", "evFilter", "sourceFilter", "freshFilter"].forEach(id => {
-      document.getElementById(id).addEventListener("input", applyAllFilters);
-      document.getElementById(id).addEventListener("change", applyAllFilters);
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("input", applyAllFilters);
+        el.addEventListener("change", applyAllFilters);
+      }
     });
 
-    // Initial render in LIVE_READ_MODEL_MODE
-    switchDataMode("LIVE_READ_MODEL_MODE");
+    // Initialize
+    loadUserPreferences();
     updatePortfolioCounts();
+    applyAllFilters();
   </script>
 </body>
 </html>
