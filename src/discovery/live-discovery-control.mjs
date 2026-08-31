@@ -27,7 +27,7 @@ export const DiscoveryHealthStatus = Object.freeze({
   ERROR: "ERROR"
 });
 
-export const DEFAULT_DISCOVERY_INTERVAL_MS = 60000; // 1 minute default interval in AUTO
+export const DEFAULT_DISCOVERY_INTERVAL_MS = 3600000; // 60 minutes (1 hour) default interval in AUTO
 export const DEFAULT_DAILY_BUDGET = 1000;
 
 export class LiveDiscoveryController {
@@ -56,9 +56,24 @@ export class LiveDiscoveryController {
     this.timer = null;
     this.isRunning = false;
     this.lastRunAt = null;
+    this.lastRunStartedAt = null;
+    this.lastRunCompletedAt = null;
+    this.lastSuccessfulRunAt = null;
+    this.nextScheduledRunAt = null;
+    this.currentRunId = null;
+    this.lastRunTrigger = null;
     this.lastRunStatus = "IDLE";
     this.todayDiscoveredCount = 0;
     this.lastRunNewOpportunities = 0;
+    this.lastRunSourceResults = {};
+    this.lastRunCounters = {
+      rawSignals: 0,
+      newCandidates: 0,
+      dedupReplays: 0,
+      filtered: 0,
+      newOpportunities: 0
+    };
+    this.runtimeVersion = "1.0.0-rc.6";
     this.dailyCountResetDate = new Date().toISOString().slice(0, 10);
 
     // Source registry state for approved active sources
@@ -119,10 +134,14 @@ export class LiveDiscoveryController {
 
   startAutoSchedule() {
     this.stopAutoSchedule();
+    this.nextScheduledRunAt = new Date(Date.now() + this.intervalMs).toISOString();
     this.timer = setInterval(() => {
       this.executeDiscoveryRun("AUTO").catch(err => {
         console.error("Auto discovery run failed:", err.message);
       });
+      if (this.mode === DiscoveryMode.AUTO) {
+        this.nextScheduledRunAt = new Date(Date.now() + this.intervalMs).toISOString();
+      }
     }, this.intervalMs);
   }
 
@@ -131,6 +150,7 @@ export class LiveDiscoveryController {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.nextScheduledRunAt = null;
   }
 
   async runNow() {
@@ -178,7 +198,14 @@ export class LiveDiscoveryController {
 
     this.isRunning = true;
     const startTime = new Date().toISOString();
+    this.lastRunStartedAt = startTime;
+    this.lastRunTrigger = triggeredBy;
+    this.currentRunId = `run:${startTime.replace(/[:.]/g, "-")}`;
+    
     let newItemsCount = 0;
+    let totalRawSignals = 0;
+    let totalDedupReplays = 0;
+    const currentRunSourceResults = {};
 
     try {
       const activeSources = Array.from(this.sources.values()).filter(
@@ -186,6 +213,10 @@ export class LiveDiscoveryController {
       );
 
       for (const source of activeSources) {
+        let sourceItemsFetched = 0;
+        let sourceNewCandidates = 0;
+        let sourceDedupReplays = 0;
+
         try {
           if (source.id === "hacker-news-official-api") {
             const collectorOptions = {};
@@ -196,6 +227,9 @@ export class LiveDiscoveryController {
             const feedResult = await collector.fetchFeed({ feedType: "showstories", limit: 5 });
 
             if (feedResult && feedResult.ok && Array.isArray(feedResult.documents)) {
+              sourceItemsFetched = feedResult.documents.length;
+              totalRawSignals += sourceItemsFetched;
+
               for (const rawDoc of feedResult.documents) {
                 if (!rawDoc || !rawDoc.canonicalUrl) continue;
 
@@ -222,11 +256,16 @@ export class LiveDiscoveryController {
                     const saveRes = this.candidateStore.save(normalized);
                     if (saveRes && saveRes.created) {
                       newItemsCount++;
+                      sourceNewCandidates++;
                       this.todayDiscoveredCount++;
+                    } else {
+                      sourceDedupReplays++;
+                      totalDedupReplays++;
                     }
                   }
                 } else {
                   newItemsCount++;
+                  sourceNewCandidates++;
                   this.todayDiscoveredCount++;
                 }
               }
@@ -235,6 +274,12 @@ export class LiveDiscoveryController {
               source.lastSuccessAt = new Date().toISOString();
               source.errorCount = 0;
               source.lastError = null;
+              currentRunSourceResults[source.id] = {
+                status: "SUCCESS",
+                itemsFetched: sourceItemsFetched,
+                newCandidates: sourceNewCandidates,
+                dedupReplays: sourceDedupReplays
+              };
             } else if (feedResult && !feedResult.ok) {
               throw new Error(feedResult.failure?.message || "Feed fetch failed");
             }
@@ -248,6 +293,9 @@ export class LiveDiscoveryController {
             const searchResult = await collector.searchRepositories("topic:ai-agents stars:>1000", { limit: 5 });
 
             if (searchResult && searchResult.ok && Array.isArray(searchResult.documents)) {
+              sourceItemsFetched = searchResult.documents.length;
+              totalRawSignals += sourceItemsFetched;
+
               for (const rawDoc of searchResult.documents) {
                 if (!rawDoc || !rawDoc.canonicalUrl) continue;
 
@@ -272,11 +320,16 @@ export class LiveDiscoveryController {
                     const saveRes = this.candidateStore.save(normalized);
                     if (saveRes && saveRes.created) {
                       newItemsCount++;
+                      sourceNewCandidates++;
                       this.todayDiscoveredCount++;
+                    } else {
+                      sourceDedupReplays++;
+                      totalDedupReplays++;
                     }
                   }
                 } else {
                   newItemsCount++;
+                  sourceNewCandidates++;
                   this.todayDiscoveredCount++;
                 }
               }
@@ -285,6 +338,12 @@ export class LiveDiscoveryController {
               source.lastSuccessAt = new Date().toISOString();
               source.errorCount = 0;
               source.lastError = null;
+              currentRunSourceResults[source.id] = {
+                status: "SUCCESS",
+                itemsFetched: sourceItemsFetched,
+                newCandidates: sourceNewCandidates,
+                dedupReplays: sourceDedupReplays
+              };
             } else if (searchResult && !searchResult.ok) {
               throw new Error(searchResult.failure?.message || "GitHub Search API fetch failed");
             }
@@ -295,36 +354,72 @@ export class LiveDiscoveryController {
           source.lastError = sourceErr.message;
           source.health = source.errorCount > 3 ? DiscoveryHealthStatus.ERROR : DiscoveryHealthStatus.DEGRADED;
           console.error(`Source [${source.id}] execution failed:`, sourceErr.message);
+          currentRunSourceResults[source.id] = {
+            status: sourceErr.message?.includes("rate limit") ? "RATE_LIMITED" : (sourceErr.message?.includes("timeout") ? "TIMEOUT" : "FAILED"),
+            error: sourceErr.message,
+            itemsFetched: sourceItemsFetched,
+            newCandidates: sourceNewCandidates,
+            dedupReplays: sourceDedupReplays
+          };
         }
       }
 
-      const hasActiveErrors = activeSources.some(s => s.health === DiscoveryHealthStatus.ERROR);
-      this.lastRunStatus = hasActiveErrors ? "PARTIAL_SUCCESS" : "SUCCESS";
+      const hasSourceErrors = Object.values(currentRunSourceResults).some(r => r && r.status !== "SUCCESS");
+      const hasSourceSuccess = Object.values(currentRunSourceResults).some(r => r && r.status === "SUCCESS");
+      
+      if (hasSourceErrors && hasSourceSuccess) {
+        this.lastRunStatus = "PARTIAL_SUCCESS";
+      } else if (hasSourceErrors && !hasSourceSuccess) {
+        this.lastRunStatus = "FAILED";
+      } else {
+        this.lastRunStatus = "SUCCESS";
+      }
+
       this.lastRunNewOpportunities = newItemsCount;
+      if (this.lastRunStatus === "SUCCESS") {
+        this.lastSuccessfulRunAt = new Date().toISOString();
+      }
     } catch (err) {
-      this.lastRunStatus = "ERROR";
+      this.lastRunStatus = "FAILED";
       console.error("Discovery runCycle error:", err);
     } finally {
       this.isRunning = false;
-      this.lastRunAt = new Date().toISOString();
+      this.lastRunCompletedAt = new Date().toISOString();
+      this.lastRunAt = this.lastRunCompletedAt;
+      this.lastRunSourceResults = currentRunSourceResults;
+      this.lastRunCounters = {
+        rawSignals: totalRawSignals,
+        newCandidates: newItemsCount,
+        dedupReplays: totalDedupReplays,
+        filtered: 0,
+        newOpportunities: newItemsCount
+      };
     }
 
     return {
+      runId: this.currentRunId,
       status: this.lastRunStatus,
       trigger: triggeredBy,
-      startedAt: startTime,
-      completedAt: this.lastRunAt,
+      startedAt: this.lastRunStartedAt,
+      completedAt: this.lastRunCompletedAt,
+      lastSuccessfulRunAt: this.lastSuccessfulRunAt,
+      nextScheduledRunAt: this.nextScheduledRunAt,
       newItemsDiscovered: newItemsCount,
       todayDiscoveredCount: this.todayDiscoveredCount,
-      overallHealth: this.getOverallHealth()
+      overallHealth: this.getOverallHealth(),
+      sourceResults: this.lastRunSourceResults,
+      counters: this.lastRunCounters
     };
   }
 
   getOverallHealth() {
-    const sources = Array.from(this.sources.values());
-    if (sources.some(s => s.health === DiscoveryHealthStatus.ERROR)) return DiscoveryHealthStatus.ERROR;
-    if (sources.some(s => s.health === DiscoveryHealthStatus.DEGRADED)) return DiscoveryHealthStatus.DEGRADED;
-    if (sources.some(s => s.health === DiscoveryHealthStatus.LIMITED)) return DiscoveryHealthStatus.LIMITED;
+    const activeSources = Array.from(this.sources.values()).filter(
+      s => s.status === "ACTIVE" && s.governanceStatus === "APPROVED"
+    );
+    if (activeSources.length === 0) return DiscoveryHealthStatus.HEALTHY;
+    if (activeSources.some(s => s.health === DiscoveryHealthStatus.ERROR)) return DiscoveryHealthStatus.ERROR;
+    if (activeSources.some(s => s.health === DiscoveryHealthStatus.DEGRADED)) return DiscoveryHealthStatus.DEGRADED;
+    if (activeSources.some(s => s.health === DiscoveryHealthStatus.LIMITED)) return DiscoveryHealthStatus.LIMITED;
     return DiscoveryHealthStatus.HEALTHY;
   }
 
@@ -340,10 +435,19 @@ export class LiveDiscoveryController {
       totalSourcesCount: this.sources.size,
       overallHealth: this.getOverallHealth(),
       lastRunAt: this.lastRunAt,
+      lastRunStartedAt: this.lastRunStartedAt,
+      lastRunCompletedAt: this.lastRunCompletedAt,
+      lastSuccessfulRunAt: this.lastSuccessfulRunAt,
+      nextScheduledRunAt: this.nextScheduledRunAt,
+      currentRunId: this.currentRunId,
+      lastRunTrigger: this.lastRunTrigger,
       lastRunStatus: this.lastRunStatus,
       lastRunNewOpportunities: this.lastRunNewOpportunities,
+      lastRunSourceResults: { ...this.lastRunSourceResults },
+      lastRunCounters: { ...this.lastRunCounters },
       todayDiscoveredCount: this.todayDiscoveredCount,
       dailyBudget: this.dailyBudget,
+      runtimeVersion: this.runtimeVersion,
       sources: Array.from(this.sources.values()).map(s => ({ ...s }))
     });
   }

@@ -5,6 +5,7 @@ import {
   DiscoveryMode,
   DiscoveryHealthStatus
 } from "../src/discovery/live-discovery-control.mjs";
+import { ReferenceCandidateStore } from "../src/runtime/runtime-composition.mjs";
 import { createReadApiServer } from "../src/api/server.mjs";
 
 test("LOCAL-LIVE-DISCOVERY-001: Mode default is OFF and stops scheduling", () => {
@@ -288,4 +289,114 @@ test("LOCAL-LIVE-DISCOVERY-001: Restart behavior enforces safe default OFF mode 
   assert.equal(restartedInstance.isRunning, false);
   assert.equal(restartedInstance.getStatus().mode, "OFF");
   restartedInstance.destroy();
+});
+
+test("LOCAL-LIVE-DISCOVERY-003: Telemetry fields, separate lastSuccessfulRunAt, nextScheduledRunAt and authoritative version", async () => {
+  const store = new ReferenceCandidateStore();
+  const mockFetch = async (url) => {
+    const urlStr = String(url);
+    if (urlStr.includes("showstories")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [12345]
+      };
+    }
+    if (urlStr.includes("item/12345")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 12345,
+          by: "testauthor",
+          title: "Show HN: AI Opportunity Engine",
+          url: "https://example.com/demo",
+          time: 1700000000,
+          score: 42
+        })
+      };
+    }
+    if (urlStr.includes("api.github.com/search/repositories")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          total_count: 1,
+          items: [
+            {
+              id: 9991,
+              name: "agent-framework",
+              full_name: "testorg/agent-framework",
+              html_url: "https://github.com/testorg/agent-framework",
+              description: "High performance agent framework",
+              stargazers_count: 1500,
+              language: "TypeScript"
+            }
+          ]
+        })
+      };
+    }
+    return { ok: true, status: 200, json: async () => [] };
+  };
+
+  const controller = new LiveDiscoveryController({
+    mode: DiscoveryMode.OFF,
+    intervalMs: 30000,
+    candidateStore: store,
+    fetchFn: mockFetch
+  });
+
+  // 1. Initial State
+  const initialStatus = controller.getStatus();
+  assert.equal(initialStatus.runtimeVersion, "1.0.0-rc.6");
+  assert.equal(initialStatus.lastRunStartedAt, null);
+  assert.equal(initialStatus.lastSuccessfulRunAt, null);
+  assert.equal(initialStatus.nextScheduledRunAt, null);
+  assert.equal(initialStatus.isRunning, false);
+  assert.equal(initialStatus.activeSourcesCount, 2);
+
+  // 2. Switch to AUTO -> nextScheduledRunAt is computed
+  controller.setMode(DiscoveryMode.AUTO);
+  const autoStatus = controller.getStatus();
+  assert.equal(autoStatus.mode, "AUTO");
+  assert.ok(autoStatus.nextScheduledRunAt !== null);
+
+  // 3. Execute successful discovery run
+  const runResult = await controller.executeDiscoveryRun("MANUAL");
+  assert.equal(runResult.status, "SUCCESS");
+  assert.ok(runResult.startedAt !== null);
+  assert.ok(runResult.completedAt !== null);
+  assert.ok(runResult.lastSuccessfulRunAt !== null);
+  assert.ok(runResult.runId.startsWith("run:"));
+  assert.equal(runResult.sourceResults["hacker-news-official-api"].status, "SUCCESS");
+  assert.equal(runResult.sourceResults["github-official-search-api"].status, "SUCCESS");
+  assert.equal(runResult.counters.rawSignals, 2);
+  assert.equal(runResult.counters.newCandidates, 2);
+
+  const successTime = runResult.lastSuccessfulRunAt;
+
+  // 4. Bounded error on a source -> PARTIAL_SUCCESS preserves previous lastSuccessfulRunAt
+  const failingFetch = async (url) => {
+    const urlStr = String(url);
+    if (urlStr.includes("api.github.com")) {
+      return { ok: false, status: 500, failure: { message: "Simulated GitHub 500" } };
+    }
+    return mockFetch(url);
+  };
+  controller.fetchFn = failingFetch;
+
+  const partialRunResult = await controller.executeDiscoveryRun("MANUAL");
+  assert.ok(["PARTIAL_SUCCESS", "FAILED"].includes(partialRunResult.status));
+  
+  const postFailStatus = controller.getStatus();
+  // LAST_SUCCESSFUL_RUN_AT MUST BE PRESERVED
+  assert.equal(postFailStatus.lastSuccessfulRunAt, successTime);
+  // LAST_RUN_STARTED_AT updated to latest attempt
+  assert.ok(new Date(postFailStatus.lastRunStartedAt) >= new Date(successTime));
+
+  // 5. Switching to OFF clears nextScheduledRunAt
+  controller.setMode(DiscoveryMode.OFF);
+  assert.equal(controller.getStatus().nextScheduledRunAt, null);
+
+  controller.destroy();
 });

@@ -67,7 +67,12 @@ async function startPlatform() {
   ];
 
   const provider = createInMemoryOpportunityReadProvider(mockItems);
-  const fastifyApp = createReadApiServer({ provider, logger: false });
+  const { LiveDiscoveryController, DiscoveryMode } = await import('./src/discovery/live-discovery-control.mjs');
+  const discoveryController = new LiveDiscoveryController({
+    mode: DiscoveryMode.AUTO
+  });
+
+  const fastifyApp = createReadApiServer({ provider, discoveryController, logger: false });
 
   const API_PORT = 3000;
   const WEB_PORT = 8080;
