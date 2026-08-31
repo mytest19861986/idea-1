@@ -122,7 +122,7 @@ const FA_TRANSLATIONS = {
 const EN_TRANSLATIONS = {
   // Brand & Header
   "app.title": "OPPORTUNITY INTEL",
-  "app.version": "v1.0.0-rc.6",
+  "app.version": "v1.0.0-rc.6-dev",
   "header.dataSource": "DATA_SOURCE:",
   "header.livePilot": "🟢 LIVE PILOT DATA (POSTGRESQL)",
   "header.referenceFixture": "🔵 REFERENCE FIXTURE MODE",
