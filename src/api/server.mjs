@@ -19,7 +19,7 @@ function assertProvider(provider) {
   return provider;
 }
 
-export function createReadApiServer({ provider, discoveryController = null, logger = false } = {}) {
+export function createReadApiServer({ provider, discoveryController = null, authService = null, logger = false } = {}) {
   const readProvider = assertProvider(provider);
   const app = Fastify({ logger });
   app.addHook("onSend", async (_request, reply) => {
@@ -62,6 +62,17 @@ export function createReadApiServer({ provider, discoveryController = null, logg
     if (!discoveryController) {
       return reply.code(503).send({ error: { code: "SERVICE_UNAVAILABLE", message: "Discovery controller not initialized" } });
     }
+    if (authService) {
+      const authHeader = request.headers.authorization;
+      const authResult = authService.verifyToken(authHeader);
+      if (!authResult.ok) {
+        return reply.code(authResult.status || 401).send({ error: { code: "UNAUTHORIZED", message: authResult.error } });
+      }
+      const authz = authService.authorizeAction(authResult.principal, ["ADMIN", "OPERATOR"]);
+      if (!authz.ok) {
+        return reply.code(authz.status || 403).send({ error: { code: "FORBIDDEN", message: authz.error } });
+      }
+    }
     const { mode } = request.body || {};
     try {
       return discoveryController.setMode(mode);
@@ -70,9 +81,20 @@ export function createReadApiServer({ provider, discoveryController = null, logg
     }
   });
 
-  app.post("/api/v1/discovery/run-now", async (_request, reply) => {
+  app.post("/api/v1/discovery/run-now", async (request, reply) => {
     if (!discoveryController) {
       return reply.code(503).send({ error: { code: "SERVICE_UNAVAILABLE", message: "Discovery controller not initialized" } });
+    }
+    if (authService) {
+      const authHeader = request.headers.authorization;
+      const authResult = authService.verifyToken(authHeader);
+      if (!authResult.ok) {
+        return reply.code(authResult.status || 401).send({ error: { code: "UNAUTHORIZED", message: authResult.error } });
+      }
+      const authz = authService.authorizeAction(authResult.principal, ["ADMIN", "OPERATOR"]);
+      if (!authz.ok) {
+        return reply.code(authz.status || 403).send({ error: { code: "FORBIDDEN", message: authz.error } });
+      }
     }
     return discoveryController.runNow();
   });

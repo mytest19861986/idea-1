@@ -20,7 +20,8 @@ export const RoutePermission = Object.freeze({
   MUTATE_PORTFOLIO: [UserRole.ADMIN, UserRole.OPERATOR],
   RESOLVE_INVESTIGATION: [UserRole.ADMIN, UserRole.OPERATOR],
   VIEW_CONFIDENTIAL: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST],
-  VIEW_PUBLIC: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST, UserRole.VIEWER]
+  VIEW_PUBLIC: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ANALYST, UserRole.VIEWER],
+  CONTROL_DISCOVERY: [UserRole.ADMIN, UserRole.OPERATOR]
 });
 
 export class CryptographicAuthService {

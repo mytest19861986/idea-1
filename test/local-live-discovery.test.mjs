@@ -216,3 +216,76 @@ test("LOCAL-LIVE-DISCOVERY-001: Per-item daily budget cap breaks loop immediatel
   assert.equal(controller.todayDiscoveredCount, 2);
   controller.destroy();
 });
+
+test("LOCAL-LIVE-DISCOVERY-001: RBAC enforcement on POST /discovery/control and POST /discovery/run-now", async () => {
+  const { CryptographicAuthService, UserRole } = await import("../src/security/auth-boundary-service.mjs");
+  const authService = new CryptographicAuthService({
+    secretKey: "01234567890123456789012345678901"
+  });
+
+  const adminToken = authService.signToken({ userId: "u-admin", role: UserRole.ADMIN });
+  const operatorToken = authService.signToken({ userId: "u-op", role: UserRole.OPERATOR });
+  const viewerToken = authService.signToken({ userId: "u-view", role: UserRole.VIEWER });
+
+  const mockProvider = { list: async () => ({ items: [] }), getBySlug: async () => null };
+  const controller = new LiveDiscoveryController();
+  const app = createReadApiServer({ provider: mockProvider, discoveryController: controller, authService });
+
+  // 1. Unauthenticated -> 401
+  const unauthRes = await app.inject({ method: "POST", url: "/api/v1/discovery/control", payload: { mode: "AUTO" } });
+  assert.equal(unauthRes.statusCode, 401);
+
+  // 2. Unauthorized Role (VIEWER) -> 403
+  const viewerRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/discovery/control",
+    headers: { authorization: `Bearer ${viewerToken}` },
+    payload: { mode: "AUTO" }
+  });
+  assert.equal(viewerRes.statusCode, 403);
+
+  // 3. Authorized Role (OPERATOR / ADMIN) -> 200
+  const opRes = await app.inject({
+    method: "POST",
+    url: "/api/v1/discovery/control",
+    headers: { authorization: `Bearer ${operatorToken}` },
+    payload: { mode: "AUTO" }
+  });
+  assert.equal(opRes.statusCode, 200);
+  assert.equal(JSON.parse(opRes.body).mode, "AUTO");
+
+  // 4. Run-Now with VIEWER -> 403
+  const runViewer = await app.inject({
+    method: "POST",
+    url: "/api/v1/discovery/run-now",
+    headers: { authorization: `Bearer ${viewerToken}` }
+  });
+  assert.equal(runViewer.statusCode, 403);
+
+  // 5. Run-Now with ADMIN -> 200
+  const runAdmin = await app.inject({
+    method: "POST",
+    url: "/api/v1/discovery/run-now",
+    headers: { authorization: `Bearer ${adminToken}` }
+  });
+  assert.equal(runAdmin.statusCode, 200);
+
+  controller.destroy();
+  await app.close();
+});
+
+test("LOCAL-LIVE-DISCOVERY-001: Restart behavior enforces safe default OFF mode and disarmed timer", async () => {
+  // Before restart: instance configured in AUTO
+  const beforeInstance = new LiveDiscoveryController({ mode: DiscoveryMode.AUTO });
+  assert.equal(beforeInstance.mode, "AUTO");
+  assert.ok(beforeInstance.timer !== null);
+  beforeInstance.destroy();
+
+  // After restart (fresh instantiation): Must start in OFF mode with null timer
+  const restartedInstance = new LiveDiscoveryController();
+  assert.equal(restartedInstance.mode, "OFF");
+  assert.equal(restartedInstance.timer, null);
+  assert.equal(restartedInstance.isRunning, false);
+  assert.equal(restartedInstance.getStatus().mode, "OFF");
+  restartedInstance.destroy();
+});
