@@ -88,7 +88,23 @@ const FA_TRANSLATIONS = {
   "compare.launch": "اجرای ماتریس مقایسه",
   "compare.modalTitle": "ماتریس مقایسه راهبردی فرصت‌ها و پرتفوی سرمایه‌گذاری",
   "compare.modalSubtitle": "ارزیابی چندبعدی بده‌بستان‌ها جهت تخصیص بهینه منابع سازمانی",
-  "compare.close": "✕ بستن ماتریس"
+  "compare.close": "✕ بستن ماتریس",
+
+  // Live Discovery Controls (LOCAL-LIVE-DISCOVERY-001)
+  "discovery.title": "کشف زنده فرصت‌ها",
+  "discovery.modeOff": "خاموش (OFF)",
+  "discovery.modeAuto": "خودکار (AUTO)",
+  "discovery.modeManual": "دستی (MANUAL)",
+  "discovery.runNow": "⚡ اجرای آنی",
+  "discovery.running": "در حال کاوش...",
+  "discovery.activeSources": "منبع فعال",
+  "discovery.todayCount": "فرصت جدید امروز:",
+  "discovery.lastRun": "آخرین کاوش:",
+  "discovery.never": "هنوز اجرا نشده",
+  "discovery.healthHealthy": "🟢 سالم",
+  "discovery.healthLimited": "🟡 محدود",
+  "discovery.healthDegraded": "🟠 کند",
+  "discovery.healthError": "🔴 خطا"
 };
 
 const EN_TRANSLATIONS = {
@@ -181,7 +197,23 @@ const EN_TRANSLATIONS = {
   "compare.launch": "Launch Comparison Matrix",
   "compare.modalTitle": "Executive Opportunity Comparison & Portfolio Matrix",
   "compare.modalSubtitle": "Side-by-side trade-off evaluation for strategic resource allocation",
-  "compare.close": "✕ Close Matrix"
+  "compare.close": "✕ Close Matrix",
+
+  // Live Discovery Controls (LOCAL-LIVE-DISCOVERY-001)
+  "discovery.title": "Live Discovery",
+  "discovery.modeOff": "OFF",
+  "discovery.modeAuto": "AUTO",
+  "discovery.modeManual": "MANUAL",
+  "discovery.runNow": "⚡ Run Now",
+  "discovery.running": "Discovering...",
+  "discovery.activeSources": "Active Sources",
+  "discovery.todayCount": "New Today:",
+  "discovery.lastRun": "Last Run:",
+  "discovery.never": "Never",
+  "discovery.healthHealthy": "🟢 Healthy",
+  "discovery.healthLimited": "🟡 Limited",
+  "discovery.healthDegraded": "🟠 Degraded",
+  "discovery.healthError": "🔴 Error"
 };
 
 let currentAppLocale = localStorage.getItem("app_user_locale") || "fa-IR";

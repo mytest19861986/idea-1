@@ -136,7 +136,7 @@ export function normalizeHnItem(rawItem, { retrievedAt = new Date().toISOString(
     canonicalUrl,
     title,
     rawText: JSON.stringify(rawItem),
-    contentReference: targetUrl,
+    contentReference: targetUrl || canonicalUrl,
     author: authorUsername,
     publishedAt,
     discoveredAt,

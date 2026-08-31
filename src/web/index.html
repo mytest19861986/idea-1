@@ -580,6 +580,20 @@
           <option value="REFERENCE_FIXTURE_MODE" data-i18n="header.referenceFixture">🔵 داده‌های مرجع ارزیابی</option>
         </select>
       </div>
+      <!-- Live Discovery Header Control (LOCAL-LIVE-DISCOVERY-001) -->
+      <div class="discovery-header-widget" aria-label="Live Discovery Control" style="display:flex; align-items:center; gap:0.6rem; background:rgba(30, 41, 59, 0.7); padding:0.3rem 0.6rem; border-radius:8px; border:1px solid rgba(56, 189, 248, 0.3);">
+        <span style="font-size:0.8rem; font-weight:700; color:var(--accent-blue);" data-i18n="discovery.title">کشف زنده فرصت‌ها:</span>
+        <select id="discoveryModeSelect" onchange="changeDiscoveryMode(this.value)" style="background:var(--bg-surface); border:1px solid var(--border-accent); color:var(--text-primary); padding:0.25rem 0.5rem; border-radius:6px; font-weight:700; font-size:0.75rem;">
+          <option value="OFF" data-i18n="discovery.modeOff">خاموش (OFF)</option>
+          <option value="AUTO" data-i18n="discovery.modeAuto">خودکار (AUTO)</option>
+          <option value="MANUAL" data-i18n="discovery.modeManual">دستی (MANUAL)</option>
+        </select>
+        <button id="btnDiscoveryRunNow" onclick="triggerDiscoveryRunNow()" style="background:linear-gradient(135deg, #0284c7, #2563eb); color:#fff; border:none; padding:0.25rem 0.6rem; border-radius:6px; font-weight:700; font-size:0.75rem; cursor:pointer;" data-i18n="discovery.runNow">⚡ اجرای آنی</button>
+        <div id="discoveryHealthBadge" style="font-size:0.75rem; font-weight:700; color:var(--accent-emerald);" data-i18n="discovery.healthHealthy">🟢 سالم</div>
+        <div style="font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono);">
+          <span id="discoveryActiveSourcesCount">1</span> <span data-i18n="discovery.activeSources">منبع فعال</span> • <span data-i18n="discovery.todayCount">امروز:</span> <strong id="discoveryTodayCount" style="color:var(--accent-emerald);">0</strong>
+        </div>
+      </div>
     </div>
 
     <div class="header-actions">
@@ -1373,10 +1387,103 @@
       }
     });
 
+    // Live Discovery Controls (LOCAL-LIVE-DISCOVERY-001)
+    let discoveryState = {
+      mode: "OFF",
+      isRunning: false,
+      activeSourcesCount: 1,
+      todayDiscoveredCount: 0,
+      overallHealth: "HEALTHY",
+      lastRunAt: null
+    };
+
+    async function fetchDiscoveryStatus() {
+      try {
+        const res = await fetch("/api/v1/discovery/status");
+        if (res.ok) {
+          const data = await res.json();
+          updateDiscoveryUI(data);
+        }
+      } catch (_) {}
+    }
+
+    async function changeDiscoveryMode(newMode) {
+      try {
+        const res = await fetch("/api/v1/discovery/control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: newMode })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          updateDiscoveryUI(data);
+        }
+      } catch (err) {
+        console.error("Failed to set discovery mode:", err);
+      }
+    }
+
+    async function triggerDiscoveryRunNow() {
+      const btn = document.getElementById("btnDiscoveryRunNow");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = (typeof t === "function") ? t("discovery.running") : "در حال کاوش...";
+      }
+      try {
+        const res = await fetch("/api/v1/discovery/run-now", { method: "POST" });
+        if (res.ok) {
+          await fetchDiscoveryStatus();
+        }
+      } catch (err) {
+        console.error("Discovery run-now error:", err);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = (typeof t === "function") ? t("discovery.runNow") : "⚡ اجرای آنی";
+        }
+      }
+    }
+
+    function updateDiscoveryUI(data) {
+      if (!data) return;
+      discoveryState = { ...discoveryState, ...data };
+      
+      const select = document.getElementById("discoveryModeSelect");
+      if (select && select.value !== discoveryState.mode) {
+        select.value = discoveryState.mode;
+      }
+
+      const sourcesCountEl = document.getElementById("discoveryActiveSourcesCount");
+      if (sourcesCountEl) sourcesCountEl.innerText = discoveryState.activeSourcesCount ?? 1;
+
+      const todayCountEl = document.getElementById("discoveryTodayCount");
+      if (todayCountEl) todayCountEl.innerText = discoveryState.todayDiscoveredCount ?? 0;
+
+      const healthBadge = document.getElementById("discoveryHealthBadge");
+      if (healthBadge) {
+        const health = discoveryState.overallHealth || "HEALTHY";
+        if (health === "HEALTHY") {
+          healthBadge.innerText = (typeof t === "function") ? t("discovery.healthHealthy") : "🟢 سالم";
+          healthBadge.style.color = "var(--accent-emerald)";
+        } else if (health === "LIMITED") {
+          healthBadge.innerText = (typeof t === "function") ? t("discovery.healthLimited") : "🟡 محدود";
+          healthBadge.style.color = "var(--accent-amber)";
+        } else if (health === "DEGRADED") {
+          healthBadge.innerText = (typeof t === "function") ? t("discovery.healthDegraded") : "🟠 کند";
+          healthBadge.style.color = "var(--accent-amber)";
+        } else {
+          healthBadge.innerText = (typeof t === "function") ? t("discovery.healthError") : "🔴 خطا";
+          healthBadge.style.color = "var(--accent-rose)";
+        }
+      }
+    }
+
     // Initialize
     loadUserPreferences();
     updatePortfolioCounts();
     applyAllFilters();
+    fetchDiscoveryStatus();
+    setInterval(fetchDiscoveryStatus, 15000);
   </script>
 </body>
 </html>

@@ -19,7 +19,7 @@ function assertProvider(provider) {
   return provider;
 }
 
-export function createReadApiServer({ provider, logger = false } = {}) {
+export function createReadApiServer({ provider, discoveryController = null, logger = false } = {}) {
   const readProvider = assertProvider(provider);
   const app = Fastify({ logger });
   app.addHook("onSend", async (_request, reply) => {
@@ -49,6 +49,41 @@ export function createReadApiServer({ provider, logger = false } = {}) {
       return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "internal server error" } });
     }
   });
+
+  // Live Discovery Control Endpoints (LOCAL-LIVE-DISCOVERY-001)
+  app.get("/api/v1/discovery/status", async (_request, reply) => {
+    if (!discoveryController) {
+      return {
+        mode: "OFF",
+        isRunning: false,
+        activeSourcesCount: 1,
+        overallHealth: "HEALTHY",
+        lastRunAt: null,
+        todayDiscoveredCount: 0
+      };
+    }
+    return discoveryController.getStatus();
+  });
+
+  app.post("/api/v1/discovery/control", async (request, reply) => {
+    if (!discoveryController) {
+      return reply.code(503).send({ error: { code: "SERVICE_UNAVAILABLE", message: "Discovery controller not initialized" } });
+    }
+    const { mode } = request.body || {};
+    try {
+      return discoveryController.setMode(mode);
+    } catch (err) {
+      return reply.code(400).send({ error: { code: "INVALID_MODE", message: err.message } });
+    }
+  });
+
+  app.post("/api/v1/discovery/run-now", async (_request, reply) => {
+    if (!discoveryController) {
+      return reply.code(503).send({ error: { code: "SERVICE_UNAVAILABLE", message: "Discovery controller not initialized" } });
+    }
+    return discoveryController.runNow();
+  });
+
   return app;
 }
 
