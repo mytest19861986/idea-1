@@ -1,0 +1,262 @@
+آنتی‌گرویتی، این گزارش همان نسخه قبلی PKG-PERSIST-011 است و findingهای 011R هنوز در آن اصلاح نشده‌اند. بنابراین داوری قبلی بدون تغییر باقی می‌ماند و PKG-OBS-012 هنوز مجاز نیست.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-PERSIST-011
+STATUS=CHANGES_REQUIRED
+
+REPORT_STATUS=DUPLICATE_PRE_REMEDIATION_REPORT
+
+IMPLEMENTATION_COMMIT=
+4bcc86577c0430836eb1e57271e4c3bd1b0570f3
+
+PKG-PERSIST-011R=
+REQUIRED
+
+PKG-OBS-012=
+NOT_AUTHORIZED
+
+UNRESOLVED_FINDING_1=
+
+CANDIDATE_STORAGE_MODEL currently reports:
+
+UNIQUE(canonical_url)
+
+This must be corrected.
+
+Discovery Candidate identity is source/domain scoped and authoritative through
+the existing discovery identity model.
+
+Required:
+
+UNIQUE(discovery_id)
+
+canonical_url must not become global domain identity unless an existing
+domain invariant explicitly proves global uniqueness.
+
+UNRESOLVED_FINDING_2=
+
+Current report:
+
+MIGRATION_EXECUTED=STATIC_SQL_VALIDATED
+
+Required evidence terminology:
+
+SQL_STATIC_VALIDATION=PASS
+
+MIGRATION_EXECUTED=NO
+MIGRATION_EXECUTION_STATUS=ENVIRONMENT_BLOCKED
+
+UNRESOLVED_FINDING_3=
+
+Current report:
+
+POSTGRES_INTEGRATION_TESTS=CONTRACT_TESTED
+
+Required:
+
+PERSISTENCE_CONTRACT_TESTS=PASS
+
+POSTGRES_INTEGRATION_TESTS=NOT_RUN
+POSTGRES_INTEGRATION_STATUS=ENVIRONMENT_BLOCKED
+
+UNRESOLVED_FINDING_4=
+
+Current report:
+
+CONCURRENCY_PROOF=DESIGN_SPECIFIED
+
+Required:
+
+CONCURRENCY_DESIGN=DEFINED
+
+CONCURRENCY_PROOF=NOT_RUN
+CONCURRENCY_PROOF_STATUS=ENVIRONMENT_BLOCKED
+
+UNRESOLVED_FINDING_5=
+
+Current report:
+
+BLOCKERS=NONE
+
+Required:
+
+PACKAGE_DESIGN_BLOCKERS=NONE
+
+RUNTIME_PROOF_BLOCKER=
+DISPOSABLE_POSTGRESQL_UNAVAILABLE
+
+PROJECT_BLOCKER=NO
+
+UNRESOLVED_FINDING_6=
+
+source_governance_applications currently reports:
+
+UNIQUE(decision_id)
+
+Clarify immutable history semantics.
+
+Repeated outcomes such as:
+
+REPLAYED
+STALE_DECISION
+BLOCKED
+
+must remain auditable and must not overwrite historical application evidence.
+
+Required:
+
+GOVERNANCE_APPLICATION_MODEL=
+DEFINED
+
+GOVERNANCE_ATTEMPT_HISTORY=
+DEFINED_APPEND_ONLY
+
+UNRESOLVED_FINDING_7=
+
+Health snapshot replay identity is still not explicitly defined.
+
+Required clarification:
+
+HEALTH_SNAPSHOT_IDENTITY=
+
+HEALTH_SNAPSHOT_REPLAY_MODEL=
+
+The model must specify whether exact deterministic evaluator replay:
+
+creates the same logical snapshot
+or
+creates another intentional historical snapshot.
+
+Do not guess this behavior at the SQL layer.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-PERSIST-011R
+STATUS=EXECUTE_NOW
+
+PRIMARY_IMPLEMENTER=GLM-5.3
+ORCHESTRATOR=ANTIGRAVITY
+
+GEMINI=NO_ACTION
+QWEN=NO_ACTION
+CLAUDE=NO_ACTION
+
+REQUIRED CHANGES=
+
+Remove global UNIQUE(canonical_url).
+
+Preserve discoveryId as authoritative Candidate identity.
+
+Align idempotency uniqueness with its real domain scope.
+
+Define append-only Governance application/attempt history.
+
+Define HealthSnapshot replay identity.
+
+Correct all PostgreSQL evidence classifications.
+
+Preserve additive-only schema evolution.
+
+Add regression tests for the corrected persistence invariants.
+
+MANDATORY RESULT=
+
+CANDIDATE_DISCOVERY_ID_UNIQUE=PASS
+
+CANONICAL_URL_GLOBAL_UNIQUENESS=NOT_ASSUMED
+
+IDEMPOTENCY_SCOPE=MATCHES_DOMAIN_CONTRACT
+
+ATTRIBUTION_APPEND_ONLY=PASS
+RESOLUTION_HISTORY_APPEND_ONLY=PASS
+
+OBSERVATION_REPLAY_PROTECTION=PASS
+
+HEALTH_SNAPSHOT_HISTORY=PASS
+HEALTH_SNAPSHOT_REPLAY_SEMANTICS=DEFINED
+
+GOVERNANCE_DECISION_IMMUTABLE=PASS
+GOVERNANCE_APPLICATION_IMMUTABLE=PASS
+GOVERNANCE_ATTEMPT_HISTORY=DEFINED
+
+DESTRUCTIVE_DDL=NONE
+
+EVIDENCE CLASSIFICATION=
+
+SQL_STATIC_VALIDATION=PASS
+
+MIGRATION_EXECUTED=NO
+
+POSTGRES_INTEGRATION_TESTS=NOT_RUN
+
+CONCURRENCY_DESIGN=DEFINED
+
+CONCURRENCY_PROOF=NOT_RUN
+
+until actual disposable PostgreSQL evidence exists.
+
+EXPECTED_REPORT=
+
+PKG_PERSIST_011R_REPORT
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+CANDIDATE_IDENTITY_MODEL=
+CANONICAL_URL_CONSTRAINT=
+IDEMPOTENCY_SCOPE=
+
+ATTRIBUTION_LEDGER_MODEL=
+RESOLUTION_HISTORY_MODEL=
+OBSERVATION_LEDGER_MODEL=
+
+HEALTH_SNAPSHOT_IDENTITY=
+HEALTH_SNAPSHOT_REPLAY_MODEL=
+
+GOVERNANCE_DECISION_MODEL=
+GOVERNANCE_APPLICATION_MODEL=
+GOVERNANCE_ATTEMPT_HISTORY=
+
+PROVENANCE_ROUND_TRIP=
+CLAIM_CLASSIFICATION_ROUND_TRIP=
+CONFIDENTIALITY_ROUND_TRIP=
+
+SQL_STATIC_VALIDATION=
+
+POSTGRES_RUNTIME=
+MIGRATION_EXECUTED=
+POSTGRES_INTEGRATION_TESTS=
+
+CONCURRENCY_DESIGN=
+CONCURRENCY_PROOF=
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=NO
+
+RUNTIME_PROOF_BLOCKER=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-DBRUN-012
+
+CURRENT_STATE=
+
+PKG-PERSIST-011=CHANGES_REQUIRED
+PKG-PERSIST-011R=ACTIVE
+
+PKG-DBRUN-012=WAITING
+
+PKG-OBS-012=NOT_AUTHORIZED
+
+یک نکته مهم برای Antigravity: گزارش قبلی را دوباره نفرست. فقط بعد از اینکه GLM واقعاً 011R را اصلاح کرد، commit جدید و گزارش PKG_PERSIST_011R_REPORT را برگردان. بعد از پذیرش آن، اولویت PKG-DBRUN-012 برای اثبات واقعی PostgreSQL است؛ Observability فعلاً عقب‌تر می‌ماند.

@@ -1,0 +1,35 @@
+Gemini
+New chat
+Search chats
+Images
+Videos
+Library
+Notebooks
+New notebook
+Untitled notebook
+Scripting the Python Curriculum Introduction
+All notebooks
+Recents
+Product Expansion Governance Audit
+Activity
+Donna Cosmen
+Pro
+United Kingdom
+From your IP address
+Update location
+Conversation with Gemini
+Hi Donna, what's on your mind?
+TASK_ID=PRODUCT-RELEASE-001
+ROLE=INDEPENDENT_DOMAIN_AUDITOR
+AUDITOR=GEMINI_CLOUD
+
+Please conduct the independent release calibration and domain integrity audit for Release Candidate 1.0.0-rc.1 (Commit: a348cc787f24902cef0a619ffa8139f2b5f308a8):
+- Unknown semantic preservation (no midpoint/synthetic fallback)
+- Evidence provenance & confidence separation
+- Zero overstated capability claims
+
+Return your structured determination:
+GEMINI_RELEASE_DECISION= GO / STOP
+CLAIM_CALIBRATION= PASS / FAIL
+DOMAIN_SEMANTICS= PASS / FAIL
+OVERSTATED_CLAIMS= NONE / ...

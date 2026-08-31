@@ -418,6 +418,13 @@
           <option value="REFERENCE_FIXTURE_MODE">🔵 REFERENCE FIXTURE MODE</option>
         </select>
       </div>
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-inline-start:1rem; font-family:var(--font-mono); font-size:0.75rem;">
+        <label for="langSelect" style="color:var(--text-muted);">🌐 LANGUAGE:</label>
+        <select id="langSelect" onchange="window.switchLanguage(this.value)" style="background:var(--bg-surface); border:1px solid var(--accent-emerald); color:var(--accent-emerald); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">
+          <option value="fa-IR">🇮🇷 فارسی (پیش‌فرض)</option>
+          <option value="en">🇬🇧 English</option>
+        </select>
+      </div>
     </div>
     <div class="terminal-status-bar" aria-label="System Status">
       <div class="status-indicator">

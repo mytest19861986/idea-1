@@ -1,0 +1,168 @@
+ادامه می‌دهیم. آنتی‌گرویتی، فرمان قبلی همچنان معتبر است و الان باید PKG-DISC-SUMMARY-010 را اجرا کنی؛ نیازی به تأیید مجدد مدیر نیست.
+
+COMMANDER_CONTINUATION
+
+CURRENT_PACKAGE=PKG-DISC-SUMMARY-010
+STATUS=EXECUTE_NOW
+
+OBJECTIVE=
+Freeze the accepted Discovery Core architecture,
+document the proven boundaries and production gaps,
+and create the milestone checkpoint before productionization.
+
+ORCHESTRATOR=ANTIGRAVITY
+
+GLM=
+OPTIONAL_TECHNICAL_ACCURACY_REVIEW_ONLY
+
+GEMINI=
+OPTIONAL_DEPENDENCY_TRACE_ONLY
+
+QWEN=NO_ACTION
+CLAUDE=NO_ACTION
+
+در این Package هیچ feature جدیدی نساز:
+
+NEW_BUSINESS_LOGIC=NO
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+DEPLOY=NO
+خروجی اصلی
+
+یک Blueprint مرجع برای Discovery Core بساز که حداقل این وضعیت را تثبیت کند:
+
+ARCHITECTURE_PROVEN=YES
+CONTRACT_PROVEN=YES
+IN_MEMORY_E2E_PROVEN=YES
+PRODUCTION_READY=NO
+
+و دقیقاً تفکیک کند:
+
+PROVEN:
+- Source Registry contracts
+- Collector boundary
+- Discovery Intake
+- Candidate Storage contract/reference adapter
+- Entity Resolution
+- Discovery Pipeline
+- Source Health Evaluation
+- Governance Gate
+- E2E in-memory workflow
+
+NOT_PROVEN_FOR_PRODUCTION:
+- PostgreSQL Discovery persistence
+- Observation persistence
+- Governance persistence
+- concurrency
+- worker runtime
+- scheduler
+- real credentials
+- live authenticated TrustMRR ingestion
+- production observability
+- production secrets management
+- deployment/runtime recovery
+نکته Observation Identity
+
+این مورد را از implementation موجود دقیقاً تعیین کن:
+
+obs:${sourceId}:${executionId}:${occurredAt}
+
+نتیجه باید یکی از این دو باشد:
+
+OBSERVATION_IDENTITY_MODE=ONE_OBSERVATION_PER_EXECUTION
+
+یا:
+
+OBSERVATION_IDENTITY_MODE=MULTIPLE_OBSERVATIONS_PER_EXECUTION
+FOLLOW_UP_REQUIRED=YES
+
+اگر حالت دوم است، در این Package کد را تغییر نده؛ فقط follow-up ثبت کن.
+
+TrustMRR
+
+وضعیت دقیقش در Blueprint:
+
+SOURCE_EVALUATION=APPROVE_CONTROLLED_COLLECTION
+COLLECTOR_IMPLEMENTED=YES
+
+UNAUTHENTICATED_FAIL_CLOSED=PROVEN
+AUTHENTICATED_REAL_DATA_PAYLOAD=NOT_PROVEN
+
+SOURCE_ACTIVE=NO
+
+PKG-COL-002B=PARKED
+TRIGGER=AUTHORIZED_TRUSTMRR_API_CREDENTIAL
+Milestone
+
+بعد از مستندسازی و عبور دوباره از Quality Gates:
+
+checkpoint/discovery-core-v1
+
+را به exact accepted baseline متصل کن.
+
+FORCE_PUSH=NO
+HISTORY_REWRITE=NO
+Quality Gates
+
+اجرا و گزارش کن:
+
+TESTS
+LINT
+TYPECHECK
+MODULE_LOAD_CHECK
+BUILD
+DIFF_CHECK
+
+و هیچ NOT_RUN را PASS نکن.
+
+گزارش برگشتی
+PKG_DISC_SUMMARY_010_REPORT
+
+PACKAGE=PKG-DISC-SUMMARY-010
+
+DOCUMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+BLUEPRINT_FILE=
+INVARIANT_REGISTER=
+GAP_MATRIX=
+
+ARCHITECTURE_PROVEN=
+CONTRACT_PROVEN=
+IN_MEMORY_E2E_PROVEN=
+PRODUCTION_READY=
+
+DATA_PLANE_DOCUMENTED=
+CONTROL_PLANE_DOCUMENTED=
+FACT_CLAIM_BOUNDARY_DOCUMENTED=
+
+OBSERVATION_IDENTITY_MODE=
+OBSERVATION_IDENTITY_COLLISION_RISK=
+FOLLOW_UP_REQUIRED=
+
+TRUSTMRR_STATUS=
+PKG_COL_002B_STATUS=
+
+PRODUCTION_GAPS=
+
+MILESTONE_TAG=checkpoint/discovery-core-v1
+MILESTONE_TAG_REMOTE=
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=NO
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-PERSIST-011
+
+بعد از دریافت و پذیرش این گزارش، مستقیماً وارد PKG-PERSIST-011 — Discovery Core Production Persistence Contract می‌شویم. آنجا اولین قدم واقعی برای خارج‌شدن از وضعیت in-memory و نزدیک‌شدن به Production خواهد بود.

@@ -1,0 +1,601 @@
+آنتی‌گرویتی، PKG-PERSIST-011R پذیرفته شد. اصلاح identity، ledger semantics و Evidence Classification مطابق findingهای قبلی انجام شده است. این Package اکنون Design/Contract Accepted است؛ Production Persistence هنوز تا اجرای واقعی PostgreSQL اثبات نشده است.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-PERSIST-011R
+TITLE=Discovery Core Production Persistence Contract (Remediated)
+
+STATUS=ACCEPTED_WITH_RUNTIME_PROOF_PENDING
+
+IMPLEMENTATION_COMMIT=
+a454204a5d15ab1e87723f205e9ed48a30e31016
+
+ORIGIN_MAIN=
+a454204a5d15ab1e87723f205e9ed48a30e31016
+
+DOMAIN_DATABASE_SEPARATION=PASS
+SCHEMA_ADDITIVE_ONLY=PASS
+
+DISCOVERY_IDENTITY_PRESERVED=PASS
+CANONICAL_URL_NOT_GLOBAL_IDENTITY=PASS
+IDEMPOTENCY_SCOPE=PASS
+
+ATTRIBUTION_APPEND_ONLY=PASS
+RESOLUTION_HISTORY=PASS
+OBSERVATION_LEDGER=PASS
+
+HEALTH_SNAPSHOT_LEDGER=PASS
+HEALTH_SNAPSHOT_REPLAY_SEMANTICS=DEFINED
+
+GOVERNANCE_DECISION_APPLICATION_SEPARATION=PASS
+GOVERNANCE_ATTEMPT_AUDITABILITY=PASS
+
+PROVENANCE_ROUND_TRIP=PASS
+CLAIM_CLASSIFICATION_ROUND_TRIP=PASS
+CONFIDENTIALITY_ROUND_TRIP=PASS
+
+SQL_STATIC_VALIDATION=PASS
+
+POSTGRES_RUNTIME=ENVIRONMENT_BLOCKED
+MIGRATION_EXECUTED=NO
+POSTGRES_INTEGRATION_TESTS=NOT_RUN
+
+CONCURRENCY_DESIGN=DEFINED
+CONCURRENCY_PROOF=NOT_RUN
+
+TESTS=117/117 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+
+PACKAGE_DESIGN_BLOCKERS=NONE
+RUNTIME_PROOF_BLOCKER=
+DISPOSABLE_POSTGRESQL_UNAVAILABLE
+
+PROJECT_BLOCKER=NO
+
+PERSISTENCE GUARDRAIL — HEALTH SNAPSHOT REPLAY
+
+CURRENT LOGICAL IDENTITY=
+
+snap:
+sourceId:
+windowStart:
+windowEnd:
+evaluationVersion:
+formulaVersion
+
+This is accepted provided the following invariant is enforced:
+
+same logical snapshot identity
+
+equivalent payload
+→ REPLAYED
+
+same logical snapshot identity
+
+materially different payload
+→ CONFLICT
+
+Never:
+
+same logical identity
+
+different payload
+→ silent overwrite
+
+This must be exercised during PostgreSQL proof.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-DBRUN-012
+
+TITLE=
+Disposable PostgreSQL Migration, Integration & Concurrency Proof
+
+STATUS=AUTHORIZED
+
+PACKAGE_TYPE=
+NON_PRODUCTION_RUNTIME_PROOF
+
+ORCHESTRATOR=ANTIGRAVITY
+PRIMARY_IMPLEMENTER=GLM-5.3
+
+GEMINI=NO_ACTION
+QWEN=NO_ACTION
+
+CLAUDE=
+DO_NOT_USE_BY_DEFAULT
+
+OBJECTIVE=
+
+Execute the accepted persistence schema and persistence contracts against an actual,
+disposable, non-production PostgreSQL instance.
+
+Produce real database evidence for:
+
+migration execution
+
+constraints
+
+transactions
+
+durability
+
+idempotency
+
+conflicting replay
+
+concurrent writes
+
+Do not modify or connect to any production database.
+
+STEP 1 — ENVIRONMENT PREFLIGHT
+
+Antigravity must determine whether one of these already exists:
+
+A. Docker + PostgreSQL container capability
+B. Podman + PostgreSQL container capability
+C. local disposable PostgreSQL server
+D. authorized isolated test PostgreSQL URL
+
+Report actual availability.
+
+Do not fabricate availability.
+
+Do not use production credentials.
+
+Do not install privileged/system software merely to satisfy this package.
+
+If no disposable PostgreSQL environment exists:
+
+STATUS=ENVIRONMENT_BLOCKED
+
+PARK PKG-DBRUN-012
+
+Then proceed to the independent observability track after reporting the blocker.
+
+STEP 2 — DATABASE ISOLATION
+
+If PostgreSQL is available:
+
+DATABASE_CLASSIFICATION=
+DISPOSABLE_NON_PRODUCTION
+
+Use an isolated test database/schema.
+
+Required safety:
+
+PRODUCTION_HOST=NO
+PRODUCTION_DATABASE=NO
+PRODUCTION_CREDENTIALS=NO
+
+DROP_PRODUCTION_OBJECTS=FORBIDDEN
+
+STEP 3 — MIGRATION PROOF
+
+Execute the actual schema against a clean PostgreSQL database.
+
+Required evidence:
+
+MIGRATION_EXECUTED=YES
+MIGRATION_RESULT=PASS | FAIL
+
+Verify actual existence of:
+
+discovery_candidates
+discovery_candidate_attributions
+entity_resolution_decisions
+entity_clusters
+entity_cluster_members
+source_observations
+source_health_snapshots
+source_governance_decisions
+source_governance_applications
+
+If schema differs from the accepted design:
+report exact discrepancy.
+
+Do not silently patch runtime evidence to fit expectations.
+
+STEP 4 — CONSTRAINT PROOF
+
+Use real PostgreSQL constraints.
+
+Required tests:
+
+
+
+
+duplicate discovery_id
+→ database rejects duplicate logical identity
+
+
+
+
+same canonical_url under two otherwise valid source-scoped candidates
+→ MUST be permitted if domain model permits it
+
+
+
+
+candidate attribution exact replay
+→ no duplicate logical attribution
+
+
+
+
+entity cluster membership replay
+→ no duplicate membership
+
+
+
+
+observation_id replay
+→ no duplicate observation
+
+
+
+
+governance decision_id collision
+→ rejected
+
+
+
+
+invalid foreign-key relationship
+→ rejected
+
+
+
+
+explicit domain timestamps
+→ round-trip unchanged
+
+STEP 5 — HEALTH SNAPSHOT PROOF
+
+Required:
+
+same snapshot identity + same payload
+→ REPLAYED / one logical snapshot
+
+same snapshot identity + materially different payload
+→ CONFLICT
+
+different window
+→ new snapshot
+
+different formulaVersion
+→ independently retained snapshot
+
+No silent overwrite.
+
+STEP 6 — TRANSACTION PROOF
+
+Use actual PostgreSQL transactions.
+
+Required scenarios:
+
+A.
+Candidate insert succeeds
+Attribution insert fails
+→ whole atomic unit rolls back where contract requires candidate+initial attribution atomicity
+
+B.
+Cluster creation succeeds
+Membership fails
+→ transaction semantics follow documented boundary
+
+C.
+Governance application mutation/audit failure
+→ no partially represented successful transition where atomicity is required
+
+STEP 7 — CONCURRENT CANDIDATE INSERT
+
+Run at least two genuinely overlapping database transactions/processes/connections.
+
+Scenario:
+
+Transaction A
+and
+Transaction B
+
+attempt same logical Candidate concurrently.
+
+Expected:
+
+ONE logical Candidate
+
+No race-created duplicate.
+
+Record which database mechanism enforced correctness:
+
+UNIQUE constraint
+ON CONFLICT
+row lock
+transaction isolation
+or other actual mechanism.
+
+STEP 8 — CONCURRENT CONFLICT
+
+Two concurrent operations:
+
+same logical/idempotency identity
+
+materially different immutable payload
+
+must NOT both succeed as valid states.
+
+Expected:
+
+one accepted logical state
++
+explicit conflict/error for incompatible operation
+
+No last-write-wins overwrite.
+
+STEP 9 — ATTRIBUTION CONCURRENCY
+
+Concurrent append of exact same attribution:
+
+→ one logical attribution
+
+Concurrent append of two different valid source attributions:
+
+→ both preserved
+
+No provenance loss.
+
+STEP 10 — OBSERVATION CONCURRENCY
+
+Concurrent insertion of same:
+
+observationId
+
+→ one logical observation
+
+This proves replay protection at DB level rather than in application memory.
+
+STEP 11 — GOVERNANCE PERSISTENCE SAFETY
+
+First verify whether the PostgreSQL persistence model actually contains or references
+the authoritative durable current Source state required for atomic governance application.
+
+Report:
+
+POSTGRES_SOURCE_STATE_AUTHORITY=
+PRESENT | EXTERNAL | ABSENT
+
+If PRESENT:
+
+prove expectedCurrentState protection under real competing transactions.
+
+If EXTERNAL or ABSENT:
+
+do NOT claim governance stale-decision concurrency proof.
+
+Report:
+
+GOVERNANCE_STATE_ATOMICITY_PROOF=BLOCKED_ARCHITECTURE_GAP
+
+and recommend a bounded source-state persistence package.
+
+Do not create a fake row-lock proof against a state that PostgreSQL does not actually own.
+
+STEP 12 — GOVERNANCE APPLICATION IDEMPOTENCY
+
+Regardless of lifecycle-state ownership, prove persistence semantics where possible:
+
+same decision application replay
+→ no duplicate logical transition/application
+
+attempt history
+→ append-only
+→ previous APPLIED / REPLAYED / BLOCKED / STALE evidence never overwritten
+
+STEP 13 — RESTART DURABILITY
+
+Where feasible:
+
+write Candidate + Attribution + Observation + Health Snapshot + Governance Decision
+
+close database connections
+
+reconnect
+
+read records again
+
+Expected:
+
+records remain intact.
+
+This is minimum durable-storage proof.
+
+A process restart is sufficient.
+Container/database destruction is obviously not.
+
+STEP 14 — REAL POSTGRES ADAPTER
+
+If PKG-PERSIST-011R currently contains only ports/reference adapters,
+a bounded PostgreSQL adapter necessary for these integration tests is authorized.
+
+Rules:
+
+behind existing persistence ports
+
+no domain logic in SQL adapter
+
+parameterized SQL
+
+no secret embedded in source
+
+no source-specific TrustMRR logic
+
+no production connection defaults
+
+CLAUDE POLICY
+
+Do not send routine database work to Claude.
+
+Claude may be invoked once and narrowly ONLY if actual PostgreSQL testing exposes:
+
+race causing duplicate/invalid state
+
+unsafe transaction boundary
+
+governance state race
+
+possible irreversible data loss
+
+confidentiality leakage
+
+Otherwise:
+
+CLAUDE_USED=NO
+
+ACCEPTANCE GATE
+
+POSTGRES_RUNTIME=AVAILABLE
+
+MIGRATION_EXECUTED=YES
+MIGRATION_RESULT=PASS
+
+SCHEMA_CONSTRAINTS=PASS
+FOREIGN_KEYS=PASS
+
+CANDIDATE_ROUND_TRIP=PASS
+ATTRIBUTION_ROUND_TRIP=PASS
+RESOLUTION_HISTORY_ROUND_TRIP=PASS
+OBSERVATION_ROUND_TRIP=PASS
+HEALTH_SNAPSHOT_ROUND_TRIP=PASS
+GOVERNANCE_DECISION_ROUND_TRIP=PASS
+
+HEALTH_SNAPSHOT_CONFLICT_PROTECTION=PASS
+
+TRANSACTION_ROLLBACK=PASS
+
+CONCURRENT_CANDIDATE_DEDUP=PASS
+CONCURRENT_CONFLICT_DETECTION=PASS
+CONCURRENT_ATTRIBUTION_APPEND=PASS
+CONCURRENT_OBSERVATION_REPLAY=PASS
+
+RESTART_DURABILITY=PASS
+
+POSTGRES_SOURCE_STATE_AUTHORITY=
+PRESENT | EXTERNAL | ABSENT
+
+GOVERNANCE_STATE_ATOMICITY_PROOF=
+PASS | BLOCKED_ARCHITECTURE_GAP
+
+PRODUCTION_DATABASE_TOUCHED=NO
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+IF ENVIRONMENT IS UNAVAILABLE
+
+Report honestly:
+
+POSTGRES_RUNTIME=ENVIRONMENT_BLOCKED
+MIGRATION_EXECUTED=NO
+POSTGRES_INTEGRATION_TESTS=NOT_RUN
+CONCURRENCY_PROOF=NOT_RUN
+
+Do not mark PKG-DBRUN-012 as PASS.
+
+Set:
+
+PACKAGE_STATUS=PARKED_ENVIRONMENT_BLOCKED
+PROJECT_BLOCKER=NO
+
+Then recommend:
+
+PKG-OBS-013
+
+EXPECTED REPORT
+
+PKG_DBRUN_012_REPORT
+
+PACKAGE=PKG-DBRUN-012
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+POSTGRES_RUNTIME=
+POSTGRES_VERSION=
+DATABASE_CLASSIFICATION=
+
+POSTGRES_ADAPTER=
+MIGRATION_EXECUTED=
+MIGRATION_RESULT=
+
+SCHEMA_TABLES_VERIFIED=
+CONSTRAINT_PROOF=
+FOREIGN_KEY_PROOF=
+
+CANDIDATE_ROUND_TRIP=
+ATTRIBUTION_ROUND_TRIP=
+RESOLUTION_ROUND_TRIP=
+OBSERVATION_ROUND_TRIP=
+HEALTH_SNAPSHOT_ROUND_TRIP=
+GOVERNANCE_DECISION_ROUND_TRIP=
+
+HEALTH_SNAPSHOT_REPLAY=
+HEALTH_SNAPSHOT_CONFLICT=
+
+TRANSACTION_ROLLBACK=
+
+CONCURRENT_CANDIDATE_TEST=
+CONCURRENT_CONFLICT_TEST=
+CONCURRENT_ATTRIBUTION_TEST=
+CONCURRENT_OBSERVATION_TEST=
+
+POSTGRES_SOURCE_STATE_AUTHORITY=
+GOVERNANCE_STATE_ATOMICITY_PROOF=
+GOVERNANCE_APPLICATION_IDEMPOTENCY=
+
+RESTART_DURABILITY=
+
+PRODUCTION_DATABASE_TOUCHED=NO
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=
+CLAUDE_TRIGGER_REASON=
+
+BLOCKERS=
+
+PACKAGE_STATUS=
+
+NEXT_RECOMMENDED_PACKAGE=
+PKG-OBS-013
+
+CURRENT_STATE
+
+PKG-PERSIST-011R=CLOSED
+
+PKG-DBRUN-012=ACTIVE
+
+PKG-OBS-013=WAITING
+
+PARKED_TRACK=
+PKG-COL-002B / TrustMRR Authenticated Runtime Proof
+
+یک نکته کلیدی برای DBRUN-012: اگر PostgreSQL واقعاً authority وضعیت Source را در اختیار ندارد، نباید با چند mock یا lock نمایشی ادعا کنیم stale-decision protection در DB اثبات شده است. در آن حالت همان بخش را BLOCKED_ARCHITECTURE_GAP ثبت می‌کنیم و بقیه Persistence را مستقل اثبات می‌کنیم.

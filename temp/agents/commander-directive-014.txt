@@ -1,0 +1,886 @@
+آنتی‌گرویتی، PKG-OBS-013 پذیرفته شد. بر اساس گزارش، observability به‌صورت non-authoritative و failure-isolated اضافه شده و domain behavior را تغییر نداده است.
+
+یک مرز Evidence را هم ثبت می‌کنم: آنچه فعلاً اثبات شده Telemetry Contract + In-Memory/OpenTelemetry-compatible Adapter است؛ اتصال واقعی به OTLP Collector / Prometheus / Grafana / Tempo هنوز Production Proof محسوب نمی‌شود.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-OBS-013
+TITLE=Production Observability, OpenTelemetry Metrics & Structured Tracing
+
+STATUS=ACCEPTED
+
+IMPLEMENTATION_COMMIT=
+ea2bd253ae732c503c42f9cea47a3d5a34455c51
+
+ORIGIN_MAIN=
+ea2bd253ae732c503c42f9cea47a3d5a34455c51
+
+TELEMETRY_PORT=PASS
+NOOP_ADAPTER=PASS
+OTEL_COMPATIBLE_ADAPTER_BOUNDARY=PASS
+
+STRUCTURED_LOGGING=PASS
+TRACE_MODEL=PASS
+METRIC_MODEL=PASS
+CORRELATION_MODEL=PASS
+LATENCY_MODEL=PASS
+
+ERROR_TAXONOMY_PRESERVED=PASS
+REPLAY_VISIBILITY=PASS
+GOVERNANCE_VISIBILITY=PASS
+
+SECRET_REDACTION=PASS
+CONFIDENTIALITY_REDACTION=PASS
+CARDINALITY_GUARD=PASS
+
+TELEMETRY_FAILURE_ISOLATION=PASS
+DOMAIN_BEHAVIOR_CHANGED=NO
+
+OBSERVABILITY_VERSION=
+discovery-observability-v1
+
+DATABASE_SCHEMA_CHANGED=NO
+NETWORK_EXPORT_REQUIRED=NO
+SOURCE_ACTIVATED=NO
+AI_RUNTIME_CALLS=0
+
+TESTS=128/128 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+GEMINI_USED=NO
+CLAUDE_USED=NO
+
+BLOCKERS=NONE
+PROJECT_BLOCKED=NO
+
+OBSERVABILITY_PROOF_CLASSIFICATION
+
+TELEMETRY_CONTRACT_PROVEN=YES
+IN_MEMORY_TELEMETRY_PROVEN=YES
+
+REAL_OTLP_EXPORT_PROVEN=NO
+PRODUCTION_METRICS_BACKEND_PROVEN=NO
+PRODUCTION_TRACE_BACKEND_PROVEN=NO
+PRODUCTION_LOG_SINK_PROVEN=NO
+
+These are future runtime/deployment proofs and do not block the current package.
+
+OBSERVABILITY INVARIANT — OBS-I021
+
+Telemetry is evidence about domain execution.
+
+Telemetry must never become authority for domain execution.
+
+A metric, span, exporter or logging failure may not change an otherwise valid
+Discovery Core outcome.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-WORKER-014
+
+TITLE=
+Discovery Worker Runtime, Task Execution & Failure Isolation
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=
+ANTIGRAVITY
+
+PRIMARY_IMPLEMENTER=
+GLM-5.3
+
+GEMINI=
+OPTIONAL_FOR_FAILURE_MATRIX_REVIEW
+
+QWEN=
+NO_ACTION
+
+CLAUDE=
+DO_NOT_USE_BY_DEFAULT
+
+OBJECTIVE=
+
+Create a source-agnostic worker runtime contract that can execute Discovery Core jobs
+reliably while providing:
+
+deterministic task identity
+
+bounded retries
+
+retry/final failure classification
+
+failure isolation
+
+execution attempts
+
+explicit task lifecycle
+
+observability integration
+
+idempotent replay behavior
+
+without introducing a production queue, scheduler or database dependency yet.
+
+CRITICAL DISTINCTION
+
+WORKER RUNTIME
+!=
+SCHEDULER
+
+WORKER RUNTIME
+!=
+QUEUE BROKER
+
+WORKER RUNTIME
+!=
+SOURCE GOVERNANCE
+
+The worker executes an explicitly supplied task.
+
+It does not decide when a source should run.
+
+REFERENCE FLOW
+
+WorkerTask
+↓
+Validation
+↓
+Claim / Execute Attempt
+↓
+Discovery Operation
+↓
+Outcome Classification
+↓
+SUCCESS
+RETRYABLE_FAILURE
+FINAL_FAILURE
+↓
+Attempt Audit + Telemetry
+
+WORK-I001 — EXPLICIT TASK CONTRACT
+
+Create a versioned WorkerTask contract.
+
+Conceptual fields:
+
+taskId
+taskType
+sourceId
+
+payloadReference / bounded payload
+
+attempt
+maxAttempts
+
+createdAt
+notBefore
+
+executionId
+
+taskVersion
+retryPolicyVersion
+
+No hidden timestamp.
+
+WORK-I002 — DETERMINISTIC TASK IDENTITY
+
+Task identity must be explicit and stable.
+
+Do not regenerate taskId from wall-clock time during execution.
+
+Same logical task replay
+→ same taskId.
+
+WORK-I003 — TASK TYPES
+
+V1 should support only explicitly registered task types.
+
+Examples:
+
+DISCOVERY_EXECUTION
+SOURCE_HEALTH_EVALUATION
+SOURCE_GOVERNANCE_EVALUATION
+
+Do NOT add arbitrary function execution.
+
+Unknown taskType
+→ FINAL_FAILURE / REJECTED
+
+WORK-I004 — HANDLER REGISTRY
+
+Worker runtime must dispatch through an explicit handler registry.
+
+Conceptually:
+
+taskType
+→ registered handler
+
+No eval()
+No dynamic code execution
+No arbitrary module path execution.
+
+WORK-I005 — DOMAIN MODULE REUSE
+
+Handlers must call existing approved boundaries.
+
+Example:
+
+DISCOVERY_EXECUTION
+→ existing E2E/discovery orchestrator
+
+Do not reimplement intake, storage, dedup, health or governance logic inside Worker.
+
+WORK-I006 — TASK STATE MODEL
+
+Minimum conceptual states:
+
+PENDING
+RUNNING
+SUCCEEDED
+RETRYABLE_FAILURE
+FINAL_FAILURE
+EXHAUSTED
+
+If useful:
+
+CANCELLED
+
+may be reserved but should not be implemented without a real cancellation contract.
+
+WORK-I007 — ATTEMPT HISTORY
+
+Every execution attempt must create an immutable attempt result.
+
+Conceptual:
+
+taskId
+attemptNumber
+executionId
+startedAt
+finishedAt
+outcome
+failureKind
+retryEligible
+nextEligibleAt
+
+Attempt history is append-only.
+
+WORK-I008 — FAILURE TAXONOMY
+
+Reuse existing failure semantics where available.
+
+At minimum distinguish:
+
+RETRYABLE_TECHNICAL_FAILURE
+RATE_LIMITED
+ACCESS_CONFIGURATION_FAILURE
+POLICY_ACCESS_FAILURE
+VALIDATION_FAILURE
+FINAL_DOMAIN_FAILURE
+UNKNOWN_FAILURE
+
+Do not make all thrown exceptions retryable.
+
+WORK-I009 — RETRY ELIGIBILITY
+
+Retry policy must be deterministic and versioned.
+
+Examples:
+
+network/transient 5xx
+→ RETRYABLE
+
+rate limit
+→ RETRYABLE with retry-after/backoff
+
+401/missing credential
+→ NOT automatically retried indefinitely
+
+policy restriction
+→ FINAL / MANUAL_REQUIRED
+
+validation failure
+→ FINAL
+
+domain conflict
+→ follow domain semantics, not blind retry.
+
+WORK-I010 — MAX ATTEMPTS
+
+Every task must have a bounded maxAttempts.
+
+Infinite retry is forbidden.
+
+Example:
+
+attempt >= maxAttempts
+→ EXHAUSTED
+
+WORK-I011 — BACKOFF MODEL
+
+Backoff policy must be explicit and versioned.
+
+Recommended initial deterministic model:
+
+retry-policy-v1
+
+Allow:
+
+fixed
+exponential
+provider retryAfter
+
+but impose:
+
+MAX_BACKOFF
+
+No unbounded delay computation.
+
+WORK-I012 — RETRY-AFTER
+
+If upstream provides an explicit retryAfter:
+
+worker may respect it within policy bounds.
+
+Required:
+
+effectiveDelay =
+bounded(retryAfter, policy limits)
+
+Do not trust arbitrarily huge or malformed values.
+
+WORK-I013 — NO HIDDEN SLEEP IN DOMAIN
+
+Domain modules must not sleep.
+
+Retry timing belongs to worker/runtime scheduling boundary.
+
+WORK-I014 — REPLAY SAFETY
+
+Running the same task again must rely on existing idempotency guarantees.
+
+Worker must not try to create a second idempotency system that conflicts with domain identity.
+
+Examples:
+
+candidate replay
+→ REPLAYED
+
+observation replay
+→ not double counted
+
+governance application replay
+→ idempotent
+
+WORK-I015 — FAILURE ISOLATION
+
+One task failure must not crash or poison unrelated tasks.
+
+Reference executor must demonstrate:
+
+Task A fails
+Task B succeeds
+
+Worker process/runtime continues.
+
+WORK-I016 — ERROR CONTAINMENT
+
+Unhandled handler exception:
+
+must be captured
+normalized
+classified
+
+and represented as task failure.
+
+Do not let arbitrary handler exception terminate the worker loop in reference runtime.
+
+WORK-I017 — TELEMETRY INTEGRATION
+
+Reuse PKG-OBS-013.
+
+Required spans/metrics conceptually:
+
+worker.task.execute
+worker.task.attempt
+
+worker_task_started
+worker_task_succeeded
+worker_task_retryable_failure
+worker_task_final_failure
+worker_task_exhausted
+
+Include bounded labels only.
+
+Do not put taskId/executionId in metric labels.
+
+They may be trace/log correlation attributes.
+
+WORK-I018 — TELEMETRY FAILURE ISOLATION
+
+Telemetry failure must not change WorkerTask outcome.
+
+WORK-I019 — CONFIDENTIALITY
+
+Worker logs/errors/telemetry may not leak confidential payload fields.
+
+Worker must not serialize entire task payload blindly into logs.
+
+WORK-I020 — SECRET REDACTION
+
+No:
+
+Authorization header
+API token
+database credential
+secret environment value
+
+in attempt result, telemetry or errors.
+
+WORK-I021 — TASK PAYLOAD BOUNDARY
+
+Prefer bounded task references/normalized payloads.
+
+Do not design the worker queue contract around arbitrary enormous raw HTML/document payloads.
+
+Future queue infrastructure should not require transporting unlimited documents in message bodies.
+
+WORK-I022 — NO SOURCE-SPECIFIC LOGIC
+
+Forbidden:
+
+if sourceId === "trustmrr"
+
+Source-specific behavior belongs to collector/source adapters.
+
+WORK-I023 — NO AUTOMATIC SOURCE ACTIVATION
+
+Worker execution may not activate, reject or retire a source outside the existing governance contract.
+
+WORK-I024 — LEASE / CLAIM MODEL
+
+Define, but do not falsely claim distributed proof.
+
+Reference runtime should define conceptual claim fields:
+
+claimedBy
+claimedAt
+leaseExpiresAt
+
+This prepares for future queue/multi-worker execution.
+
+In this package:
+
+DISTRIBUTED_LEASE_PROOF=NOT_REQUIRED
+
+because no durable broker/database runtime exists yet.
+
+WORK-I025 — LEASE EXPIRY SEMANTICS
+
+Document expected future behavior:
+
+RUNNING task
+
+expired lease
+→ eligible for reclaim
+
+but only under durable coordination in a future package.
+
+Do not simulate in-memory lease behavior and call it production-safe.
+
+WORK-I026 — GRACEFUL EXECUTION BOUNDARY
+
+Reference worker should complete one accepted task attempt cleanly.
+
+Do not build process signal management or distributed shutdown complexity unless already needed.
+
+Production graceful shutdown belongs to runtime hardening later.
+
+WORK-I027 — NO QUEUE CLAIM
+
+This package must not claim:
+
+Kafka proven
+Redis/BullMQ proven
+SQS proven
+RabbitMQ proven
+Postgres queue proven
+
+No production broker is part of the package.
+
+REFERENCE IMPLEMENTATION
+
+Allowed:
+
+InMemoryTaskQueue
+or
+direct task executor / bounded in-memory queue
+
+Purpose:
+
+prove task lifecycle and failure isolation.
+
+Must be clearly classified:
+
+REFERENCE_ONLY
+NOT_DISTRIBUTED
+NOT_DURABLE
+NOT_PRODUCTION_QUEUE
+
+GLM REQUIRED IMPLEMENTATION
+
+WorkerTask contract
+
+Task validation
+
+Handler registry
+
+Worker executor
+
+Attempt model
+
+Retry classification
+
+Versioned retry policy
+
+Backoff calculation
+
+Max-attempt enforcement
+
+Failure isolation
+
+Telemetry integration
+
+Reference in-memory task transport/executor if needed
+
+MANDATORY TEST MATRIX
+
+
+
+
+valid DISCOVERY_EXECUTION task
+→ handler executes
+→ SUCCEEDED
+
+
+
+
+unknown task type
+→ FINAL_FAILURE
+
+
+
+
+task schema invalid
+→ FINAL_FAILURE / REJECTED
+
+
+
+
+handler transient failure
+→ RETRYABLE_FAILURE
+
+
+
+
+handler permanent validation failure
+→ FINAL_FAILURE
+
+
+
+
+429 with retryAfter
+→ RETRYABLE
+→ bounded nextEligibleAt
+
+
+
+
+401 credential failure
+→ no infinite retry
+
+
+
+
+policy access failure
+→ FINAL/MANUAL outcome
+
+
+
+
+attempt reaches maxAttempts
+→ EXHAUSTED
+
+
+
+
+same task replay after success
+→ domain idempotency preserved
+
+
+
+
+Task A throws
+Task B executes successfully
+→ isolation PASS
+
+
+
+
+handler unexpected exception
+→ normalized failure
+→ runtime remains alive
+
+
+
+
+telemetry adapter throws
+→ task result unchanged
+
+
+
+
+secret-bearing error message
+→ redacted
+
+
+
+
+confidential payload
+→ not serialized into telemetry/logs
+
+
+
+
+taskId appears in trace/log correlation
+→ allowed
+
+
+
+
+taskId appears in metric label
+→ forbidden
+
+
+
+
+backoff same inputs
+→ deterministic same delay
+
+
+
+
+retryAfter exceeds max
+→ bounded
+
+
+
+
+maxAttempts finite
+→ validation enforced
+
+
+
+
+domain SOURCE_CLAIM passes worker execution
+→ remains SOURCE_CLAIM
+
+
+
+
+worker execution
+→ does not activate source
+
+
+
+
+same task outcome telemetry
+→ STORED/REPLAYED/CONFLICT semantics not collapsed
+
+
+
+
+attempt history
+→ immutable / append-only
+
+GEMINI POLICY
+
+Gemini may be used once for a focused failure-taxonomy coverage review.
+
+Do not use Gemini for primary implementation.
+
+CLAUDE POLICY
+
+CLAUDE_USED=NO by default.
+
+Only trigger Claude if implementation introduces:
+
+dangerous arbitrary code execution
+
+secret leakage
+
+concurrency/lease claim presented as production-safe
+
+task retry path capable of destructive repeated mutation
+
+If triggered, send only the bounded sensitive finding.
+
+HARD SCOPE
+
+PRODUCTION_QUEUE=NO
+PRODUCTION_BROKER=NO
+PRODUCTION_DATABASE=NO
+
+NETWORK_REQUESTS=0
+unless existing local handler fixtures require none
+
+SCHEDULER=NO
+DEPLOY=NO
+
+AI_RUNTIME_CALLS=0
+
+AUTO_ACTIVATION=NO
+AUTO_REJECTION=NO
+AUTO_RETIREMENT=NO
+
+ACCEPTANCE_GATE
+
+WORKER_TASK_CONTRACT=PASS
+TASK_VALIDATION=PASS
+HANDLER_REGISTRY=PASS
+
+TASK_STATE_MODEL=PASS
+ATTEMPT_HISTORY=PASS
+
+FAILURE_TAXONOMY=PASS
+RETRY_POLICY_VERSIONING=PASS
+MAX_ATTEMPTS=PASS
+BACKOFF_MODEL=PASS
+
+FAILURE_ISOLATION=PASS
+UNEXPECTED_EXCEPTION_CONTAINMENT=PASS
+
+DOMAIN_IDEMPOTENCY_REUSE=PASS
+NO_DUPLICATE_DOMAIN_LOGIC=PASS
+
+TELEMETRY_INTEGRATION=PASS
+TELEMETRY_FAILURE_ISOLATION=PASS
+
+SECRET_REDACTION=PASS
+CONFIDENTIALITY=PASS
+METRIC_CARDINALITY_GUARD=PASS
+
+SOURCE_SPECIFIC_LOGIC=NONE
+HIDDEN_CLOCK_DEPENDENCY=NONE
+
+REFERENCE_RUNTIME=
+IN_MEMORY_OR_DIRECT_EXECUTOR
+
+DISTRIBUTED_LEASE_PROOF=
+NOT_RUN
+
+PRODUCTION_QUEUE_PROOF=
+NOT_RUN
+
+DATABASE_CHANGED=NO
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+unless critical trigger occurs
+
+EXPECTED REPORT
+
+PKG_WORKER_014_REPORT
+
+PACKAGE=PKG-WORKER-014
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+WORKER_TASK_CONTRACT=
+TASK_TYPES=
+TASK_STATE_MODEL=
+
+HANDLER_REGISTRY=
+REFERENCE_RUNTIME=
+
+ATTEMPT_MODEL=
+FAILURE_TAXONOMY=
+
+RETRY_POLICY_VERSION=
+MAX_ATTEMPTS_MODEL=
+BACKOFF_MODEL=
+RETRY_AFTER_MODEL=
+
+FAILURE_ISOLATION=
+EXCEPTION_CONTAINMENT=
+
+DOMAIN_IDEMPOTENCY_MODEL=
+
+TELEMETRY_INTEGRATION=
+SECRET_REDACTION=
+CONFIDENTIALITY_MODEL=
+CARDINALITY_POLICY=
+
+LEASE_MODEL=
+DISTRIBUTED_LEASE_PROOF=
+PRODUCTION_QUEUE_PROOF=
+
+SOURCE_SPECIFIC_LOGIC=
+HIDDEN_CLOCK_DEPENDENCY=
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+GEMINI_USED=
+GEMINI_REASON=
+
+CLAUDE_USED=
+CLAUDE_TRIGGER_REASON=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-SCHED-015
+
+CURRENT_STATE
+
+PKG-OBS-013=CLOSED
+
+PKG-WORKER-014=ACTIVE
+
+PKG-SCHED-015=WAITING
+
+PARKED_TRACKS=
+
+PKG-DBRUN-012B
+→ waiting for disposable PostgreSQL
+
+PKG-COL-002B
+→ waiting for authorized TrustMRR API credential
+
+در PKG-WORKER-014 مهم‌ترین اصل این است: Retry را از Domain جدا نگه داریم و هیچ failure را کورکورانه retry نکنیم. بعد از اینکه Worker Runtime ثابت شد، آن‌وقت PKG-SCHED-015 مشخص می‌کند چه Sourceای، چه زمانی و با چه cadence‌ای Task تولید کند.

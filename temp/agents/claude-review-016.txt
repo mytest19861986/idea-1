@@ -1,0 +1,34 @@
+Claude responded: CLAUDEFINALAUDIT — PKG-SECRETS-016R (Ephemeral Redaction Scope Hardening)
+Searched the web
+
+Searched the web
+
+CLAUDE_FINAL_AUDIT — PKG-SECRETS-016R (Ephemeral Redaction Scope Hardening)
+
+DECISION: CHANGES_REQUIRED
+
+AUDIT_SUMMARY
+
+The concurrency-isolation goal is genuinely achieved: scopedSecrets is a fresh, function-scoped Set created inside each executeTask call, so concurrent invocations cannot cross-contaminate — confirmed both by code inspection and by a real (non-tautological) concurrent test that resolves two distinct secrets on two simultaneously-running tasks and checks neither leaks into the other's result. finally { scopedSecrets.clear() } correctly clears after redaction has already been computed, so there's no ordering bug.
+
+However, this refactor introduces a more serious regression than the one it fixes. SecretResolver.resolveSecret() no longer registers the value it returns for redaction anywhere. In the previous (approved) design, every value returned by resolveSecret was automatically added to the redaction registry inside the resolver itself — a caller could not forget this step because it wasn't theirs to perform. In this design, registration is now a second, manual, opt-in call (context.registerSecretForRedaction(resolvedToken)) that must be made by whoever wrote the task handler, using a completely different object (executionScope) than the one that produced the secret (SecretResolver). The resolver and the redaction scope are no longer coupled at all. Every test in this suite dutifully includes that call — because the person writing the test already knows the finding this is remediating — but nothing in the framework requires or enforces it for a real collector handler. A future handler author who resolves a secret, builds a header with it, and lets a request library throw an error containing it, but forgets the one extra registerSecretForRedaction line, gets silent, complete leakage of the raw secret into attemptRecord, execResult, and telemetry — with the system reporting nothing wrong, since redaction only strips what's been registered. This is a regression from a fail-safe default to a fail-open one, and it's exactly the kind of gap that's invisible in a test suite (written by whoever fixed it) and dangerous in real handler code (written by someone else, later, without this context).
+
+INVARIANT_FINDINGS
+
+Automatic secret registration removed from SecretResolver.resolveSecret — FAIL (Finding, High)
+Confirmed in code: resolveSecret in this commit has no call to any registration function, and no longer even imports anything from secret-redaction.mjs. The value is simply returned. Redaction now depends entirely on a manual second step performed by handler-writing code, coupling two unrelated objects (SecretResolver and the executionScope passed by WorkerRuntime) by convention only.
+Recommended fix — pick one:
+Have resolveSecret(credentialRef, purpose, env, redactionScope) accept an optional scope/registration callback and auto-register into it when provided, so the two steps become one call at the point where the secret is minted, not two calls at two separate points in unrelated files.
+Or have WorkerRuntime.executeTask own the resolver: inject a SecretResolver into the runtime (or wrap it), and expose to handlers only a resolveSecret(ref, purpose) that transparently resolves and registers into the current execution's scope in one atomic operation — so there is no "resolve now, remember to register later" sequence for handler authors to get wrong.
+Either way, the goal is that a handler cannot obtain a secret value without it simultaneously becoming redaction-eligible in the active scope — matching the safety property the previous design had, without reintroducing the global/long-lived Set this refactor was meant to eliminate.
+Concurrent task isolation (remediation 2/3) — RESOLVED, well-tested. scopedSecrets is a true per-call local, not shared; the new concurrency test genuinely exercises two simultaneous tasks with distinct secrets and confirms no cross-leakage in either direction. This is solid.
+Zero-retention on completion (remediation 4) — RESOLVED. finally { scopedSecrets.clear() } runs after both the success and failure branches have already produced their (correctly redacted) return values, so there's no window where clearing happens too early; and there's no lingering module-level state after the call returns, unlike the previous KNOWN_SECRET_VALUES design (even the bounded FIFO version).
+Global raw-secret registry elimination (remediation 1) — RESOLVED, but see Finding 1 for the cost. KNOWN_SECRET_VALUES and its MAX_KNOWN_SECRETS FIFO cap are both gone; redactSecretText/redactSecretPayload are now pure functions taking an explicit knownSecrets collection. This is a clean, well-executed piece of the refactor in isolation — the problem is only that it was paired with severing the resolver→registration link rather than re-threading it through the new scope mechanism.
+createSecretRedactionScope API — PASS. register/redactText/redactPayload/getRegisteredCount/clear/dispose are all correctly implemented and directly tested, including the "after dispose, previously-known secret is no longer redacted" case — a nice, precise unit test of the primitive itself.
+Purpose-binding, environment allowlisting, prototype-key safety, no-fallback, no-caching (all previously-approved invariants) — PASS, unchanged. None of this round's changes touch _evaluateAccess, EnvironmentSecretProvider, or the fail-closed error paths; all remain correct as previously verified.
+
+Required before APPROVED:
+
+Re-couple secret resolution and redaction registration so a handler cannot obtain a raw secret value without it automatically becoming part of the active execution's redaction scope — via one of the two approaches in Finding 1 (or an equivalent that achieves the same "impossible to forget" property). The current two-call, two-object pattern is a foot-gun for every future collector/handler implementation, not just a theoretical concern — it is a straightforward path to a real secret ending up in logs, error messages, or persisted attempt history in production, and the test suite's own diligence in calling it correctly doesn't change that the framework itself doesn't require it.
+
+The concurrency and lifecycle work in this round is good and shouldn't be discarded — it just needs the resolver/registration coupling restored on top of it, rather than left as a manual convention.

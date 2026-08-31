@@ -1,0 +1,576 @@
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-SECRETS-016
+TITLE=Credential Resolution, Secret Injection Boundary & Environment Isolation
+
+STATUS=CHANGES_REQUIRED
+
+IMPLEMENTATION_COMMIT=
+8d7057564739b65de32058cf5383c812fef727ec
+
+TESTS=156/156 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+REAL_SECRET_USED=NO
+LIVE_TRUSTMRR_AUTH=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+PROJECT_BLOCKER=NO
+
+ACCEPTED AREAS
+
+SECRET_RESOLVER_PORT=PASS
+PROVIDER_ABSTRACTION=PASS
+
+ALLOWLISTED_ENV_ACCESS=PASS
+PURPOSE_BINDING=PASS
+ENVIRONMENT_ISOLATION=PASS
+
+FAIL_CLOSED=PASS
+AUTH_FALLBACK=NONE
+
+WORKER_SECRET_FREE=PASS
+SCHEDULER_SECRET_FREE=PASS
+SOURCE_REGISTRY_RAW_SECRET_FREE=PASS
+PERSISTENCE_SECRET_FREE=PASS
+
+COLLECTOR_INJECTION_BOUNDARY=PASS
+
+SECRET_ROTATION_COMPATIBILITY=PASS
+SOURCE_SPECIFIC_LOGIC=NONE
+
+CLAUDE_CRITICAL_REVIEW=
+COMPLETED_ON_COMMIT_8d70575
+
+FINDING-SEC016-001
+
+SEVERITY=HIGH
+CATEGORY=SECRET_LIFETIME / MEMORY_RETENTION
+
+REPORTED=
+
+VALUE_AWARE_REDACTION=
+Dynamic value registration in bounded FIFO Set, 500 cap
+
+SECRET_LIFETIME_MODEL=
+EPHEMERAL_PER_CALL
+
+SECRET_VALUE_CACHE=
+NO
+
+These statements are mutually inconsistent.
+
+A Set containing previously resolved raw secret values is a secret-value retention mechanism,
+regardless of whether it is called:
+
+redaction registry
+FIFO
+cache
+known-value set
+
+A 500-entry bound limits memory growth.
+
+It does NOT make secret storage ephemeral.
+
+SECURITY IMPACT
+
+A long-lived redaction registry can retain:
+
+rotated credentials
+
+credentials from previous executions
+
+credentials from unrelated sources
+
+credentials longer than their authorized execution scope
+
+It also increases the amount of raw secret material resident in process memory.
+
+This directly conflicts with:
+
+SEC-I018 — EPHEMERAL LIFETIME
+SEC-I019 — SECRET_VALUE_CACHE=NO
+
+REQUIRED ARCHITECTURE
+
+Raw secret values must not be registered into a process-global,
+module-global, singleton, or other cross-execution redaction store.
+
+Preferred model:
+
+Secret resolution
+↓
+Per-execution SecretRedactionScope
+↓
+Collector execution
+↓
+Sanitize result/error/telemetry before boundary crossing
+↓
+dispose/clear execution scope in finally
+
+Allowed implementation patterns include:
+
+A)
+
+redactSensitive(value, {
+knownSecretValues: [currentExecutionSecret]
+})
+
+with no persistent registration.
+
+or:
+
+B)
+
+const scope = createSecretRedactionScope()
+
+scope.register(secret)
+
+try {
+...
+} finally {
+scope.clear()
+}
+
+provided the scope is strictly per execution and cannot leak across concurrent tasks.
+
+FORBIDDEN
+
+globalKnownSecrets.add(secret)
+
+moduleLevelSecretSet
+
+singleton secret history
+
+cross-task FIFO of raw secret values
+
+process-lifetime rotated-secret retention
+
+IMPORTANT
+
+Do NOT claim cryptographic memory zeroization.
+
+JavaScript strings cannot provide that guarantee.
+
+Correct claim remains:
+
+SECRET_LIFETIME_MINIMIZED=YES
+
+SECRET_MEMORY_ZEROIZED=NO_CLAIM
+
+FINDING-SEC016-002
+
+SEVERITY=MEDIUM
+CATEGORY=CONCURRENT_EXECUTION_ISOLATION
+
+The remediation must prove that:
+
+Task A secret
+cannot become part of
+Task B redaction state.
+
+Required test:
+
+two overlapping executions
+with different synthetic secrets
+
+→ each execution may sanitize its own secret
+→ neither execution receives/accesses the other's secret registry/context
+→ no global raw-secret collection exists
+
+FINDING-SEC016-003
+
+SEVERITY=MEDIUM
+CATEGORY=ROTATION_RETENTION
+
+Current rotation behavior correctly allows:
+
+credentialRef stable
+value A → value B
+
+But after rotation:
+
+value A must not remain indefinitely retained by a global redaction registry.
+
+Required:
+
+after execution using value A ends,
+the secret subsystem keeps no intentional persistent raw-value registry containing A.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-SECRETS-016R
+
+TITLE=
+Ephemeral Secret Redaction Scope & Cross-Execution Isolation Hardening
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=ANTIGRAVITY
+PRIMARY_IMPLEMENTER=GLM-5.3
+
+GEMINI=NO_ACTION
+QWEN=NO_ACTION
+
+CLAUDE=
+BOUNDED_REVIEW_AFTER_REMEDIATION
+
+OBJECTIVE=
+
+Remove long-lived raw-secret retention from value-aware redaction while preserving:
+
+exact-value redaction
+
+telemetry sanitization
+
+worker attempt sanitization
+
+collector injection
+
+credential rotation
+
+purpose/environment isolation
+
+REQUIRED CHANGES
+
+
+
+
+Remove any global/process-wide raw secret Set/FIFO/registry.
+
+
+
+
+Make exact-value redaction execution-scoped.
+
+
+
+
+Ensure cleanup happens through finally-equivalent semantics.
+
+
+
+
+Ensure concurrent executions have isolated redaction context.
+
+
+
+
+Preserve generic Bearer/password-pattern redaction as defense in depth.
+
+
+
+
+Do not weaken nested error/result sanitization.
+
+
+
+
+Preserve zero raw-secret persistence into WorkerTask, Scheduler, SourceRegistry and DB payloads.
+
+
+
+
+Preserve rotation without retaining previous raw values.
+
+
+
+
+Do not introduce secret caching under another name.
+
+MANDATORY TEST MATRIX
+
+
+
+
+current execution secret
+→ redacted from log
+
+
+
+
+current execution secret
+→ redacted from telemetry
+
+
+
+
+current execution secret
+→ redacted from worker error
+
+
+
+
+current execution secret
+→ redacted from worker result if unexpectedly reflected
+
+
+
+
+execution completes
+→ no intentional persistent raw-secret registry retains value
+
+
+
+
+rotation A → B
+→ next resolution uses B
+
+
+
+
+rotation A → B
+→ task/scheduler identity unchanged
+
+
+
+
+previous A
+→ not retained in global secret history
+
+
+
+
+two concurrent tasks with secret A and B
+→ redaction contexts isolated
+
+
+
+
+Task A cannot query/access Task B known secret values
+
+
+
+
+missing credential
+→ ACCESS_CONFIGURATION_FAILURE
+
+
+
+
+unauthorized purpose
+→ denied
+
+
+
+
+arbitrary env lookup
+→ rejected
+
+
+
+
+secret provider failure
+→ no leakage
+
+
+
+
+telemetry failure
+→ resolution/domain semantics unchanged
+
+
+
+
+WorkerTask serialized
+→ no raw secret
+
+
+
+
+Scheduler state serialized
+→ no raw secret
+
+
+
+
+persistence payload
+→ no raw secret
+
+
+
+
+no global raw-secret Set/FIFO/cache exists
+
+
+
+
+all existing secret-boundary regression tests remain covered
+
+TEST COUNT NOTE
+
+Previous scheduler suite:
+145
+
+Secrets package:
+156
+
++11 was adequately explained.
+
+For 016R, test count itself is not the acceptance criterion.
+
+Regression coverage must be preserved.
+
+CLAUDE REVIEW POLICY
+
+Because the implementation will change after Claude's approval of commit 8d70575,
+that approval cannot automatically certify the remediated commit.
+
+Use Claude exactly once, narrowly, after GLM + Antigravity validation.
+
+CLAUDE_SCOPE=
+
+raw secret lifetime
+
+global/cross-task retention
+
+concurrent redaction isolation
+
+rotation retention
+
+log/telemetry/error leakage
+
+Do NOT send unrelated project code.
+
+Expected:
+
+APPROVED
+or
+CHANGES_REQUIRED
+
+If quota is unavailable:
+
+CLAUDE_RESULT=DEFERRED_QUOTA
+
+and report:
+
+SECURITY_REVIEW_COMPLETE=NO
+
+Do not fabricate approval.
+
+ACCEPTANCE_GATE
+
+SECRET_RESOLVER_PORT=PASS
+ALLOWLISTED_RESOLUTION=PASS
+PURPOSE_BINDING=PASS
+ENVIRONMENT_ISOLATION=PASS
+
+RAW_SECRET_GLOBAL_REGISTRY=NONE
+RAW_SECRET_CROSS_EXECUTION_CACHE=NONE
+
+VALUE_AWARE_REDACTION=PASS
+PER_EXECUTION_REDACTION_SCOPE=PASS
+CONCURRENT_SECRET_ISOLATION=PASS
+
+SECRET_LIFETIME_MINIMIZED=YES
+SECRET_VALUE_CACHE=NO
+
+ROTATED_SECRET_PERSISTENT_RETENTION=NONE
+
+WORKER_SECRET_FREE=PASS
+SCHEDULER_SECRET_FREE=PASS
+SOURCE_REGISTRY_SECRET_FREE=PASS
+PERSISTENCE_SECRET_FREE=PASS
+
+TELEMETRY_SECRET_FREE=PASS
+LOG_SECRET_FREE=PASS
+ATTEMPT_HISTORY_SECRET_FREE=PASS
+
+SOURCE_SPECIFIC_LOGIC=NONE
+
+REAL_SECRET_USED=NO
+LIVE_TRUSTMRR_AUTH=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_RESULT=APPROVED
+
+EXPECTED_REPORT
+
+PKG_SECRETS_016R_REPORT
+
+PACKAGE=PKG-SECRETS-016R
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+SECRET_RESOLVER=
+REDaction_MODEL=
+
+RAW_SECRET_GLOBAL_REGISTRY=
+PER_EXECUTION_REDACTION_SCOPE=
+CONCURRENT_SECRET_ISOLATION=
+
+SECRET_LIFETIME_MODEL=
+SECRET_VALUE_CACHE=
+ROTATED_SECRET_RETENTION=
+
+WORKER_SECRET_BOUNDARY=
+SCHEDULER_SECRET_BOUNDARY=
+SOURCE_REGISTRY_SECRET_BOUNDARY=
+PERSISTENCE_SECRET_BOUNDARY=
+
+TELEMETRY_SECRET_BOUNDARY=
+LOG_SECRET_BOUNDARY=
+ATTEMPT_HISTORY_SECRET_BOUNDARY=
+
+PURPOSE_BINDING=
+ENVIRONMENT_ISOLATION=
+ARBITRARY_ENV_ACCESS=
+
+REAL_SECRET_USED=NO
+LIVE_TRUSTMRR_AUTH=NO
+NETWORK_REQUESTS=0
+
+TESTS=
+TEST_COUNT_DELTA_EXPLANATION=
+
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=
+CLAUDE_SCOPE=
+CLAUDE_RESULT=
+SECURITY_REVIEW_COMPLETE=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=
+PKG-LIVE-READINESS-017
+
+CURRENT_STATE
+
+PKG-SECRETS-016=CHANGES_REQUIRED
+PKG-SECRETS-016R=ACTIVE
+
+PKG-LIVE-READINESS-017=WAITING
+
+PARKED_TRACKS=
+
+PKG-DBRUN-012B
+→ disposable PostgreSQL required
+
+PKG-COL-002B
+→ authorized TrustMRR API credential required
+
+اصل طراحی بقیه 016 حفظ می‌شود؛ نیاز به بازنویسی Secret subsystem نیست. فقط raw secret history باید از حافظه مشترک حذف شود و redaction به execution scope منتقل شود. بعد از 016R می‌توانیم با اطمینان وارد PKG-LIVE-READINESS-017 شویم.

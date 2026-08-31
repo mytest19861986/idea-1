@@ -1,0 +1,1000 @@
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-SCHED-015R
+TITLE=Scheduler Cadence Safety & Deterministic Dispatch Identity Hardening
+
+STATUS=ACCEPTED
+
+IMPLEMENTATION_COMMIT=
+6dbb13c9df2fbf7147635dd633cd1370570403b6
+
+ORIGIN_MAIN=
+6dbb13c9df2fbf7147635dd633cd1370570403b6
+
+CANONICAL_LIFECYCLE_COVERAGE=PASS
+
+ACTIVE_CADENCE=PASS
+LOW_PRIORITY_CADENCE=PASS
+DEGRADED_CADENCE_SAFETY=PASS
+
+DEGRADED_COLLECTION_POLICY=
+RESTRICTED_SLOWER_CADENCE
+
+NORMAL_SCHEDULED_TASK_TYPE=
+DISCOVERY_EXECUTION
+
+SLOT_IDENTITY_INCLUDES_TASK_TYPE=PASS
+SLOT_IDENTITY_INCLUDES_POLICY_VERSION=PASS
+
+TASK_IDENTITY_INCLUDES_TASK_TYPE=PASS
+TASK_IDENTITY_INCLUDES_POLICY_VERSION=PASS
+
+DISPATCH_REPLAY_PROTECTION=PASS
+STALE_DECISION_PROTECTION=PASS
+WORKER_RETRY_SEPARATION=PASS
+
+SOURCE_STATE_MUTATION=NONE
+SOURCE_SPECIFIC_LOGIC=NONE
+HIDDEN_CLOCK_DEPENDENCY=NONE
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+TESTS=145/145 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+
+BLOCKERS=NONE
+PROJECT_BLOCKER=NO
+
+QUALITY_NOTE=SCHED-TEST-DELTA-001
+
+Previous package report:
+148/148 tests
+
+Current package report:
+145/145 tests
+
+TEST_COUNT_DELTA=-3
+
+This is NOT automatically a defect because tests may have been consolidated or rewritten.
+
+However Antigravity must preserve evidence that mandatory scheduler regression coverage was
+not removed during remediation.
+
+No separate package is required unless the diff shows meaningful regression coverage was lost.
+
+SCHEDULER_MILESTONE=
+
+REFERENCE_SCHEDULER_CONTRACT_PROVEN=YES
+DETERMINISTIC_SCHEDULING_PROVEN=YES
+DURABLE_SCHEDULER_PROVEN=NO
+DISTRIBUTED_SCHEDULER_PROVEN=NO
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-SECRETS-016
+
+TITLE=
+Credential Resolution, Secret Injection Boundary & Environment Isolation
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=ANTIGRAVITY
+PRIMARY_IMPLEMENTER=GLM-5.3
+
+GEMINI=
+OPTIONAL_FOR_SECRET_FLOW_TRACE
+
+QWEN=NO_ACTION
+
+CLAUDE=
+ONE_BOUNDED_CRITICAL_SECURITY_REVIEW
+
+OBJECTIVE=
+
+Create the security boundary through which collectors and runtime components obtain
+authorized credentials without placing secret material into:
+
+Git
+
+source configuration records
+
+WorkerTask payloads
+
+Scheduler state
+
+database persistence records
+
+logs
+
+traces
+
+metrics
+
+audit events
+
+error objects returned outside the credential boundary
+
+This package establishes credential plumbing.
+
+It does NOT activate TrustMRR or any other live source.
+
+REFERENCE FLOW
+
+SourceRecord / Collector Configuration
+↓
+CredentialRequirement
+↓
+Logical credentialRef
+↓
+SecretResolver
+↓
+Authorized Secret Provider
+↓
+Ephemeral Resolved Secret
+↓
+Collector Execution Boundary
+↓
+Authorization Header / Provider-Specific Request Construction
+
+Secret material must enter the system as late as practical
+and leave the execution scope as early as practical.
+
+SEC-I001 — SECRET VALUE ≠ SECRET REFERENCE
+
+A credential reference is metadata.
+
+A credential value is secret material.
+
+Example conceptual distinction:
+
+credentialRef=
+trustmrr-api-primary
+
+secretValue=
+<actual token>
+
+The first may move through authorized configuration contracts.
+
+The second must not.
+
+SEC-I002 — WORKER TASKS CONTAIN REFERENCES ONLY
+
+WorkerTask may contain or derive:
+
+credentialRef
+
+It must never contain:
+
+apiKey
+token
+password
+authorizationHeader
+databasePassword
+secretValue
+
+Scheduler must therefore remain secret-free.
+
+SEC-I003 — SOURCE REGISTRY STORES NO SECRET MATERIAL
+
+SourceRecord may express:
+
+credentialRequirement
+credentialRef
+credentialType
+
+It must not store the credential itself.
+
+SEC-I004 — SECRET RESOLVER PORT
+
+Create a source-agnostic contract equivalent to:
+
+SecretResolver.resolve({
+credentialRef,
+purpose,
+environment,
+requestedAt
+})
+
+Exact API may follow repository conventions.
+
+Resolution should return secret material only to the immediate authorized execution boundary.
+
+SEC-I005 — PROVIDER ABSTRACTION
+
+Secret resolution must sit behind provider adapters.
+
+Allowed reference adapters:
+
+InMemoryTestSecretProvider
+EnvironmentSecretProvider
+
+Future adapters may include:
+
+Cloud Secret Manager
+Vault
+KMS-backed secret store
+
+Do not add external production secret-manager dependencies unless already authorized.
+
+SEC-I006 — ENVIRONMENT PROVIDER
+
+EnvironmentSecretProvider is acceptable as an initial runtime adapter provided:
+
+no fallback secret value exists
+
+no secret is committed
+
+missing variable fails closed
+
+environment variable names are explicitly mapped from logical credentialRef
+
+arbitrary environment variable lookup is not exposed to task payloads
+
+SEC-I007 — ALLOWLISTED RESOLUTION
+
+A caller must not be able to submit:
+
+credentialRef="../../..."
+or:
+credentialRef="ANY_ENVIRONMENT_VARIABLE_I_WANT"
+
+and read arbitrary runtime secrets.
+
+Logical credential references must be allowlisted/configured.
+
+SEC-I008 — PURPOSE BINDING
+
+Credential resolution should bind credential use to an authorized purpose.
+
+Conceptually:
+
+credentialRef=trustmrr-api-primary
+allowedPurpose=COLLECTOR_HTTP_AUTH
+
+A credential authorized for one subsystem must not automatically be retrievable by unrelated tasks.
+
+SEC-I009 — ENVIRONMENT ISOLATION
+
+Credential mappings must distinguish environments.
+
+At minimum conceptually:
+
+development
+test
+production
+
+Test runtime must not resolve a production-only credential mapping.
+
+Production credentials must not be fallback values for development/test.
+
+SEC-I010 — FAIL CLOSED
+
+Missing credential:
+
+→ ACCESS_CONFIGURATION_FAILURE
+
+Malformed secret configuration:
+
+→ ACCESS_CONFIGURATION_FAILURE
+
+Unauthorized credential purpose:
+
+→ ACCESS_CONFIGURATION_FAILURE or explicit authorization failure
+
+Never:
+
+missing credential
+→ anonymous request fallback
+
+for a collector contract that requires authentication.
+
+SEC-I011 — NO FABRICATED CREDENTIAL
+
+Forbidden:
+
+token || "default-token"
+provider || "stripe"
+credential || placeholder
+
+No invented credential/provider data.
+
+SEC-I012 — AUTH FAILURE CLASSIFICATION
+
+SecretResolver handles credential resolution.
+
+Collector/runtime handles remote authentication result.
+
+Examples:
+
+credential missing locally
+→ ACCESS_CONFIGURATION_FAILURE
+
+credential resolves but provider returns auth rejection
+→ normalized collector access/auth failure according to existing taxonomy
+
+policy restriction
+→ POLICY_ACCESS_FAILURE
+
+Do not make SecretResolver guess HTTP policy semantics.
+
+SEC-I013 — REDACTION
+
+All secret material must be redacted before crossing into:
+
+telemetry
+logs
+attempt history
+domain error serialization
+audit
+
+Redaction should cover at minimum:
+
+Bearer tokens
+API-key headers
+password-bearing URLs
+configured resolved secret values
+
+SEC-I014 — VALUE-AWARE REDACTION
+
+Generic regex redaction is useful but insufficient.
+
+If the system has resolved:
+
+actualSecretValue
+
+the active execution boundary should ensure that exact value cannot later be emitted
+through telemetry/error handling.
+
+Implement defense in depth where practical.
+
+SEC-I015 — NO SECRET METRIC LABELS
+
+Never expose:
+
+credentialRef value if operationally sensitive
+environment variable name
+secret value
+Authorization header
+
+as metric labels.
+
+Use bounded outcomes:
+
+resolved
+missing
+denied
+provider_error
+
+SEC-I016 — NO SECRET TRACE ATTRIBUTES
+
+Resolved value must never appear in span attributes.
+
+Safe conceptual attributes:
+
+credentialProviderType
+resolutionOutcome
+purpose
+
+Do not attach raw configuration objects.
+
+SEC-I017 — NO SECRET PERSISTENCE
+
+Discovery persistence must not receive resolved credentials.
+
+Persistence adapters should never serialize collector authorization material into:
+
+candidate
+attribution
+observation
+health snapshot
+governance decision
+task attempt
+
+SEC-I018 — EPHEMERAL LIFETIME
+
+Resolved secrets should remain scoped to the immediate execution callback/boundary.
+
+Avoid:
+
+global caches
+module-level secret variables
+long-lived task objects
+unbounded secret retention
+
+Because JavaScript strings cannot be reliably memory-zeroized,
+do NOT claim cryptographic zeroization.
+
+Required evidence terminology:
+
+SECRET_LIFETIME_MINIMIZED=YES
+
+not:
+
+SECRET_MEMORY_ZEROIZED=YES
+
+SEC-I019 — CACHE POLICY
+
+V1 recommended:
+
+SECRET_VALUE_CACHE=NO
+
+If provider metadata is cached, it must not include resolved value.
+
+Future secret caching requires explicit TTL/rotation semantics.
+
+SEC-I020 — ROTATION COMPATIBILITY
+
+Logical credentialRef must be stable independently from credential value.
+
+A provider should be able to rotate:
+
+value A → value B
+
+without changing WorkerTask identity or SourceRecord identity.
+
+SEC-I021 — VERSION METADATA
+
+If available, non-secret metadata may carry:
+
+credentialVersion
+resolvedProvider
+rotationVersion
+
+But absence of provider version must not trigger fabricated metadata.
+
+SEC-I022 — COLLECTOR INJECTION
+
+Collectors receive authorized credential material through execution context/injection.
+
+Collectors must not directly call:
+
+process.env
+global secret singleton
+filesystem secret path
+
+if the credential can be supplied through the approved resolver boundary.
+
+SEC-I023 — NO GENERIC HEADER INJECTION
+
+Do not expose an unrestricted mechanism whereby WorkerTask can provide arbitrary HTTP headers.
+
+That would allow secret bypass and policy circumvention.
+
+Credential material is assembled only inside authorized collector/request boundaries.
+
+SEC-I024 — TRUSTMRR COMPATIBILITY
+
+The generic system must be able to represent:
+
+logical credential requirement
+→ Bearer authorization injection
+
+for TrustMRR.
+
+But the secret subsystem itself must contain:
+
+TRUSTMRR_SPECIFIC_BRANCHING=NONE
+
+Provider/request formatting may remain in the TrustMRR collector adapter.
+
+SEC-I025 — CURRENT TRUSTMRR STATUS UNCHANGED
+
+PKG-COL-002B remains parked.
+
+This package must NOT:
+
+request the real credential
+
+activate TrustMRR
+
+call authenticated TrustMRR endpoints
+
+bypass credential requirements
+
+After Secrets acceptance, the system becomes structurally ready for a credential when one is authorized.
+
+SEC-I026 — SECRET ERROR CONTRACT
+
+Errors returned from SecretResolver should expose bounded metadata:
+
+code
+credentialRef or safe logical identifier where acceptable
+providerType
+purpose
+outcome
+
+Never include:
+
+resolvedValue
+raw provider response containing secret
+complete environment dump
+
+SEC-I027 — PROVIDER FAILURE
+
+Secret provider unavailable:
+
+→ normalized configuration/provider failure
+
+Do not silently try unrelated providers unless an explicit ordered provider policy exists.
+
+SEC-I028 — TELEMETRY FAILURE ISOLATION
+
+Reuse PKG-OBS-013.
+
+Telemetry failure during secret resolution must not alter the resolution result.
+
+But telemetry must never receive the secret value.
+
+SEC-I029 — WORKER RETRY INTERACTION
+
+ACCESS_CONFIGURATION_FAILURE must not become an infinite worker retry loop.
+
+Reuse Worker retry taxonomy.
+
+Secret package must not invent a second retry engine.
+
+SEC-I030 — SCHEDULER INTERACTION
+
+Scheduler remains ignorant of secret material.
+
+It may schedule an authorized source whose credentialRef exists logically.
+
+Actual credential availability is resolved at worker/collector execution boundary.
+
+SEC-I031 — SECRET PRESENCE CHECK
+
+If needed, the system may expose:
+
+AVAILABLE
+MISSING
+DENIED
+UNKNOWN
+
+without exposing value.
+
+Do not add an API that returns the secret merely to test whether it exists.
+
+SEC-I032 — TEST FIXTURES
+
+Tests must use synthetic credentials only.
+
+Example values must be unmistakably fake.
+
+No real secrets from environment should be copied into test snapshots or reports.
+
+SEC-I033 — REPOSITORY SAFETY
+
+No committed artifact may contain actual secret values.
+
+Antigravity should run the repository's available secret-sensitive checks or bounded searches
+for accidental fixture leakage.
+
+Do not claim enterprise secret scanning unless such tooling actually ran.
+
+SEC-I034 — SOURCE AGNOSTIC
+
+SecretResolver must support logical credentials generically.
+
+Forbidden inside generic secret modules:
+
+if sourceId === "trustmrr"
+
+SEC-I035 — AUDIT SEMANTICS
+
+Audit may record:
+
+SECRET_RESOLUTION_SUCCEEDED
+SECRET_RESOLUTION_MISSING
+SECRET_RESOLUTION_DENIED
+SECRET_PROVIDER_FAILURE
+
+or equivalent bounded outcomes.
+
+Never record the credential value.
+
+REFERENCE IMPLEMENTATION
+
+Recommended modules:
+
+src/secrets/secret-resolver.mjs
+src/secrets/environment-secret-provider.mjs
+src/secrets/in-memory-secret-provider.mjs
+
+Optional:
+
+src/secrets/secret-redaction.mjs
+
+Integrate at the collector execution boundary,
+not throughout every domain object.
+
+MANDATORY TEST MATRIX
+
+
+
+
+known credentialRef
+
+allowed purpose
+→ secret resolves
+
+
+
+
+unknown credentialRef
+→ fail closed
+
+
+
+
+known credentialRef
+
+unauthorized purpose
+→ denied
+
+
+
+
+test environment
+
+production-only mapping
+→ denied/not resolvable
+
+
+
+
+missing environment variable
+→ ACCESS_CONFIGURATION_FAILURE
+
+
+
+
+EnvironmentSecretProvider
+→ never returns fallback/default secret
+
+
+
+
+WorkerTask serialization
+→ secret value absent
+
+
+
+
+Scheduler state
+→ secret value absent
+
+
+
+
+SourceRecord/config representation
+→ credentialRef permitted
+→ raw secret prohibited
+
+
+
+
+collector execution
+→ resolved secret injected only at authorized boundary
+
+
+
+
+collector receives Bearer credential through injection
+→ task still contains no token
+
+
+
+
+telemetry span
+→ secret absent
+
+
+
+
+structured log
+→ secret absent
+
+
+
+
+worker attempt error
+→ secret absent
+
+
+
+
+database persistence payload
+→ secret absent
+
+
+
+
+error containing exact resolved value
+→ value-aware redaction masks it
+
+
+
+
+Authorization header
+→ redacted
+
+
+
+
+password-bearing database URL
+→ redacted
+
+
+
+
+credential rotation
+same credentialRef
+value changes
+→ next resolution obtains new value
+
+
+
+
+task identity
+→ unaffected by secret rotation
+
+
+
+
+missing credential
+→ no anonymous collector fallback
+
+
+
+
+missing credential
+→ Worker retry taxonomy does not retry indefinitely
+
+
+
+
+provider failure
+→ normalized failure
+→ no secret leak
+
+
+
+
+telemetry adapter failure
+→ credential resolution semantics unchanged
+
+
+
+
+two credentialRefs
+→ cannot access each other's mapping without authorization
+
+
+
+
+arbitrary environment-variable name supplied by task
+→ rejected
+
+
+
+
+secret modules
+→ zero source-specific TrustMRR branches
+
+
+
+
+synthetic test token
+→ does not appear in emitted telemetry/log snapshot
+
+
+
+
+no resolved-secret cache
+→ subsequent resolution sees rotated value
+
+
+
+
+SOURCE_CLAIM/data semantics
+→ untouched by secret plumbing
+
+CLAUDE CRITICAL REVIEW
+
+CLAUDE_USED=YES
+
+SCOPE MUST BE LIMITED TO:
+
+secret value leakage paths
+
+arbitrary environment-variable access
+
+purpose-binding bypass
+
+WorkerTask / Scheduler secret contamination
+
+logging/telemetry/error leakage
+
+unauthorized fallback behavior
+
+long-lived secret caching
+
+Do NOT send Claude unrelated Discovery Core implementation.
+
+Expected verdict:
+
+APPROVED
+or
+CHANGES_REQUIRED
+
+If Claude quota is unavailable:
+
+CLAUDE_RESULT=DEFERRED_QUOTA
+
+Package may keep reference/test implementation,
+but do NOT classify the credential boundary as security-reviewed until this bounded audit occurs.
+
+HARD SCOPE
+
+REAL_SECRET_VALUE=NONE
+
+LIVE_TRUSTMRR_AUTH=NO
+SOURCE_ACTIVATED=NO
+
+PRODUCTION_SECRET_MANAGER=NO
+PRODUCTION_DATABASE=NO
+
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+SCHEDULER_BEHAVIOR_CHANGED=NO
+DOMAIN_BEHAVIOR_CHANGED=NO
+DEPLOY=NO
+
+ACCEPTANCE_GATE
+
+SECRET_RESOLVER_PORT=PASS
+PROVIDER_ABSTRACTION=PASS
+
+ENVIRONMENT_PROVIDER=PASS
+IN_MEMORY_TEST_PROVIDER=PASS
+
+ALLOWLISTED_RESOLUTION=PASS
+PURPOSE_BINDING=PASS
+ENVIRONMENT_ISOLATION=PASS
+
+FAIL_CLOSED=PASS
+NO_FABRICATED_SECRET=PASS
+NO_ANONYMOUS_AUTH_FALLBACK=PASS
+
+WORKER_SECRET_FREE=PASS
+SCHEDULER_SECRET_FREE=PASS
+SOURCE_REGISTRY_SECRET_FREE=PASS
+PERSISTENCE_SECRET_FREE=PASS
+
+COLLECTOR_INJECTION_BOUNDARY=PASS
+
+SECRET_REDACTION=PASS
+VALUE_AWARE_REDACTION=PASS
+
+SECRET_LIFETIME_MINIMIZED=PASS
+SECRET_VALUE_CACHE=NO
+ROTATION_COMPATIBILITY=PASS
+
+TELEMETRY_SECRET_FREE=PASS
+LOG_SECRET_FREE=PASS
+ATTEMPT_HISTORY_SECRET_FREE=PASS
+
+SOURCE_SPECIFIC_LOGIC=NONE
+
+REAL_SECRET_USED=NO
+NETWORK_REQUESTS=0
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=YES
+CLAUDE_SCOPE=CRITICAL_SECRET_BOUNDARY_ONLY
+
+EXPECTED REPORT
+
+PKG_SECRETS_016_REPORT
+
+PACKAGE=PKG-SECRETS-016
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+SECRET_CONTRACT=
+SECRET_CONTRACT_VERSION=
+
+SECRET_RESOLVER=
+PROVIDERS=
+
+CREDENTIAL_REFERENCE_MODEL=
+PURPOSE_BINDING_MODEL=
+ENVIRONMENT_ISOLATION_MODEL=
+
+ENVIRONMENT_PROVIDER=
+ALLOWLIST_MODEL=
+
+FAIL_CLOSED_MODEL=
+AUTH_FALLBACK=
+
+WORKER_SECRET_BOUNDARY=
+SCHEDULER_SECRET_BOUNDARY=
+SOURCE_REGISTRY_SECRET_BOUNDARY=
+PERSISTENCE_SECRET_BOUNDARY=
+
+COLLECTOR_INJECTION_MODEL=
+
+SECRET_REDACTION=
+VALUE_AWARE_REDACTION=
+SECRET_LIFETIME_MODEL=
+SECRET_VALUE_CACHE=
+ROTATION_MODEL=
+
+TELEMETRY_SECRET_BOUNDARY=
+LOG_SECRET_BOUNDARY=
+ATTEMPT_HISTORY_SECRET_BOUNDARY=
+
+SOURCE_SPECIFIC_LOGIC=
+
+REAL_SECRET_USED=NO
+LIVE_TRUSTMRR_AUTH=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=
+TEST_COUNT_DELTA_EXPLANATION=
+
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=YES
+CLAUDE_SCOPE=
+CLAUDE_RESULT=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=
+PKG-LIVE-READINESS-017
+
+CURRENT_STATE
+
+PKG-SCHED-015R=CLOSED
+
+PKG-SECRETS-016=ACTIVE
+
+PKG-LIVE-READINESS-017=WAITING
+
+PARKED_TRACKS=
+
+PKG-DBRUN-012B
+→ disposable PostgreSQL required
+
+PKG-COL-002B
+→ authorized TrustMRR API credential required
+
+بعد از PKG-SECRETS-016 دیگر مستقیم سراغ credential واقعی نمی‌رویم. قدم بعدی PKG-LIVE-READINESS-017 خواهد بود تا قبل از هر اتصال زنده، readiness کل مسیر Collector → Worker → Persistence → Telemetry → Governance را بررسی کنیم و دقیقاً مشخص شود چه چیزهایی هنوز مانع Pilot هستند.
+:::

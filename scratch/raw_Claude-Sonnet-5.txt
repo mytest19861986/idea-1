@@ -1,0 +1,16 @@
+CLAUDE_SECURITY_DECISION= GO
+
+RBAC_FAIL_CLOSED= PASS
+NOVEL_FIELD_LEAK_PROTECTION= PASS
+CONFIDENTIAL_CLUSTER_DIRECT_LEAK= PASS
+CONFIDENTIAL_CLUSTER_SIBLING_LEAK= PASS
+CONFIDENTIAL_DERIVED_VALUE_PROTECTION= PASS
+TOKEN_FAIL_CLOSED= PASS
+
+SECURITY_BLOCKERS= NONE
+
+Verified directly against the code: sanitizeClusterProjection's confidential branch is now a closed-field-list stub (opportunityId, hardcoded redaction strings, empty frozen arrays, accessState: "REDACTED") with no ...cand spread anywhere in that branch — the exact pattern used in projectOpportunityForRole and toPublicOpportunity. The public-sibling branch (belongsToConfidentialCluster) still spreads cand, but that's correct: a non-confidential candidate's own content is meant to be public, and only clusterId/isDeduplicated need suppressing there to prevent inferring the confidential sibling's existence — there's no confidential content in that object to leak. Test 11's new assertions on confSibling.problem, confSibling.businessModel, and confSibling.accessState match what the implementation actually returns.
+
+I checked the rest of the file for the same spread-then-patch pattern applied to confidential data and didn't find another instance — createOpportunityCandidate, calculateGranularEvidenceConfidence, and the regulatory/localization/freshness functions don't handle role-based projection at all, so they're out of scope for this class of bug.
+
+This closes out the finding from the previous review. All six items across this review chain (RBAC fail-closed, novel-field protection, direct and sibling cluster leaks, derived-value stripping, token fail-closed) now check out against actual source and are covered by tests that assert the specific behavior claimed.

@@ -1,0 +1,976 @@
+آنتی‌گرویتی، PKG-WORKER-014 بر اساس گزارش ارائه‌شده پذیرفته شد. Worker Runtime اکنون task execution، retry classification، failure isolation و telemetry را بدون وابستگی به broker یا scheduler ثابت کرده است.
+
+یک clarification کوچک را به‌عنوان invariant ثبت می‌کنم: FINAL_FAILURE نباید صرفاً به‌خاطر رسیدن به maxAttempts به EXHAUSTED تبدیل شود. EXHAUSTED مخصوص مسیری است که قابل retry بوده ولی بودجه retry تمام شده است.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-WORKER-014
+TITLE=Discovery Worker Runtime, Task Execution Engine & Failure Isolation
+
+STATUS=ACCEPTED
+
+IMPLEMENTATION_COMMIT=
+5b30b0e7e8ca70f055000ce2ce6baf8968edbe40
+
+ORIGIN_MAIN=
+5b30b0e7e8ca70f055000ce2ce6baf8968edbe40
+
+WORKER_TASK_CONTRACT=PASS
+TASK_VALIDATION=PASS
+HANDLER_REGISTRY=PASS
+
+TASK_STATE_MODEL=PASS
+ATTEMPT_HISTORY=PASS
+
+FAILURE_TAXONOMY=PASS
+RETRY_POLICY_VERSIONING=PASS
+MAX_ATTEMPTS=PASS
+BACKOFF_MODEL=PASS
+RETRY_AFTER_MODEL=PASS
+
+FAILURE_ISOLATION=PASS
+UNEXPECTED_EXCEPTION_CONTAINMENT=PASS
+
+DOMAIN_IDEMPOTENCY_REUSE=PASS
+DUPLICATE_DOMAIN_LOGIC=NONE
+
+TELEMETRY_INTEGRATION=PASS
+TELEMETRY_FAILURE_ISOLATION=PASS
+
+SECRET_REDACTION=PASS
+CONFIDENTIALITY=PASS
+METRIC_CARDINALITY_GUARD=PASS
+
+SOURCE_SPECIFIC_LOGIC=NONE
+HIDDEN_CLOCK_DEPENDENCY=NONE
+
+REFERENCE_RUNTIME=
+DIRECT_TASK_EXECUTOR
+
+DISTRIBUTED_LEASE_PROOF=NOT_RUN
+PRODUCTION_QUEUE_PROOF=NOT_RUN
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=138/138 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+GEMINI_USED=NO
+CLAUDE_USED=NO
+
+BLOCKERS=NONE
+PROJECT_BLOCKER=NO
+
+WORKER INVARIANT — WORK-I028
+
+FINAL_FAILURE and EXHAUSTED are different terminal semantics.
+
+FINAL_FAILURE =
+failure was non-retryable.
+
+EXHAUSTED =
+failure was retryable, but retry budget was exhausted.
+
+maxAttempts must never cause a permanent/validation/policy failure
+to be misrepresented as retry exhaustion.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-SCHED-015
+
+TITLE=
+Discovery Scheduling Engine, Cadence Coordination & Gated Task Dispatch
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=ANTIGRAVITY
+PRIMARY_IMPLEMENTER=GLM-5.3
+
+GEMINI=
+OPTIONAL_FOR_CADENCE_POLICY_REVIEW
+
+QWEN=NO_ACTION
+
+CLAUDE=
+DO_NOT_USE_BY_DEFAULT
+
+OBJECTIVE=
+
+Create a deterministic scheduler boundary that decides whether an eligible Source
+is due for execution and, if due, produces a WorkerTask for PKG-WORKER-014.
+
+The scheduler must NOT:
+
+execute collectors
+
+execute Worker handlers
+
+mutate source lifecycle
+
+approve/activate sources
+
+retry failed tasks
+
+manage a production broker
+
+query hidden wall-clock time
+
+CRITICAL ARCHITECTURE
+
+SourceRecord
++
+SchedulingPolicy
++
+SchedulingState
++
+Explicit now
+↓
+Scheduler
+↓
+SchedulingDecision
+↓
+DUE
+NOT_DUE
+BLOCKED
+↓
+WorkerTask
+only when dispatch is authorized
+
+SCHEDULER
+!=
+WORKER
+
+Scheduler creates eligible work.
+
+Worker executes eligible work.
+
+SCHED-I001 — EXPLICIT TIME AUTHORITY
+
+Scheduler must receive:
+
+now
+
+explicitly.
+
+Forbidden:
+
+new Date()
+Date.now()
+
+inside deterministic scheduling logic.
+
+Same state + same policy + same now
+→ same SchedulingDecision.
+
+SCHED-I002 — VERSIONED SCHEDULING POLICY
+
+Create explicit:
+
+schedulingPolicyVersion
+
+Recommended:
+
+source-scheduling-v1
+
+All cadence thresholds and status behavior belong to this versioned policy.
+
+SCHED-I003 — SOURCE STATE GATE
+
+Scheduler must reuse canonical Source lifecycle semantics.
+
+Never maintain a second independent lifecycle definition.
+
+V1 scheduling policy must explicitly define behavior for:
+
+ACTIVE
+LOW_PRIORITY
+DEGRADED
+PAUSED
+APPROVED
+CANDIDATE
+EVALUATING
+REJECTED
+RETIRED
+
+Minimum safety:
+
+PAUSED
+REJECTED
+RETIRED
+→ NO DISPATCH
+
+APPROVED
+→ NO automatic first collection activation unless separately authorized
+
+CANDIDATE / EVALUATING
+→ NO normal production dispatch
+
+SCHED-I004 — ACTIVE CADENCE
+
+ACTIVE sources receive normal configured cadence.
+
+Example conceptual policy:
+
+ACTIVE
+→ normalIntervalMs
+
+SCHED-I005 — LOW PRIORITY CADENCE
+
+LOW_PRIORITY may remain schedulable,
+but at slower cadence than ACTIVE.
+
+Example:
+
+ACTIVE = every N
+LOW_PRIORITY = every 4N
+
+Exact values belong in policy/config, not hard-coded domain assumptions.
+
+SCHED-I006 — DEGRADED POLICY
+
+DEGRADED behavior must be explicit.
+
+Preferred V1 model:
+
+DEGRADED
+→ limited diagnostic/recovery cadence
+
+not normal high-frequency collection.
+
+This allows health recovery evidence without hammering a failing source.
+
+Policy must define:
+
+degradedIntervalMs
+
+SCHED-I007 — PAUSED MEANS NO AUTOMATIC DISPATCH
+
+PAUSED source:
+
+→ BLOCKED_STATE
+→ no WorkerTask
+
+Recovery evaluation may occur through a separately authorized control-plane task if future
+architecture explicitly supports it.
+
+Do not smuggle normal collection through PAUSED state.
+
+SCHED-I008 — SOURCE HEALTH DOES NOT DIRECTLY CONTROL SCHEDULER
+
+Scheduler consumes lifecycle/scheduling state.
+
+It must not reimplement SourceHealthEvaluator.
+
+Forbidden:
+
+if failureRate > X then schedule slower
+
+unless this behavior is already represented through an approved scheduling policy/state.
+
+Health → Governance → Lifecycle/Priority → Scheduler
+
+not:
+
+Health → Scheduler private policy
+
+SCHED-I009 — EXPLICIT SCHEDULING STATE
+
+Define SchedulingState equivalent to:
+
+sourceId
+lastScheduledAt
+lastCompletedAt
+nextEligibleAt
+lastTaskId
+consecutiveDispatchFailures if actually required
+policyVersion
+
+Do not rely on hidden process memory without an explicit state contract.
+
+SCHED-I010 — DUE CALCULATION
+
+Conceptually:
+
+dueAt =
+max(
+cadenceDueAt,
+nextEligibleAt
+)
+
+now >= dueAt
+→ eligible
+
+All calculations deterministic.
+
+SCHED-I011 — RETRY TIMING BELONGS TO WORKER
+
+Scheduler must not independently recompute Worker retry backoff.
+
+If a Worker returns:
+
+nextEligibleAt
+
+then scheduling/dispatch infrastructure may respect that explicit value.
+
+But Scheduler must not implement another retry-policy formula.
+
+SCHED-I012 — DETERMINISTIC TASK GENERATION
+
+A dispatch decision must produce a deterministic logical WorkerTask identity.
+
+Scheduling replay for the same logical run window must not create unlimited duplicate tasks.
+
+Conceptual scheduling identity:
+
+sourceId
+taskType
+scheduledFor
+schedulingPolicyVersion
+
+Exact taskId formula may follow repository conventions.
+
+SCHED-I013 — SLOT / WINDOW IDENTITY
+
+Introduce an explicit logical scheduling slot.
+
+Example:
+
+slotId =
+sourceId + taskType + scheduledFor
+
+Same slot replay
+→ same logical dispatch
+
+This is critical for future durable scheduler replay.
+
+SCHED-I014 — NO DOUBLE DISPATCH
+
+Same:
+
+source
+task type
+schedule slot
+policy version
+
+must not produce two distinct logical WorkerTasks.
+
+Reference implementation must demonstrate deterministic replay.
+
+SCHED-I015 — NOT_BEFORE
+
+Generated WorkerTask should preserve an explicit:
+
+notBefore
+
+matching scheduling eligibility.
+
+Worker must not execute before notBefore.
+
+SCHED-I016 — MAX ATTEMPTS OWNERSHIP
+
+Scheduler may choose a versioned task policy/config,
+but generated task must use Worker contract semantics.
+
+Scheduler must not override maxAttempts ad hoc after task creation.
+
+SCHED-I017 — TASK TYPES
+
+V1 scheduler should only dispatch explicitly authorized registered WorkerTask types.
+
+Expected:
+
+DISCOVERY_EXECUTION
+
+Potential control-plane tasks may be added only if current contracts support them cleanly.
+
+Do not schedule arbitrary functions.
+
+SCHED-I018 — CADENCE CONFIG VALIDATION
+
+Reject:
+
+zero interval
+negative interval
+non-finite interval
+unbounded unsafe interval values
+malformed timestamps
+
+Define safe min/max interval bounds in scheduling policy.
+
+SCHED-I019 — JITTER
+
+Jitter may eventually prevent thundering-herd behavior.
+
+For V1:
+
+Either:
+
+JITTER=NOT_IMPLEMENTED
+
+or implement deterministic jitter based on stable source identity.
+
+Random runtime jitter without reproducibility is not allowed in deterministic scheduler core.
+
+SCHED-I020 — RATE LIMIT COORDINATION
+
+Do not schedule a source before an explicit rate-limit nextEligibleAt.
+
+But Scheduler must not infer rate limits from raw HTTP responses itself.
+
+Worker/Collector produces normalized retry timing.
+Scheduler respects the resulting state.
+
+SCHED-I021 — DISPATCH DECISION CONTRACT
+
+Recommended semantics:
+
+DUE
+NOT_DUE
+BLOCKED_STATE
+BLOCKED_COOLDOWN
+BLOCKED_NOT_BEFORE
+INVALID_POLICY
+
+or equivalent repository terminology.
+
+A decision should expose:
+
+sourceId
+decision
+reasonCode
+scheduledFor
+nextEligibleAt
+policyVersion
+taskId if generated
+evaluatedAt
+
+SCHED-I022 — DECISION ≠ ENQUEUE
+
+Keep:
+
+evaluateSchedule(...)
+→ SchedulingDecision
+
+and:
+
+dispatchScheduledTask(...)
+→ reference queue/executor boundary
+
+separate.
+
+This prepares for future durable queue integration.
+
+SCHED-I023 — REFERENCE DISPATCH ONLY
+
+Allowed:
+
+in-memory dispatched task collection
+direct WorkerTask handoff for tests
+
+Not allowed to claim:
+
+production scheduling
+distributed enqueue
+durable queue
+exactly-once delivery
+
+SCHED-I024 — OBSERVABILITY
+
+Reuse PKG-OBS-013.
+
+Metrics conceptually:
+
+scheduler_evaluated
+scheduler_due
+scheduler_not_due
+scheduler_blocked
+scheduler_task_created
+scheduler_dispatch_replayed
+
+Spans:
+
+scheduler.evaluate
+scheduler.dispatch
+
+Do not use source URLs or task IDs as metric labels.
+
+SCHED-I025 — TELEMETRY FAILURE ISOLATION
+
+Telemetry failure must not alter SchedulingDecision.
+
+SCHED-I026 — CONFIDENTIALITY / SECRETS
+
+Scheduler must not require secret-bearing task payloads.
+
+Generated task should reference authorized source/config identity.
+
+Credential resolution belongs to runtime secret injection later.
+
+SCHED-I027 — NO SOURCE-SPECIFIC LOGIC
+
+Forbidden:
+
+if sourceId === "trustmrr"
+
+Scheduling is policy-driven and source-agnostic.
+
+SCHED-I028 — NO AUTO ACTIVATION
+
+Scheduler must never transition:
+
+APPROVED → ACTIVE
+
+or any other lifecycle state.
+
+It schedules only sources currently authorized by lifecycle/policy.
+
+SCHED-I029 — NO HIDDEN DATABASE ASSUMPTION
+
+Current reference scheduler may use explicit in-memory SchedulingState.
+
+Classify:
+
+DURABLE_SCHEDULING_STATE=NOT_IMPLEMENTED
+
+until persistence exists and actual DB runtime proof is available.
+
+SCHED-I030 — MISSED RUN POLICY
+
+Define what happens when several cadence slots were missed.
+
+V1 recommended:
+
+COALESCE_TO_ONE_CURRENT_DUE_TASK
+
+Do NOT generate thousands of catch-up tasks automatically.
+
+Historical missed slots may be observed/audited,
+but dispatch should be bounded.
+
+SCHED-I031 — BACKPRESSURE PREPARATION
+
+If an outstanding logical task already exists for current slot/source:
+
+do not generate another.
+
+Future broker state may provide this evidence.
+
+Reference implementation may model it explicitly.
+
+SCHED-I032 — TIMEZONE
+
+All scheduler domain timestamps must be normalized to UTC/ISO contract.
+
+No locale-specific or DST-sensitive arithmetic inside scheduler core.
+
+REFERENCE IMPLEMENTATION
+
+Allowed:
+
+InMemorySchedulingStateStore
+
+or explicit state passed into pure scheduler functions.
+
+Classification:
+
+REFERENCE_ONLY
+NOT_DURABLE
+NOT_DISTRIBUTED
+NOT_PRODUCTION_SCHEDULER
+
+GLM REQUIRED IMPLEMENTATION
+
+SchedulingPolicy contract
+
+SchedulingState contract
+
+SchedulingDecision contract
+
+source-state eligibility gate
+
+deterministic cadence calculation
+
+slot identity
+
+deterministic WorkerTask generation
+
+duplicate dispatch protection
+
+missed-run coalescing
+
+notBefore support
+
+observability integration
+
+reference in-memory state/dispatch adapter
+
+MANDATORY TEST MATRIX
+
+
+
+
+ACTIVE + never scheduled
+→ DUE
+
+
+
+
+ACTIVE + interval not elapsed
+→ NOT_DUE
+
+
+
+
+ACTIVE + interval elapsed
+→ DUE
+
+
+
+
+LOW_PRIORITY
+→ slower configured cadence than ACTIVE
+
+
+
+
+DEGRADED
+→ recovery/diagnostic cadence applied
+
+
+
+
+PAUSED
+→ BLOCKED
+→ no task
+
+
+
+
+REJECTED
+→ BLOCKED
+
+
+
+
+RETIRED
+→ BLOCKED
+
+
+
+
+APPROVED
+→ no automatic normal dispatch
+
+
+
+
+CANDIDATE/EVALUATING
+→ no normal dispatch
+
+
+
+
+same state + same now
+→ identical scheduling decision
+
+
+
+
+same slot replay
+→ same logical taskId
+
+
+
+
+same slot dispatched twice
+→ replay/no duplicate logical task
+
+
+
+
+nextEligibleAt in future
+→ no dispatch
+
+
+
+
+now reaches nextEligibleAt
+→ dispatch may become eligible
+
+
+
+
+Worker retry nextEligibleAt
+→ respected
+→ Scheduler does not recompute backoff
+
+
+
+
+invalid interval
+→ INVALID_POLICY
+
+
+
+
+malformed timestamp
+→ rejected
+
+
+
+
+several missed intervals
+→ one bounded current due task
+→ no unbounded catch-up burst
+
+
+
+
+source state changes ACTIVE → PAUSED before dispatch
+→ stale scheduling decision must not bypass current state
+
+
+
+
+telemetry throws
+→ scheduling result unchanged
+
+
+
+
+metric labels
+→ no taskId/executionId/canonicalUrl
+
+
+
+
+secret source config
+→ not serialized into task payload/logs
+
+
+
+
+no source-specific branch
+
+
+
+
+generated WorkerTask
+→ validates against PKG-WORKER-014
+
+
+
+
+notBefore
+→ correctly preserved
+
+
+
+
+SOURCE_CLAIM/data payload semantics
+→ Scheduler never touches them
+
+
+
+
+scheduler evaluation
+→ no SourceRegistry mutation
+
+STALE SCHEDULING DECISION
+
+Important:
+
+evaluation and dispatch are separate.
+
+Before dispatch, current Source state must still be eligible.
+
+If state changed:
+
+ACTIVE
+→ PAUSED
+
+between evaluation and dispatch:
+
+→ STALE_SCHEDULE_DECISION
+→ no task dispatch
+
+Reference implementation must prove this locally.
+
+Future durable/distributed atomic proof remains separate.
+
+CLAUDE POLICY
+
+CLAUDE_USED=NO by default.
+
+Use Claude only if implementation introduces:
+
+scheduler bypassing lifecycle governance
+
+unbounded task storm
+
+unsafe distributed/exactly-once claims
+
+secret leakage
+
+destructive timing behavior
+
+Otherwise conserve Claude quota.
+
+HARD SCOPE
+
+PRODUCTION_SCHEDULER=NO
+PRODUCTION_QUEUE=NO
+DISTRIBUTED_LOCK=NO
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+SOURCE_ACTIVATED=NO
+AUTO_REJECTION=NO
+AUTO_RETIREMENT=NO
+
+DEPLOY=NO
+
+ACCEPTANCE_GATE
+
+SCHEDULING_POLICY=PASS
+SCHEDULING_STATE=PASS
+SCHEDULING_DECISION=PASS
+
+SOURCE_STATE_GATE=PASS
+CADENCE_MODEL=PASS
+LOW_PRIORITY_CADENCE=PASS
+DEGRADED_CADENCE=PASS
+
+DETERMINISTIC_SLOT_IDENTITY=PASS
+DETERMINISTIC_TASK_GENERATION=PASS
+DISPATCH_REPLAY_PROTECTION=PASS
+
+NOT_BEFORE=PASS
+MISSED_RUN_COALESCING=PASS
+
+WORKER_RETRY_SEPARATION=PASS
+STALE_DECISION_PROTECTION=PASS
+
+OBSERVABILITY_INTEGRATION=PASS
+TELEMETRY_FAILURE_ISOLATION=PASS
+
+SECRET_BOUNDARY=PASS
+METRIC_CARDINALITY_GUARD=PASS
+
+SOURCE_SPECIFIC_LOGIC=NONE
+HIDDEN_CLOCK_DEPENDENCY=NONE
+SOURCE_STATE_MUTATION=NONE
+
+REFERENCE_RUNTIME=IN_MEMORY
+
+DURABLE_SCHEDULER_PROOF=NOT_RUN
+DISTRIBUTED_SCHEDULER_PROOF=NOT_RUN
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+
+EXPECTED REPORT
+
+PKG_SCHED_015_REPORT
+
+PACKAGE=PKG-SCHED-015
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+SCHEDULING_POLICY=
+POLICY_VERSION=
+
+SCHEDULING_STATE=
+SCHEDULING_DECISION=
+
+SOURCE_STATE_GATE=
+
+ACTIVE_CADENCE=
+LOW_PRIORITY_CADENCE=
+DEGRADED_CADENCE=
+
+SLOT_IDENTITY_MODEL=
+TASK_IDENTITY_MODEL=
+DISPATCH_REPLAY_MODEL=
+
+NOT_BEFORE_MODEL=
+MISSED_RUN_POLICY=
+
+WORKER_RETRY_SEPARATION=
+STALE_DECISION_MODEL=
+
+REFERENCE_RUNTIME=
+DURABLE_SCHEDULER_PROOF=
+DISTRIBUTED_SCHEDULER_PROOF=
+
+OBSERVABILITY_INTEGRATION=
+SECRET_BOUNDARY=
+CARDINALITY_POLICY=
+
+SOURCE_SPECIFIC_LOGIC=
+HIDDEN_CLOCK_DEPENDENCY=
+SOURCE_STATE_MUTATION=
+
+DATABASE_CHANGED=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+GEMINI_USED=
+GEMINI_REASON=
+
+CLAUDE_USED=
+CLAUDE_TRIGGER_REASON=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-SECRETS-016
+
+CURRENT_STATE
+
+PKG-WORKER-014=CLOSED
+
+PKG-SCHED-015=ACTIVE
+
+PKG-SECRETS-016=WAITING
+
+PARKED_TRACKS=
+
+PKG-DBRUN-012B
+→ waiting for disposable PostgreSQL
+
+PKG-COL-002B
+→ waiting for authorized TrustMRR API credential
+
+بعد از Scheduler، پیشنهاد من PKG-SECRETS-016 است: Credential/Secret Injection Boundary. چون قبل از اینکه بتوانیم TrustMRR یا هر Collector واقعی را live کنیم، باید کلید API بدون ورود به Git، task payload، log یا telemetry به Collector تزریق شود.

@@ -1,0 +1,780 @@
+آنتی‌گرویتی، PKG-DBRUN-012 را به‌عنوان runtime-proof track پارک‌شده به‌علت نبود PostgreSQL واقعی می‌پذیرم. Adapter و contract جلو رفته‌اند، اما چند عبارت گزارش باید از «PROVEN» به «CONTRACT/DESIGN VERIFIED» تنزل داده شوند؛ چون دیتابیس واقعی اجرا نشده است.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-DBRUN-012
+TITLE=Disposable PostgreSQL Runtime Test & Live Database Proof Assessment
+
+STATUS=ACCEPTED_AS_ENVIRONMENT_BLOCKED_TRACK
+
+IMPLEMENTATION_COMMIT=
+b55dff3e8c89dbd3fd5b002c0f1afa21c6c70418
+
+ORIGIN_MAIN=
+b55dff3e8c89dbd3fd5b002c0f1afa21c6c70418
+
+POSTGRES_ADAPTER=IMPLEMENTED
+POSTGRES_RUNTIME=ENVIRONMENT_BLOCKED
+
+MIGRATION_EXECUTED=NO
+POSTGRES_INTEGRATION_TESTS=NOT_RUN
+CONCURRENCY_PROOF=NOT_RUN
+RESTART_DURABILITY_PROOF=NOT_RUN
+TRANSACTION_ROLLBACK_PROOF=NOT_RUN
+
+POSTGRES_SOURCE_STATE_AUTHORITY=EXTERNAL
+GOVERNANCE_STATE_ATOMICITY_PROOF=BLOCKED_ARCHITECTURE_GAP
+
+PRODUCTION_DATABASE_TOUCHED=NO
+
+TESTS=120/120 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+
+PACKAGE_STATUS=PARKED_ENVIRONMENT_BLOCKED
+PROJECT_BLOCKER=NO
+
+EVIDENCE_CORRECTIONS
+
+REPORTED:
+HEALTH_SNAPSHOT_REPLAY=IDEMPOTENT_REPLAY_PROVEN
+
+COMMANDER_CLASSIFICATION:
+HEALTH_SNAPSHOT_REPLAY_CONTRACT=PASS
+POSTGRES_HEALTH_SNAPSHOT_REPLAY_PROOF=NOT_RUN
+
+REPORTED:
+HEALTH_SNAPSHOT_CONFLICT=DETECTED_ON_MUTATION
+
+COMMANDER_CLASSIFICATION:
+HEALTH_SNAPSHOT_CONFLICT_CONTRACT=PASS
+POSTGRES_HEALTH_SNAPSHOT_CONFLICT_PROOF=NOT_RUN
+
+REPORTED:
+TRANSACTION_ROLLBACK=DESIGN_VERIFIED
+
+COMMANDER_CLASSIFICATION:
+TRANSACTION_ROLLBACK_DESIGN=DEFINED
+TRANSACTION_ROLLBACK_PROOF=NOT_RUN
+
+REPORTED:
+RESTART_DURABILITY=DESIGN_VERIFIED
+
+COMMANDER_CLASSIFICATION:
+DURABILITY_DESIGN=DEFINED
+RESTART_DURABILITY_PROOF=NOT_RUN
+
+RUNTIME TRACK REMAINS OPEN
+
+PACKAGE=PKG-DBRUN-012B
+
+TRIGGER=
+Disposable non-production PostgreSQL becomes available
+
+REQUIRED FUTURE PROOF=
+
+actual migration execution
+
+actual foreign-key enforcement
+
+actual database uniqueness enforcement
+
+actual transaction rollback
+
+actual concurrent candidate insertion
+
+actual concurrent conflict detection
+
+actual attribution concurrency
+
+actual observation replay protection
+
+actual restart durability
+
+Additionally:
+
+GOVERNANCE_STATE_ATOMICITY cannot be proven until PostgreSQL owns,
+or participates atomically in, authoritative Source lifecycle state.
+
+ARCHITECTURE GAP REGISTERED
+
+GAP_ID=DB-GOV-STATE-001
+
+DESCRIPTION=
+PostgreSQL persistence currently does not own authoritative SourceRegistry lifecycle state.
+
+IMPACT=
+Database-level atomic stale-decision protection for governance transitions
+cannot yet be demonstrated.
+
+STATUS=
+KNOWN_ARCHITECTURE_GAP
+
+NOT_PROJECT_BLOCKING=YES
+
+Do not silently solve this inside an unrelated package.
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-OBS-013
+
+TITLE=
+Production Observability Contracts, Metrics & Structured Tracing
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=ANTIGRAVITY
+PRIMARY_IMPLEMENTER=GLM-5.3
+
+GEMINI=OPTIONAL_FOR_SIGNAL_COVERAGE_REVIEW
+QWEN=NO_ACTION
+CLAUDE=NO_ACTION
+
+OBJECTIVE=
+
+Add source-agnostic observability boundaries across the Discovery Core
+without changing domain behavior.
+
+The system must expose enough structured telemetry to answer:
+
+What happened?
+
+Where did it fail?
+
+Which source was affected?
+
+Which execution caused it?
+
+How long did each stage take?
+
+Was the operation stored, replayed, rejected, blocked, or conflicted?
+
+Did governance recommend or apply a transition?
+
+Are collectors being rate-limited?
+
+Are sources producing useful unique intelligence?
+
+Observability must never become business logic.
+
+OBS-I001 — OBSERVABILITY IS NON-AUTHORITATIVE
+
+Metrics, traces and logs must not decide:
+
+source lifecycle
+candidate acceptance
+entity match
+claim classification
+health score
+governance transition
+
+Telemetry observes approved domain decisions.
+
+It does not create them.
+
+OBS-I002 — DOMAIN OUTCOME FIRST
+
+Telemetry must be derived from actual domain outcomes.
+
+Forbidden:
+
+telemetry reports candidate STORED
+when persistence returned CONFLICT
+
+telemetry reports governance APPLIED
+when application returned STALE_DECISION
+
+No optimistic/fabricated success telemetry.
+
+OBS-I003 — CORRELATION MODEL
+
+Support explicit correlation fields equivalent to:
+
+executionId
+sourceId
+candidateId
+observationId
+decisionId
+clusterId
+collectorId
+
+Include only identifiers that actually exist for that stage.
+
+Do not fabricate unavailable IDs.
+
+OBS-I004 — TRACE MODEL
+
+Provide structured spans for major boundaries:
+
+discovery.pipeline
+discovery.intake
+discovery.store
+discovery.entity_resolution
+
+source.health.evaluate
+source.governance.evaluate
+source.governance.apply
+
+collector.execute
+
+persistence.operation
+
+Exact names may follow conventions.
+
+Nested traces should preserve execution correlation.
+
+OBS-I005 — METRIC MODEL
+
+At minimum define source-agnostic metrics for:
+
+collector attempts
+collector successes
+collector failures
+rate-limit events
+access/config failures
+
+intake accepted
+intake rejected
+
+candidate stored
+candidate replayed
+candidate conflicted
+
+attribution appended
+
+resolution confirmed
+resolution possible
+resolution blocked
+resolution distinct/unresolved
+
+observations produced
+observation replayed/conflicted
+
+health evaluations
+health confidence distribution
+
+governance decisions
+governance transitions applied
+governance stale decisions
+manual-review decisions
+
+OBS-I006 — INTELLIGENCE CONTRIBUTION METRICS
+
+Expose metrics such as:
+
+unique candidates
+duplicate candidates
+new attributions
+confirmed entity links
+
+but do not independently recompute the SourceHealthEvaluator formula.
+
+Observability may measure inputs/outcomes.
+
+It must not become a second health evaluator.
+
+OBS-I007 — LATENCY
+
+Capture stage duration.
+
+Use monotonic duration measurement where runtime implementation supports it.
+
+Do not use wall-clock timestamps to calculate elapsed duration if a monotonic timer is available.
+
+Domain deterministic timestamps remain separate from operational timing.
+
+OBS-I008 — STRUCTURED LOGGING
+
+Logs should be structured records.
+
+Recommended levels:
+
+DEBUG
+INFO
+WARN
+ERROR
+
+Each event should contain an event name/code rather than relying on prose parsing.
+
+OBS-I009 — SECRET REDACTION
+
+Never emit:
+
+API tokens
+Authorization headers
+database URLs containing credentials
+cookies
+secret environment variables
+
+into:
+
+logs
+traces
+span attributes
+metrics labels
+error serialization
+
+OBS-I010 — CONFIDENTIALITY
+
+Confidential Candidate protection extends to observability.
+
+Do not log or trace:
+
+sanitized confidential domain
+original contentReference
+masked entity identifying metadata
+
+Telemetry may carry:
+
+candidateId
+sourceId
+confidential=true
+
+where safe.
+
+OBS-I011 — METRIC CARDINALITY
+
+Do NOT use high-cardinality identifiers as metric labels.
+
+Forbidden as normal metric labels:
+
+executionId
+candidateId
+observationId
+decisionId
+canonicalUrl
+
+They may appear in structured traces/log correlation.
+
+Safe metric dimensions may include bounded values like:
+
+sourceId
+status
+stage
+failureKind
+decisionType
+
+SourceId cardinality must still be understood and documented.
+
+OBS-I012 — ERROR TAXONOMY
+
+Preserve existing distinctions:
+
+TECHNICAL_FAILURE
+RATE_LIMIT_PRESSURE
+ACCESS_CONFIGURATION_FAILURE
+POLICY_ACCESS_FAILURE
+
+Do not collapse them into generic ERROR metrics only.
+
+OBS-I013 — REPLAY VISIBILITY
+
+Idempotent replay must be observable distinctly from new writes.
+
+Example:
+
+candidate STORED
+candidate REPLAYED
+candidate CONFLICT
+
+must remain separate outcomes.
+
+OBS-I014 — GOVERNANCE SAFETY VISIBILITY
+
+Expose separately:
+
+decision generated
+automatic transition authorized
+transition applied
+manual review required
+stale decision
+blocked transition
+
+Do not count a decision as an applied transition.
+
+OBS-I015 — PROVIDER ABSTRACTION
+
+Domain modules should not depend directly on OpenTelemetry SDK APIs.
+
+Use an observability port/facade.
+
+Conceptually:
+
+TelemetryPort
+
+startSpan(...)
+recordMetric(...)
+log(...)
+
+Production OpenTelemetry adapter may sit behind the port.
+
+OBS-I016 — NO-OP ADAPTER
+
+A NoopTelemetry adapter must exist.
+
+The Discovery Core must function correctly when observability is unavailable.
+
+Telemetry outage must not stop core domain processing.
+
+OBS-I017 — TELEMETRY FAILURE ISOLATION
+
+Unless explicitly classified as a critical operational requirement:
+
+metric export failure
+trace export failure
+logging sink failure
+
+must not change domain outcome.
+
+Telemetry errors should be isolated.
+
+OBS-I018 — OTEL ADAPTER BOUNDARY
+
+A real OpenTelemetry-compatible adapter is authorized.
+
+However external collector/export infrastructure is not required in this package.
+
+Allowed:
+
+SDK integration
+in-memory test exporter
+console/local structured exporter for testing
+
+Not required:
+
+production Grafana
+production Tempo
+production Prometheus
+production OTLP endpoint
+
+OBS-I019 — VERSIONING
+
+Telemetry schema/event naming should have an explicit version.
+
+Recommended:
+
+discovery-observability-v1
+
+This allows dashboards and alerting contracts to evolve safely.
+
+OBS-I020 — NO HIDDEN BUSINESS MUTATION
+
+Observability instrumentation must not mutate:
+
+SourceRecord
+RawDocument
+CandidateDiscoveryRecord
+Attribution
+ResolutionDecision
+SourceHealthSnapshot
+GovernanceDecision
+
+IMPLEMENTATION TARGET
+
+Recommended modules:
+
+src/observability/telemetry.mjs
+src/observability/noop-telemetry.mjs
+src/observability/otel-adapter.mjs
+
+plus minimal instrumentation at approved orchestration boundaries.
+
+Do not scatter arbitrary instrumentation through every low-level function if
+an orchestration boundary can produce the same evidence cleanly.
+
+INSTRUMENTATION PRIORITY
+
+E2E Orchestrator
+
+Discovery Pipeline
+
+Collector execution boundary
+
+Persistence adapter boundary
+
+Health evaluator
+
+Governance evaluator/applier
+
+Prefer boundary instrumentation over invasive domain rewrites.
+
+TEST MATRIX
+
+
+
+
+Noop telemetry
+→ complete discovery succeeds unchanged
+
+
+
+
+telemetry throws internally
+→ domain outcome remains unchanged
+
+
+
+
+successful pipeline
+→ expected trace/span sequence emitted
+
+
+
+
+intake rejected
+→ no false store success metric
+
+
+
+
+candidate replay
+→ REPLAY metric, not STORED metric
+
+
+
+
+candidate conflict
+→ CONFLICT metric
+
+
+
+
+429 collector result
+→ RATE_LIMIT metric
+
+
+
+
+401/access configuration failure
+→ ACCESS_CONFIGURATION metric
+
+
+
+
+policy access failure
+→ POLICY_ACCESS metric
+
+
+
+
+health evaluation
+→ score/confidence outcome observed
+→ formula not recomputed
+
+
+
+
+governance decision generated
+→ decision metric emitted
+
+
+
+
+STALE_DECISION
+→ stale metric
+→ no transition-applied metric
+
+
+
+
+REQUIRE_MANUAL_REVIEW
+→ manual-review metric
+
+
+
+
+confidential candidate
+→ no secret/confidential identifiers in emitted telemetry
+
+
+
+
+Authorization header supplied to error context
+→ redacted
+
+
+
+
+database credential-containing URL
+→ redacted
+
+
+
+
+high-cardinality IDs
+→ absent from metrics labels
+
+
+
+
+same execution replay
+→ telemetry reflects replay rather than inflated new-work counters
+
+
+
+
+trace correlations
+→ executionId available where appropriate
+
+
+
+
+telemetry adapter disabled
+→ no domain behavior change
+
+GEMINI POLICY
+
+Gemini may be used once if Antigravity wants a coverage audit of:
+
+metrics
+trace/span boundaries
+failure taxonomy
+
+Gemini should not implement primary code.
+
+CLAUDE POLICY
+
+CLAUDE_USED=NO
+
+Do not use Claude for routine observability.
+
+Only escalate if instrumentation exposes secrets/confidential data
+and the issue cannot be resolved routinely by GLM.
+
+HARD SCOPE
+
+DOMAIN_BEHAVIOR_CHANGED=NO
+
+DATABASE_SCHEMA_CHANGED=NO
+PRODUCTION_DATABASE_CONNECTION=NO
+
+NETWORK_EXPORT_REQUIRED=NO
+
+SOURCE_ACTIVATED=NO
+AI_RUNTIME_CALLS=0
+SCHEDULER=NO
+DEPLOY=NO
+
+ACCEPTANCE_GATE
+
+TELEMETRY_PORT=PASS
+NOOP_ADAPTER=PASS
+OTEL_ADAPTER_BOUNDARY=PASS
+
+DOMAIN_TELEMETRY_SEPARATION=PASS
+TELEMETRY_FAILURE_ISOLATION=PASS
+
+STRUCTURED_LOGGING=PASS
+TRACE_CORRELATION=PASS
+METRIC_MODEL=PASS
+
+REPLAY_VISIBILITY=PASS
+ERROR_TAXONOMY_PRESERVED=PASS
+GOVERNANCE_VISIBILITY=PASS
+
+SECRET_REDACTION=PASS
+CONFIDENTIALITY_REDACTION=PASS
+METRIC_CARDINALITY_GUARD=PASS
+
+OBSERVABILITY_VERSIONING=PASS
+
+DOMAIN_MUTATION_FROM_TELEMETRY=NONE
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+
+EXPECTED_REPORT
+
+PKG_OBS_013_REPORT
+
+PACKAGE=PKG-OBS-013
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+TELEMETRY_CONTRACT=
+OBSERVABILITY_VERSION=
+
+NOOP_ADAPTER=
+OTEL_ADAPTER=
+
+TRACE_MODEL=
+METRIC_MODEL=
+STRUCTURED_LOG_MODEL=
+
+CORRELATION_MODEL=
+LATENCY_MODEL=
+
+ERROR_TAXONOMY=
+REPLAY_VISIBILITY=
+GOVERNANCE_VISIBILITY=
+
+SECRET_REDACTION=
+CONFIDENTIALITY_REDACTION=
+CARDINALITY_POLICY=
+
+TELEMETRY_FAILURE_ISOLATION=
+DOMAIN_BEHAVIOR_CHANGED=NO
+
+DATABASE_SCHEMA_CHANGED=NO
+NETWORK_EXPORT_REQUIRED=NO
+SOURCE_ACTIVATED=NO
+AI_RUNTIME_CALLS=0
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+GEMINI_USED=
+GEMINI_REASON=
+
+CLAUDE_USED=NO
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-WORKER-014
+
+CURRENT_STATE
+
+PKG-PERSIST-011R=CLOSED
+
+PKG-DBRUN-012=
+PARKED_ENVIRONMENT_BLOCKED
+
+PKG-OBS-013=ACTIVE
+
+PKG-WORKER-014=WAITING
+
+PARKED_TRACKS=
+
+
+
+
+PKG-DBRUN-012B
+Trigger: disposable PostgreSQL available
+
+
+
+
+PKG-COL-002B
+Trigger: authorized TrustMRR API credential available
+
+پس پروژه متوقف نیست. DBRUN-012 با برچسب صحیح پارک می‌شود و PKG-OBS-013 را جلو می‌بریم. بعد از Observability، قدم منطقی بعدی Worker Runtime و Failure Isolation است؛ چون قبل از Scheduler باید اجرای قابل‌کنترل، retry isolation و telemetry مناسب داشته باشیم.

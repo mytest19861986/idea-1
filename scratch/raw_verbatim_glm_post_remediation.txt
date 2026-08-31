@@ -1,0 +1,14 @@
+ — after thirteen reviews of maintaining that evidence, not plausibility, is the qualification.
+
+Conversion to GO, in full:
+
+Destination identity for the escrow copy — host/provider/mount source, with non-shared chassis/power/admin domain established.
+Key custody location — where Master/K_enc/K_mac live, and that it is not the database host (plus the PBKDF2 parameter count).
+Table reconciliation — which fork is true; if 19→13 was real, the migration and its interaction with the rollback pin; if not, row parity for the remaining six.
+Drill source — the daily EtM artifact or a stated, accepted drill-time generation.
+Pin reconciliation — 7f47e82 or 3838cdd, which prior statement was wrong, and what the artifact actually is.
+
+The standing record, updated: seven completeness-claim incidents across this program — the test that couldn't test what it named, the narrowed gate, the "100% remediated," the "all 7 blockers," the silently moving rollback anchor, "TRUE OFF-HOST" on a project-tree mount, and now "OFF_CHASSIS... PROVEN" with the destination omitted. The consistent signature of all seven: real, creditable engineering underneath, wrapped in a closure claim larger than the evidence. The drill in this package is real and good. The claim on its label is not proven. Until the five lines above arrive, the gate holds — and any further submission on this subject that leads with a status label rather than destination evidence will be adjudicated exactly as this one was.
+
+Deep Think
+Max

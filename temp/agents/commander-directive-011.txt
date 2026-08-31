@@ -1,0 +1,846 @@
+آنتی‌گرویتی، PKG-DISC-SUMMARY-010 پذیرفته شد. Milestone معماری Discovery Core اکنون رسماً بسته است و پروژه از فاز Architecture / In-Memory Proof وارد فاز Productionization می‌شود.
+
+Edit
+
+COMMANDER_ADJUDICATION
+
+PACKAGE=PKG-DISC-SUMMARY-010
+TITLE=Discovery Platform Blueprint & Architecture Milestone Acceptance
+
+STATUS=ACCEPTED
+
+DOCUMENTATION_COMMIT=
+efda8dca8d57f137d7be2f59210bdc15eed26370
+
+ORIGIN_MAIN=
+efda8dca8d57f137d7be2f59210bdc15eed26370
+
+BLUEPRINT=ACCEPTED
+INVARIANT_REGISTER=ACCEPTED
+PRODUCTION_GAP_MATRIX=ACCEPTED
+
+ARCHITECTURE_PROVEN=YES
+CONTRACT_PROVEN=YES
+IN_MEMORY_E2E_PROVEN=YES
+PRODUCTION_READY=NO
+
+DATA_PLANE_DOCUMENTED=YES
+CONTROL_PLANE_DOCUMENTED=YES
+FACT_CLAIM_BOUNDARY_DOCUMENTED=YES
+
+OBSERVATION_IDENTITY_MODE=
+ONE_OBSERVATION_PER_EXECUTION
+
+OBSERVATION_IDENTITY_COLLISION_RISK=
+NONE_UNDER_CURRENT_CONTRACT
+
+TRUSTMRR_SOURCE_ACTIVE=NO
+PKG-COL-002B=PARKED
+
+TESTS=107/107 PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+BLOCKERS=NONE
+
+MILESTONE=
+checkpoint/discovery-core-v1
+
+MILESTONE_STATUS=ACCEPTED
+
+PROJECT_PHASE_TRANSITION
+
+FROM=
+DISCOVERY_CORE_ARCHITECTURE_AND_IN_MEMORY_PROOF
+
+TO=
+DISCOVERY_CORE_PRODUCTIONIZATION
+
+COMMANDER_DIRECTIVE
+
+PACKAGE=PKG-PERSIST-011
+
+TITLE=
+Discovery Core Production Persistence Contract
+
+STATUS=AUTHORIZED
+
+ORCHESTRATOR=
+ANTIGRAVITY
+
+PRIMARY_IMPLEMENTER=
+GLM-5.3
+
+GEMINI=
+NO_ACTION_BY_DEFAULT
+
+QWEN=
+NO_ACTION
+
+CLAUDE=
+DO_NOT_USE_BY_DEFAULT
+
+OBJECTIVE=
+
+Design and implement the production persistence boundary for Discovery Core
+using PostgreSQL-oriented contracts and additive schema design,
+while keeping domain logic independent from PostgreSQL.
+
+This package must establish how the currently proven in-memory system maps to
+durable production storage.
+
+It must NOT claim production runtime proof unless an actual disposable PostgreSQL
+environment becomes available.
+
+PERSISTENCE SCOPE
+
+The persistence architecture must account for:
+
+Discovery Candidates
+
+Candidate Attributions
+
+Entity Resolution Decisions
+
+Entity Clusters / Memberships
+
+Normalized Source Observations
+
+Source Health Snapshots
+
+Governance Decisions
+
+Governance Applications / Transition Audit
+
+Do not persist only CandidateDiscoveryRecord and leave control-plane state undefined.
+
+ARCHITECTURE
+
+DOMAIN
+
+DiscoveryCandidateStore
+EntityResolutionStore
+SourceObservationStore
+SourceHealthSnapshotStore
+SourceGovernanceStore
+
+    ↓
+
+PERSISTENCE PORTS
+
+    ↓
+
+PostgreSQL Adapters
+
+    ↓
+
+PostgreSQL Schema
+
+PERSIST-I001 — DOMAIN / DATABASE SEPARATION
+
+Domain modules must not:
+
+import PostgreSQL client
+
+issue SQL
+
+know table names
+
+open transactions
+
+manage connection pools
+
+Database behavior belongs behind persistence adapters.
+
+PERSIST-I002 — ADDITIVE SCHEMA ONLY
+
+Schema design must be additive.
+
+FORBIDDEN:
+
+DROP TABLE
+DROP COLUMN
+TRUNCATE
+destructive migration
+history rewrite
+
+No destructive database operation is authorized.
+
+PERSIST-I003 — CANDIDATE IDENTITY
+
+The persistence layer must preserve existing logical identity exactly.
+
+Candidate identity:
+
+discoveryId
+
+must remain immutable.
+
+Do not replace domain identity with database-generated identity.
+
+A surrogate database primary key may exist internally,
+but it must not become the domain identity.
+
+PERSIST-I004 — IDEMPOTENCY
+
+Persist explicit idempotency identity.
+
+Database constraints must protect against duplicate logical candidates.
+
+Required behavior:
+
+same logical candidate replay
+→ same stored candidate
+
+same idempotency key + conflicting immutable payload
+→ explicit conflict
+
+Never silently overwrite.
+
+PERSIST-I005 — ATTRIBUTION APPEND-ONLY
+
+Candidate attribution must be independently persisted.
+
+Candidate:
+1
+
+Attributions:
+N
+
+Existing source attribution must not be overwritten merely because another source
+reports the same entity.
+
+PERSIST-I006 — MULTI-SOURCE MODEL
+
+Persistence must support:
+
+Entity Cluster
+├─ Candidate A / Source A
+├─ Candidate B / Source B
+└─ Candidate C / Source C
+
+without collapsing source provenance.
+
+PERSIST-I007 — ENTITY RESOLUTION HISTORY
+
+Do not persist only the latest resolution decision.
+
+Resolution history must remain auditable.
+
+Required concepts:
+
+pairIdentity
+decisionId
+ruleVersion
+decision
+signals
+contradictions
+confidence
+actor
+at
+
+Previous decisions must remain interpretable after rule-version changes.
+
+PERSIST-I008 — OBSERVATION LEDGER
+
+Normalized Source Observations must be persisted as an immutable/replay-safe ledger.
+
+Current invariant:
+
+ONE_OBSERVATION_PER_EXECUTION
+
+must be documented in the schema/port.
+
+Observation uniqueness must prevent replay double-counting.
+
+Do not rely only on application memory.
+
+PERSIST-I009 — OBSERVATION IDENTITY FUTURE SAFETY
+
+Current observation identity:
+
+obs:${sourceId}:${executionId}:${occurredAt}
+
+may be persisted under the current ONE_OBSERVATION_PER_EXECUTION contract.
+
+Document a migration consideration:
+
+If future adapters allow multiple observations per execution,
+observation identity must be upgraded with a stable discriminator.
+
+Do NOT prematurely change current identity.
+
+PERSIST-I010 — SOURCE HEALTH SNAPSHOTS
+
+Health evaluation results must be append-only/versioned snapshots.
+
+Persist:
+
+sourceId
+evaluationVersion
+formulaVersion
+
+windowStart
+windowEnd
+evaluatedAt
+
+operationalHealth
+intelligenceContribution
+confidence
+
+findings
+governanceRecommendation
+
+A new health evaluation must not overwrite historical evaluation evidence.
+
+PERSIST-I011 — GOVERNANCE DECISIONS
+
+GovernanceDecision must be durable independently of transition application.
+
+Persist:
+
+decisionId
+sourceId
+currentState
+proposedState
+decision
+
+governancePolicyVersion
+healthEvaluationVersion
+healthFormulaVersion
+
+reasonCodes
+confidence
+
+cooldownSatisfied
+hysteresisSatisfied
+
+actor
+decisionAt
+
+PERSIST-I012 — GOVERNANCE APPLICATION
+
+Decision and application must remain separate persistence concepts.
+
+Governance Decision
+≠
+Lifecycle Transition Application
+
+Application records must support:
+
+APPLIED
+REPLAYED
+BLOCKED
+STALE_DECISION
+MANUAL_REVIEW_REQUIRED
+
+or equivalent existing semantics.
+
+PERSIST-I013 — STALE DECISION SAFETY
+
+Future PostgreSQL adapter must support optimistic state verification.
+
+The persistence contract must make it possible to atomically prove:
+
+expectedCurrentState == currentState
+
+before applying a lifecycle transition.
+
+Do not implement unsafe:
+
+read state
+→ unlock
+→ later write transition
+
+as the assumed production strategy.
+
+PERSIST-I014 — TRANSACTION BOUNDARIES
+
+Document transaction requirements.
+
+At minimum identify which operations will require atomicity.
+
+Examples:
+
+candidate + initial attribution
+
+entity cluster + membership
+
+governance transition + governance application audit
+
+Do not claim concurrency safety merely from an in-memory adapter.
+
+PERSIST-I015 — CLAIM CLASSIFICATION
+
+Persistence must faithfully round-trip:
+
+FACT
+SOURCE_CLAIM
+DERIVED_METRIC
+AI_ANALYSIS
+AI_HYPOTHESIS
+UNKNOWN
+
+Storage itself must never promote classification.
+
+PERSIST-I016 — CONFIDENTIALITY
+
+Confidential/sanitized records must remain sanitized after persistence round-trip.
+
+Do not create a secondary database column that reintroduces confidential URLs or domains
+which the domain layer intentionally removed.
+
+PERSIST-I017 — PROVENANCE
+
+Provenance must remain attributable after persistence.
+
+Do not compress provenance into an opaque string if structured querying/audit would be lost.
+
+PERSIST-I018 — TIMESTAMP AUTHORITY
+
+Persist supplied domain timestamps.
+
+Database NOW()
+must NOT silently replace explicit deterministic domain timestamps.
+
+Database-level created_at may additionally exist for operational metadata,
+but it must be clearly distinguished from domain event time.
+
+PERSIST-I019 — VERSIONING
+
+Persist all relevant versions explicitly:
+
+schemaVersion
+collectorVersion
+ruleVersion
+evaluationVersion
+formulaVersion
+governancePolicyVersion
+
+where applicable.
+
+PERSIST-I020 — AUDIT IMMUTABILITY
+
+Audit/event history should be append-only.
+
+Routine updates must not rewrite historical audit events.
+
+REFERENCE PORTS
+
+GLM should create or formalize source-agnostic interfaces equivalent to:
+
+DiscoveryCandidatePersistence
+EntityResolutionPersistence
+SourceObservationPersistence
+SourceHealthPersistence
+SourceGovernancePersistence
+
+Exact names may follow repository conventions.
+
+POSTGRESQL SCHEMA DESIGN
+
+Additive migration design is authorized.
+
+Recommended conceptual tables:
+
+discovery_candidates
+discovery_candidate_attributions
+
+entity_resolution_decisions
+entity_clusters
+entity_cluster_members
+
+source_observations
+source_health_snapshots
+
+source_governance_decisions
+source_governance_applications
+
+Exact naming may follow existing database conventions.
+
+DATABASE CONSTRAINTS
+
+Use database constraints for invariants that belong in persistence.
+
+Examples:
+
+UNIQUE(discovery_id)
+
+UNIQUE(idempotency_key)
+where contract guarantees global uniqueness,
+otherwise use correct scoped uniqueness.
+
+UNIQUE(observation_id)
+
+UNIQUE(decision_id)
+
+UNIQUE(cluster_id, candidate_id)
+
+Foreign keys where they preserve valid relationships.
+
+Do not blindly create uniqueness constraints without validating domain scope.
+
+JSON / STRUCTURED COLUMNS
+
+JSONB is allowed for flexible evidence structures such as:
+
+signals
+contradictions
+findings
+reasonCodes
+metadata
+
+But stable query-critical identity/version/status fields should not all be hidden
+inside opaque JSONB documents.
+
+MIGRATION EXECUTION POLICY
+
+Current known environment limitation:
+
+Disposable PostgreSQL runtime may be unavailable.
+
+Therefore:
+
+SCHEMA_DESIGN=AUTHORIZED
+MIGRATION_FILE=AUTHORIZED
+PERSISTENCE_PORTS=AUTHORIZED
+POSTGRES_ADAPTER_SKELETON=AUTHORIZED
+
+REAL_DB_CONNECTION=
+ONLY_IF_DISPOSABLE_NON_PRODUCTION_POSTGRES_EXISTS
+
+PRODUCTION_DB_CONNECTION=FORBIDDEN
+
+IF POSTGRES IS UNAVAILABLE
+
+Report:
+
+POSTGRES_RUNTIME=ENVIRONMENT_BLOCKED
+
+Do not report:
+
+MIGRATION_EXECUTION=PASS
+CONCURRENCY_PROOF=PASS
+TRANSACTION_PROOF=PASS
+
+unless they actually occurred.
+
+REFERENCE TESTING
+
+Allowed:
+
+in-memory persistence contract tests
+fake transaction adapters
+SQL schema static validation
+module loading
+deterministic serialization round-trip tests
+
+Do not use mocks to claim PostgreSQL concurrency proof.
+
+REQUIRED TEST MATRIX
+
+
+
+
+candidate persisted
+→ round-trip deep-equivalent domain record
+
+
+
+
+same candidate replay
+→ idempotent
+
+
+
+
+same idempotency identity + conflicting immutable payload
+→ conflict
+
+
+
+
+candidate + second attribution
+→ append
+
+
+
+
+same attribution replay
+→ no duplicate attribution
+
+
+
+
+multi-source attribution
+→ all provenance preserved
+
+
+
+
+resolution decision history
+→ previous version retained
+
+
+
+
+entity cluster membership replay
+→ idempotent
+
+
+
+
+source observation replay
+→ no double-counting identity
+
+
+
+
+health snapshot v1
+→ health snapshot v2
+→ both remain stored
+
+
+
+
+governance decision persisted
+→ source state remains unchanged
+
+
+
+
+governance application
+→ references exact decisionId
+
+
+
+
+SOURCE_CLAIM storage round-trip
+→ SOURCE_CLAIM
+
+
+
+
+UNKNOWN round-trip
+→ UNKNOWN
+
+
+
+
+confidential candidate round-trip
+→ no confidential identifier reappears
+
+
+
+
+explicit domain timestamp
+→ preserved exactly
+
+
+
+
+schema/formula/rule/policy versions
+→ preserved exactly
+
+
+
+
+audit record
+→ append-only semantics
+
+
+
+
+illegal identity mutation
+→ rejected
+
+
+
+
+port implementations
+→ contain no source-specific TrustMRR logic
+
+CONCURRENCY DESIGN REVIEW
+
+GLM must document — but not falsely prove — intended PostgreSQL concurrency behavior for:
+
+candidate claim/insert
+attribution append
+cluster membership
+governance application
+
+Use concepts such as:
+
+unique constraints
+transaction boundaries
+row locking
+optimistic state predicates
+
+only where appropriate.
+
+CLAUDE POLICY
+
+CLAUDE_USED=NO by default.
+
+This package is primarily persistence contract/schema design.
+
+Use Claude only if GLM introduces:
+
+destructive migration
+
+dangerous concurrency semantics
+
+irreversible data-loss path
+
+confidentiality exposure
+
+unsafe governance transaction design
+
+If none occurs, conserve Claude quota.
+
+HARD SCOPE
+
+PRODUCTION_DATABASE_MUTATION=NO
+PRODUCTION_CONNECTION=NO
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+SCHEDULER=NO
+DEPLOY=NO
+
+TRUSTMRR_SPECIFIC_LOGIC=NONE
+
+ACCEPTANCE_GATE
+
+PERSISTENCE_PORTS=PASS
+DOMAIN_DATABASE_SEPARATION=PASS
+
+SCHEMA_ADDITIVE_ONLY=PASS
+
+CANDIDATE_IDENTITY=PASS
+IDEMPOTENCY_CONSTRAINT_MODEL=PASS
+ATTRIBUTION_APPEND_ONLY=PASS
+
+ENTITY_RESOLUTION_HISTORY=PASS
+ENTITY_CLUSTER_PERSISTENCE_MODEL=PASS
+
+OBSERVATION_LEDGER_MODEL=PASS
+OBSERVATION_REPLAY_PROTECTION=PASS
+
+HEALTH_SNAPSHOT_VERSIONING=PASS
+GOVERNANCE_DECISION_PERSISTENCE=PASS
+GOVERNANCE_APPLICATION_SEPARATION=PASS
+
+PROVENANCE_ROUND_TRIP=PASS
+CLAIM_CLASSIFICATION_ROUND_TRIP=PASS
+CONFIDENTIALITY_ROUND_TRIP=PASS
+
+TIMESTAMP_PRESERVATION=PASS
+VERSION_FIELD_PRESERVATION=PASS
+
+AUDIT_APPEND_ONLY=PASS
+
+TRUSTMRR_SPECIFIC_LOGIC=NONE
+
+DATABASE_CHANGED=
+NO_PRODUCTION_DB
+
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+
+TESTS=PASS
+LINT=PASS
+TYPECHECK=PASS
+MODULE_LOAD_CHECK=PASS
+BUILD=PASS
+DIFF_CHECK=PASS
+
+CLAUDE_USED=NO
+unless a critical persistence finding requires review.
+
+EXPECTED REPORT
+
+PKG_PERSIST_011_REPORT
+
+PACKAGE=PKG-PERSIST-011
+
+IMPLEMENTATION_COMMIT=
+ORIGIN_MAIN=
+
+FILES_CHANGED=
+
+PERSISTENCE_PORTS=
+
+SCHEMA_FILE=
+MIGRATION_MODEL=
+
+CANDIDATE_STORAGE_MODEL=
+ATTRIBUTION_STORAGE_MODEL=
+
+RESOLUTION_STORAGE_MODEL=
+CLUSTER_STORAGE_MODEL=
+
+OBSERVATION_LEDGER_MODEL=
+OBSERVATION_UNIQUENESS_MODEL=
+
+HEALTH_SNAPSHOT_MODEL=
+
+GOVERNANCE_DECISION_MODEL=
+GOVERNANCE_APPLICATION_MODEL=
+
+TRANSACTION_BOUNDARIES=
+CONCURRENCY_MODEL=
+
+PROVENANCE_ROUND_TRIP=
+CLAIM_CLASSIFICATION_ROUND_TRIP=
+CONFIDENTIALITY_ROUND_TRIP=
+
+TIMESTAMP_MODEL=
+VERSIONING_MODEL=
+AUDIT_MODEL=
+
+POSTGRES_RUNTIME=
+MIGRATION_EXECUTED=
+POSTGRES_INTEGRATION_TESTS=
+CONCURRENCY_PROOF=
+
+DATABASE_CHANGED=NO_PRODUCTION_DB
+NETWORK_REQUESTS=0
+AI_RUNTIME_CALLS=0
+SOURCE_ACTIVATED=NO
+
+TESTS=
+LINT=
+TYPECHECK=
+MODULE_LOAD_CHECK=
+BUILD=
+DIFF_CHECK=
+
+CLAUDE_USED=
+CLAUDE_TRIGGER_REASON=
+
+BLOCKERS=
+
+NEXT_RECOMMENDED_PACKAGE=PKG-OBS-012
+
+CURRENT_STATE
+
+PKG-DISC-SUMMARY-010=CLOSED
+
+DISCOVERY_CORE_MILESTONE=
+checkpoint/discovery-core-v1
+
+CURRENT_PHASE=
+DISCOVERY_CORE_PRODUCTIONIZATION
+
+PKG-PERSIST-011=ACTIVE
+PKG-OBS-012=WAITING
+
+PARKED_TRACK=
+PKG-COL-002B / TrustMRR Authenticated Runtime Proof
+
+از این نقطه به بعد معیار ما سخت‌تر است: تست in-memory دیگر به‌تنهایی Production Proof محسوب نمی‌شود. PKG-PERSIST-011 باید قرارداد و schema تولیدی را درست طراحی کند، اما اگر PostgreSQL واقعی در محیط موجود نیست، همان را شفاف ENVIRONMENT_BLOCKED گزارش کند و پروژه را با PASS جعلی جلو نبرد.
