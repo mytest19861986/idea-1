@@ -127,3 +127,93 @@ test("CROSS-SOURCE-DEDUP: Cross-source entity resolution links HN, GitHub, and P
   assert.equal(clusterHn.memberIds.length, 3);
   assert.deepEqual([...clusterHn.sources].sort(), ["github-official-search-api", "hacker-news-official-api", "product-hunt-official-api"].sort());
 });
+
+test("CROSS-SOURCE-DEDUP-SAFETY: Negative Controls & Invariants", async () => {
+  const { EntityResolutionEngine, ResolutionDecision, extractNormalizedDomain } = await import("../src/discovery/entity-resolution.mjs");
+
+  // 1. SHARED_DOMAIN_GUARD: Shared hosting / platform roots (e.g. github.com, vercel.app) must NOT merge
+  assert.equal(extractNormalizedDomain("https://github.com"), null);
+  assert.equal(extractNormalizedDomain("https://vercel.app"), null);
+  assert.equal(extractNormalizedDomain("https://medium.com"), null);
+
+  const engine = new EntityResolutionEngine();
+  const candA = {
+    discoveryId: "disc:gh:userA/repo1",
+    sourceId: "github-official-search-api",
+    title: "userA/repo1: Cool Lib",
+    contentReference: "https://github.com/userA/repo1",
+    is_confidential: false
+  };
+  const candB = {
+    discoveryId: "disc:gh:userB/repo2",
+    sourceId: "github-official-search-api",
+    title: "userB/repo2: Other Tool",
+    contentReference: "https://github.com/userB/repo2",
+    is_confidential: false
+  };
+
+  const decShared = engine.resolvePair(candA, candB, { at: new Date().toISOString() });
+  assert.notEqual(decShared.decision, ResolutionDecision.CONFIRMED_MATCH, "Shared platform URLs must not falsely trigger CONFIRMED_MATCH");
+
+  // 2. NAME_ONLY_FALSE_MERGE: Common product name on completely different domains must NOT merge
+  const candName1 = {
+    discoveryId: "disc:hn:item1",
+    sourceId: "hacker-news-official-api",
+    title: "Pulse",
+    contentReference: "https://pulse-health.com",
+    is_confidential: false
+  };
+  const candName2 = {
+    discoveryId: "disc:ph:item2",
+    sourceId: "product-hunt-official-api",
+    title: "Pulse",
+    contentReference: "https://pulse-monitoring.io",
+    is_confidential: false
+  };
+
+  const decName = engine.resolvePair(candName1, candName2, { at: new Date().toISOString() });
+  assert.equal(decName.decision, ResolutionDecision.CONFIRMED_DISTINCT, "Contradicting domains must trigger CONFIRMED_DISTINCT");
+
+  // 3. ORDER_INDEPENDENCE: Entity resolution outcome must not depend on ingestion order
+  const item1 = {
+    discoveryId: "disc:1",
+    sourceId: "hacker-news-official-api",
+    title: "CloudSync",
+    contentReference: "https://cloudsync.io",
+    is_confidential: false
+  };
+  const item2 = {
+    discoveryId: "disc:2",
+    sourceId: "product-hunt-official-api",
+    title: "CloudSync",
+    contentReference: "https://cloudsync.io",
+    is_confidential: false
+  };
+  const item3 = {
+    discoveryId: "disc:3",
+    sourceId: "github-official-search-api",
+    title: "CloudSync Core",
+    contentReference: "https://cloudsync.io",
+    is_confidential: false
+  };
+
+  const engineForward = new EntityResolutionEngine();
+  engineForward.resolvePair(item1, item2, { at: new Date().toISOString() });
+  engineForward.resolvePair(item2, item3, { at: new Date().toISOString() });
+  const clusterForward = engineForward.getClusterByCandidateId("disc:1");
+
+  const engineReverse = new EntityResolutionEngine();
+  engineReverse.resolvePair(item3, item2, { at: new Date().toISOString() });
+  engineReverse.resolvePair(item2, item1, { at: new Date().toISOString() });
+  const clusterReverse = engineReverse.getClusterByCandidateId("disc:1");
+
+  assert.equal(clusterForward.memberIds.length, 3);
+  assert.equal(clusterReverse.memberIds.length, 3);
+  assert.deepEqual([...clusterForward.memberIds].sort(), [...clusterReverse.memberIds].sort());
+
+  // 4. REPLAY_IDEMPOTENCY: Replaying identical candidates produces identical cluster without duplicate members
+  engineForward.resolvePair(item1, item2, { at: new Date().toISOString() });
+  engineForward.resolvePair(item2, item3, { at: new Date().toISOString() });
+  const clusterReplayed = engineForward.getClusterByCandidateId("disc:1");
+  assert.equal(clusterReplayed.memberIds.length, 3, "Replay must preserve idempotent member count");
+});

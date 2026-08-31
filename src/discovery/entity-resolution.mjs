@@ -18,8 +18,29 @@ export const SignalType = Object.freeze({
 
 export const RULE_VERSION = "entity-resolution-v1";
 
+const SHARED_PLATFORM_HOSTS = new Set([
+  "github.com",
+  "github.io",
+  "gitlab.com",
+  "bitbucket.org",
+  "medium.com",
+  "substack.com",
+  "notion.site",
+  "vercel.app",
+  "netlify.app",
+  "herokuapp.com",
+  "render.com",
+  "pages.dev",
+  "producthunt.com",
+  "news.ycombinator.com",
+  "reddit.com",
+  "twitter.com",
+  "x.com"
+]);
+
 /**
  * Extracts and normalizes domain from a URL or domain string.
+ * Excludes shared hosting/platform root hosts from canonical domain matching.
  * @param {string} urlString
  * @returns {string|null} normalized hostname/domain
  */
@@ -32,6 +53,10 @@ export function extractNormalizedDomain(urlString) {
       : new URL(`https://${clean}`);
     let host = parsed.hostname.toLowerCase();
     if (host.startsWith("www.")) host = host.slice(4);
+    if (SHARED_PLATFORM_HOSTS.has(host)) {
+      // Shared platform host cannot serve as standalone canonical domain identity
+      return null;
+    }
     return host || null;
   } catch {
     return null;
