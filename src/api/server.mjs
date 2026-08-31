@@ -53,14 +53,7 @@ export function createReadApiServer({ provider, discoveryController = null, logg
   // Live Discovery Control Endpoints (LOCAL-LIVE-DISCOVERY-001)
   app.get("/api/v1/discovery/status", async (_request, reply) => {
     if (!discoveryController) {
-      return {
-        mode: "OFF",
-        isRunning: false,
-        activeSourcesCount: 1,
-        overallHealth: "HEALTHY",
-        lastRunAt: null,
-        todayDiscoveredCount: 0
-      };
+      return reply.code(503).send({ error: { code: "SERVICE_UNAVAILABLE", message: "Discovery controller not initialized" } });
     }
     return discoveryController.getStatus();
   });

@@ -142,3 +142,77 @@ test("LOCAL-LIVE-DISCOVERY-001: Fastify API endpoints expose status, control, an
   controller.destroy();
   await app.close();
 });
+
+test("LOCAL-LIVE-DISCOVERY-001: Fastify returns 503 when discoveryController is null (C2)", async () => {
+  const mockProvider = {
+    list: async () => ({ items: [], nextCursor: null }),
+    getBySlug: async () => null
+  };
+  const app = createReadApiServer({ provider: mockProvider, discoveryController: null });
+
+  const res = await app.inject({ method: "GET", url: "/api/v1/discovery/status" });
+  assert.equal(res.statusCode, 503);
+  const json = JSON.parse(res.body);
+  assert.equal(json.error.code, "SERVICE_UNAVAILABLE");
+
+  await app.close();
+});
+
+test("LOCAL-LIVE-DISCOVERY-001: Non-destructive OFF preservation preserves all existing candidates (M1 / DISCO-004)", async () => {
+  const savedCandidates = new Map();
+  const mockCandidateStore = {
+    save: (item) => {
+      savedCandidates.set(item.externalId, item);
+      return { created: true };
+    }
+  };
+
+  const controller = new LiveDiscoveryController({
+    candidateStore: mockCandidateStore,
+    fetchFn: async (url) => {
+      if (url.includes("showstories.json")) return { ok: true, status: 200, json: async () => [555] };
+      if (url.includes("item/555.json")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 555, by: "dev", title: "Existing Idea", url: "https://example.com/app", time: 1700000000 })
+        };
+      }
+      return { ok: true, status: 200, json: async () => [] };
+    }
+  });
+
+  // Discover in MANUAL
+  await controller.runNow();
+  assert.equal(savedCandidates.size, 1);
+  assert.ok(savedCandidates.has("https://news.ycombinator.com/item?id=555"));
+
+  // Switch to AUTO then back to OFF
+  controller.setMode(DiscoveryMode.AUTO);
+  controller.setMode(DiscoveryMode.OFF);
+
+  // Invariant: Existing saved records remain intact and unchanged
+  assert.equal(savedCandidates.size, 1);
+  assert.equal(savedCandidates.get("https://news.ycombinator.com/item?id=555").title, "Existing Idea");
+  controller.destroy();
+});
+
+test("LOCAL-LIVE-DISCOVERY-001: Per-item daily budget cap breaks loop immediately (C1)", async () => {
+  const controller = new LiveDiscoveryController({
+    dailyBudget: 2,
+    fetchFn: async (url) => {
+      if (url.includes("showstories.json")) return { ok: true, status: 200, json: async () => [1, 2, 3, 4, 5] };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 1, by: "dev", title: "Item", url: "https://example.com/app", time: 1700000000 })
+      };
+    }
+  });
+
+  // Cycle should discover exactly 2 items due to per-item cap
+  const res = await controller.runNow();
+  assert.equal(res.newItemsDiscovered, 2);
+  assert.equal(controller.todayDiscoveredCount, 2);
+  controller.destroy();
+});

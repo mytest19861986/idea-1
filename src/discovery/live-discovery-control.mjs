@@ -1,8 +1,6 @@
-import { deepFreeze, validateIsoTimestamp } from "./discovery-intake.mjs";
-import { telemetry } from "../observability/telemetry.mjs";
-import { createHnCollector, collectorIdentity as hnIdentity } from "../collection/hn-collector.mjs";
+import { deepFreeze } from "./discovery-intake.mjs";
+import { createHnCollector } from "../collection/hn-collector.mjs";
 import { normalizeCollectedItem } from "../collection/normalize.mjs";
-import { executeDiscoveryPipeline } from "./pipeline.mjs";
 
 /**
  * ============================================================================
@@ -38,18 +36,21 @@ export class LiveDiscoveryController {
       mode = DiscoveryMode.OFF,
       intervalMs = DEFAULT_DISCOVERY_INTERVAL_MS,
       dailyBudget = DEFAULT_DAILY_BUDGET,
-      candidateStore,
-      resolutionEngine,
-      postgresClient = null,
+      candidateStore = null,
       fetchFn = null
     } = options;
+
+    if (dailyBudget <= 0 || !Number.isFinite(dailyBudget)) {
+      throw new TypeError("dailyBudget must be a positive number");
+    }
+    if (intervalMs <= 0 || !Number.isFinite(intervalMs)) {
+      throw new TypeError("intervalMs must be a positive number");
+    }
 
     this.mode = mode;
     this.intervalMs = intervalMs;
     this.dailyBudget = dailyBudget;
     this.candidateStore = candidateStore;
-    this.resolutionEngine = resolutionEngine;
-    this.postgresClient = postgresClient;
     this.fetchFn = fetchFn;
 
     this.timer = null;
@@ -166,6 +167,11 @@ export class LiveDiscoveryController {
             if (feedResult && feedResult.ok && Array.isArray(feedResult.documents)) {
               for (const rawDoc of feedResult.documents) {
                 if (!rawDoc || !rawDoc.canonicalUrl) continue;
+
+                // Per-item daily budget cap enforcement (DISCO-005 / C1)
+                if (this.todayDiscoveredCount >= this.dailyBudget) {
+                  break;
+                }
 
                 // Process through candidate store if provided
                 if (this.candidateStore) {
