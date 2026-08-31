@@ -174,6 +174,33 @@ test("CROSS-SOURCE-DEDUP-SAFETY: Negative Controls & Invariants", async () => {
   const decName = engine.resolvePair(candName1, candName2, { at: new Date().toISOString() });
   assert.equal(decName.decision, ResolutionDecision.CONFIRMED_DISTINCT, "Contradicting domains must trigger CONFIRMED_DISTINCT");
 
+  // 2.b SAME_COMPANY_DIFFERENT_PRODUCT: Same company hosting two distinct products (e.g. company.com/product-a vs company.com/product-b)
+  // When metadata identifiers or distinct titles are present, they must NOT merge into the same cluster.
+  const candProductA = {
+    discoveryId: "disc:ph:company-analytics",
+    sourceId: "product-hunt-official-api",
+    title: "Acme Analytics",
+    contentReference: "https://acme.com/analytics",
+    metadata: { stableExternalId: "acme:product:analytics" },
+    is_confidential: false
+  };
+  const candProductB = {
+    discoveryId: "disc:ph:company-billing",
+    sourceId: "product-hunt-official-api",
+    title: "Acme Billing",
+    contentReference: "https://acme.com/billing",
+    metadata: { stableExternalId: "acme:product:billing" },
+    is_confidential: false
+  };
+
+  const decSameCompany = engine.resolvePair(candProductA, candProductB, { at: new Date().toISOString() });
+  assert.notEqual(decSameCompany.decision, ResolutionDecision.CONFIRMED_MATCH, "Distinct products of same company must NOT trigger CONFIRMED_MATCH");
+  assert.equal(decSameCompany.contradictions.includes("STABLE_EXTERNAL_ID_MISMATCH"), true, "Must flag STABLE_EXTERNAL_ID_MISMATCH");
+  const clusterA = engine.getClusterByCandidateId(candProductA.discoveryId);
+  const clusterB = engine.getClusterByCandidateId(candProductB.discoveryId);
+  assert.equal(clusterA, null, "Product A must not form false merge cluster");
+  assert.equal(clusterB, null, "Product B must not form false merge cluster");
+
   // 3. ORDER_INDEPENDENCE: Entity resolution outcome must not depend on ingestion order
   const item1 = {
     discoveryId: "disc:1",
