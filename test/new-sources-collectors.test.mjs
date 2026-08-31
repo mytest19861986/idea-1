@@ -76,3 +76,54 @@ test("PH-COL-002: Product Hunt collector requires developerToken before outbound
   assert.equal(res.failure.kind, "FINAL");
   assert.ok(res.failure.message.includes("MISSING_CREDENTIAL"));
 });
+
+test("CROSS-SOURCE-DEDUP: Cross-source entity resolution links HN, GitHub, and Product Hunt items by canonical domain into unified cluster", async () => {
+  const { EntityResolutionEngine, ResolutionDecision } = await import("../src/discovery/entity-resolution.mjs");
+  const resolutionEngine = new EntityResolutionEngine();
+
+  // Candidate 1: Hacker News Show submission
+  const candHn = {
+    discoveryId: "disc:hacker-news-official-api:https://news.ycombinator.com/item?id=1001",
+    sourceId: "hacker-news-official-api",
+    title: "Show HN: AgentFlow - Autonomous AI Agents",
+    contentReference: "https://agentflow.dev",
+    is_confidential: false
+  };
+
+  // Candidate 2: Product Hunt launch
+  const candPh = {
+    discoveryId: "disc:product-hunt-official-api:https://www.producthunt.com/posts/agentflow",
+    sourceId: "product-hunt-official-api",
+    title: "AgentFlow: Visual workflows for AI agents",
+    contentReference: "https://agentflow.dev",
+    is_confidential: false
+  };
+
+  // Candidate 3: GitHub repository
+  const candGh = {
+    discoveryId: "disc:github-official-search-api:https://github.com/agentflow-ai/agentflow",
+    sourceId: "github-official-search-api",
+    title: "agentflow-ai/agentflow: Visual workflows for AI agents",
+    contentReference: "https://agentflow.dev",
+    is_confidential: false
+  };
+
+  // Resolve HN vs PH
+  const res1 = resolutionEngine.resolvePair(candHn, candPh, { at: new Date().toISOString() });
+  assert.equal(res1.decision, ResolutionDecision.CONFIRMED_MATCH);
+  assert.equal(res1.confidence, 1.0);
+
+  // Resolve PH vs GH
+  const res2 = resolutionEngine.resolvePair(candPh, candGh, { at: new Date().toISOString() });
+  assert.equal(res2.decision, ResolutionDecision.CONFIRMED_MATCH);
+  assert.equal(res2.confidence, 1.0);
+
+  // Multi-source cluster attachment (cross-source cluster consolidation)
+  const clusterHn = resolutionEngine.getClusterByCandidateId(candHn.discoveryId);
+  const clusterGh = resolutionEngine.getClusterByCandidateId(candGh.discoveryId);
+
+  assert.ok(clusterHn !== null);
+  assert.equal(clusterHn.clusterId, clusterGh.clusterId);
+  assert.equal(clusterHn.memberIds.length, 3);
+  assert.deepEqual([...clusterHn.sources].sort(), ["github-official-search-api", "hacker-news-official-api", "product-hunt-official-api"].sort());
+});
