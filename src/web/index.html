@@ -1624,7 +1624,7 @@
 
       // Populate Details Modal
       const modalRunId = document.getElementById("modalRunId");
-      if (modalRunId) modalRunId.innerText = discoveryState.currentRunId || "--";
+      if (modalRunId) modalRunId.innerText = discoveryState.lastRunId || discoveryState.currentRunId || "--";
 
       const modalRunStatus = document.getElementById("modalRunStatus");
       if (modalRunStatus) {

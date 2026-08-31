@@ -61,6 +61,7 @@ export class LiveDiscoveryController {
     this.lastSuccessfulRunAt = null;
     this.nextScheduledRunAt = null;
     this.currentRunId = null;
+    this.lastRunId = null;
     this.lastRunTrigger = null;
     this.lastRunStatus = "IDLE";
     this.todayDiscoveredCount = 0;
@@ -386,6 +387,8 @@ export class LiveDiscoveryController {
       this.isRunning = false;
       this.lastRunCompletedAt = new Date().toISOString();
       this.lastRunAt = this.lastRunCompletedAt;
+      this.lastRunId = this.currentRunId;
+      this.currentRunId = null;
       this.lastRunSourceResults = currentRunSourceResults;
       this.lastRunCounters = {
         rawSignals: totalRawSignals,
@@ -397,7 +400,7 @@ export class LiveDiscoveryController {
     }
 
     return {
-      runId: this.currentRunId,
+      runId: this.lastRunId,
       status: this.lastRunStatus,
       trigger: triggeredBy,
       startedAt: this.lastRunStartedAt,
@@ -440,6 +443,7 @@ export class LiveDiscoveryController {
       lastSuccessfulRunAt: this.lastSuccessfulRunAt,
       nextScheduledRunAt: this.nextScheduledRunAt,
       currentRunId: this.currentRunId,
+      lastRunId: this.lastRunId,
       lastRunTrigger: this.lastRunTrigger,
       lastRunStatus: this.lastRunStatus,
       lastRunNewOpportunities: this.lastRunNewOpportunities,
