@@ -348,7 +348,7 @@ test("LOCAL-LIVE-DISCOVERY-003: Telemetry fields, separate lastSuccessfulRunAt, 
 
   // 1. Initial State
   const initialStatus = controller.getStatus();
-  assert.equal(initialStatus.runtimeVersion, "1.0.0-rc.6-dev");
+  assert.equal(initialStatus.runtimeVersion, "1.0.0-rc.7");
   assert.equal(initialStatus.lastRunStartedAt, null);
   assert.equal(initialStatus.lastSuccessfulRunAt, null);
   assert.equal(initialStatus.nextScheduledRunAt, null);
