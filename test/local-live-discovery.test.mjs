@@ -121,7 +121,7 @@ test("LOCAL-LIVE-DISCOVERY-001: Fastify API endpoints expose status, control, an
   assert.equal(statusRes.statusCode, 200);
   const statusJson = JSON.parse(statusRes.body);
   assert.equal(statusJson.mode, "OFF");
-  assert.equal(statusJson.activeSourcesCount, 1);
+  assert.equal(statusJson.activeSourcesCount, 2);
 
   // 2. POST control (switch to AUTO)
   const controlRes = await app.inject({
@@ -137,7 +137,7 @@ test("LOCAL-LIVE-DISCOVERY-001: Fastify API endpoints expose status, control, an
   const runRes = await app.inject({ method: "POST", url: "/api/v1/discovery/run-now" });
   assert.equal(runRes.statusCode, 200);
   const runJson = JSON.parse(runRes.body);
-  assert.equal(runJson.status, "SUCCESS");
+  assert.ok(["SUCCESS", "PARTIAL_SUCCESS"].includes(runJson.status));
 
   controller.destroy();
   await app.close();

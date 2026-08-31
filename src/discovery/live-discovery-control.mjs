@@ -72,6 +72,26 @@ export class LiveDiscoveryController {
         lastSuccessAt: null,
         lastError: null,
         errorCount: 0
+      }],
+      ["github-official-search-api", {
+        id: "github-official-search-api",
+        name: "GitHub Official REST Search API",
+        status: "ACTIVE",
+        governanceStatus: "APPROVED",
+        health: DiscoveryHealthStatus.HEALTHY,
+        lastSuccessAt: null,
+        lastError: null,
+        errorCount: 0
+      }],
+      ["product-hunt-official-api", {
+        id: "product-hunt-official-api",
+        name: "Product Hunt Official GraphQL API v2",
+        status: "EVALUATING",
+        governanceStatus: "AUTH_REQUIRED",
+        health: DiscoveryHealthStatus.LIMITED,
+        lastSuccessAt: null,
+        lastError: null,
+        errorCount: 0
       }]
     ]);
 
@@ -100,11 +120,9 @@ export class LiveDiscoveryController {
   startAutoSchedule() {
     this.stopAutoSchedule();
     this.timer = setInterval(() => {
-      if (this.mode === DiscoveryMode.AUTO && !this.isRunning) {
-        this.runCycle("AUTO").catch(err => {
-          console.error("LiveDiscovery AUTO cycle error:", err);
-        });
-      }
+      this.executeDiscoveryRun("AUTO").catch(err => {
+        console.error("Auto discovery run failed:", err.message);
+      });
     }, this.intervalMs);
   }
 
@@ -116,33 +134,46 @@ export class LiveDiscoveryController {
   }
 
   async runNow() {
-    return this.runCycle("MANUAL_RUN_NOW");
+    return this.executeDiscoveryRun("MANUAL_RUN_NOW");
   }
 
   async runCycle(trigger = "MANUAL") {
-    // Single-flight lock (DISCO-002)
+    return this.executeDiscoveryRun(trigger);
+  }
+
+  resetDailyCountIfNeeded() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== this.dailyCountResetDate) {
+      this.todayDiscoveredCount = 0;
+      this.dailyCountResetDate = today;
+    }
+  }
+
+  async executeDiscoveryRun(triggeredBy = "MANUAL") {
+    // DISCO-002: Single-flight mutex
     if (this.isRunning) {
       return {
         status: "BLOCKED_ALREADY_RUNNING",
-        message: "Discovery cycle is currently in progress",
+        message: "A discovery execution is already running",
         lastRunAt: this.lastRunAt,
         todayDiscoveredCount: this.todayDiscoveredCount
       };
     }
 
-    // Daily budget reset check
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (this.dailyCountResetDate !== todayStr) {
-      this.todayDiscoveredCount = 0;
-      this.dailyCountResetDate = todayStr;
-    }
+    this.resetDailyCountIfNeeded();
 
+    // DISCO-005: Daily budget cap
     if (this.todayDiscoveredCount >= this.dailyBudget) {
       return {
         status: "BLOCKED_DAILY_BUDGET_EXCEEDED",
         message: `Daily discovery budget of ${this.dailyBudget} items reached`,
         todayDiscoveredCount: this.todayDiscoveredCount
       };
+    }
+
+    // DISCO-001 & DISCO-004: If mode is OFF and not explicitly triggered via MANUAL, do not execute
+    if (this.mode === DiscoveryMode.OFF && triggeredBy !== "MANUAL" && triggeredBy !== "MANUAL_RUN_NOW" && !triggeredBy.startsWith("TRIGGER_")) {
+      return { status: "SKIPPED_MODE_OFF", message: "Discovery is currently OFF" };
     }
 
     this.isRunning = true;
@@ -207,6 +238,56 @@ export class LiveDiscoveryController {
             } else if (feedResult && !feedResult.ok) {
               throw new Error(feedResult.failure?.message || "Feed fetch failed");
             }
+          } else if (source.id === "github-official-search-api") {
+            const { createGhCollector } = await import("../collection/gh-collector.mjs");
+            const collectorOptions = {};
+            if (this.fetchFn) {
+              collectorOptions.fetchFn = this.fetchFn;
+            }
+            const collector = createGhCollector(collectorOptions);
+            const searchResult = await collector.searchRepositories("topic:ai-agents stars:>1000", { limit: 5 });
+
+            if (searchResult && searchResult.ok && Array.isArray(searchResult.documents)) {
+              for (const rawDoc of searchResult.documents) {
+                if (!rawDoc || !rawDoc.canonicalUrl) continue;
+
+                if (this.todayDiscoveredCount >= this.dailyBudget) {
+                  break;
+                }
+
+                if (this.candidateStore) {
+                  const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
+                  const itemForNorm = {
+                    url: targetUrl,
+                    title: rawDoc.title || "Untitled",
+                    summary: rawDoc.rawText || "",
+                    externalId: rawDoc.canonicalUrl
+                  };
+                  const normalized = normalizeCollectedItem(itemForNorm, {
+                    sourceId: source.id,
+                    collectedAt: new Date().toISOString()
+                  });
+
+                  if (normalized) {
+                    const saveRes = this.candidateStore.save(normalized);
+                    if (saveRes && saveRes.created) {
+                      newItemsCount++;
+                      this.todayDiscoveredCount++;
+                    }
+                  }
+                } else {
+                  newItemsCount++;
+                  this.todayDiscoveredCount++;
+                }
+              }
+
+              source.health = DiscoveryHealthStatus.HEALTHY;
+              source.lastSuccessAt = new Date().toISOString();
+              source.errorCount = 0;
+              source.lastError = null;
+            } else if (searchResult && !searchResult.ok) {
+              throw new Error(searchResult.failure?.message || "GitHub Search API fetch failed");
+            }
           }
         } catch (sourceErr) {
           // Failure isolation per source (DISCO-005)
@@ -230,7 +311,7 @@ export class LiveDiscoveryController {
 
     return {
       status: this.lastRunStatus,
-      trigger,
+      trigger: triggeredBy,
       startedAt: startTime,
       completedAt: this.lastRunAt,
       newItemsDiscovered: newItemsCount,
