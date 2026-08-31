@@ -25,7 +25,7 @@ export function toPublicOpportunity(record) {
       evidenceConfidence: null,
       confidenceBreakdown: null,
       corroborationStatus: "UNCONFIRMED",
-      freshnessStatus: "CURRENT",
+      freshnessStatus: "UNKNOWN",
       clusterId: null,
       contradictions: Object.freeze([]),
       unknownFactors: Object.freeze([]),

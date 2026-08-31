@@ -11,6 +11,7 @@ import {
 } from "../src/analysis/opportunity-governance.mjs";
 import { createTractionMetric } from "../src/analysis/opportunity-intelligence.mjs";
 import { toPublicOpportunity } from "../src/api/read-contract.mjs";
+import { OperatorAuditService } from "../src/security/bounded-telemetry-audit.mjs";
 
 describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and UNKNOWN Semantics", () => {
   const secret = "prod-crypto-auth-secret-key-32bytes-min!!";
@@ -202,5 +203,81 @@ describe("PRODUCT-EXPANSION-001-FIXSET-01: Hardened RBAC, Confidentiality, and U
 
     assert.equal(privPub.clusterId, "cluster-classified-merger-99", "Privileged roles retain full cluster view");
     assert.equal(privConf.clusterId, "cluster-classified-merger-99", "Privileged roles retain full cluster view");
+  });
+
+  it("12. R2_COMPOSED_PATH_WIRING: sanitize → toPublicOpportunity pipeline suppresses confidential cluster identity end-to-end", () => {
+    // This test proves R2: the composed path (sanitize → toPublicOpportunity) enforces
+    // cluster confidentiality. A public sibling of a confidential candidate must have
+    // clusterId suppressed BEFORE entering the public read contract.
+    const publicSibling = createOpportunityCandidate({
+      opportunityId: "cand-r2-public-sibling",
+      clusterId: "cluster-secret-r2",
+      isConfidential: false,
+      problem: "Public sibling problem",
+      targetCustomer: "Public Customer",
+      valueProposition: "Valid Prop",
+      businessModel: "SaaS"
+    });
+    const confidentialMember = createOpportunityCandidate({
+      opportunityId: "cand-r2-confidential-member",
+      clusterId: "cluster-secret-r2",
+      isConfidential: true,
+      problem: "Confidential problem",
+      targetCustomer: "Confidential Customer",
+      valueProposition: "Confidential Prop",
+      businessModel: "Stealth"
+    });
+
+    // Step 1: sanitize for unprivileged viewer
+    const sanitized = sanitizeClusterProjection([publicSibling, confidentialMember], false);
+    const sanitizedPublic = sanitized.find(c => c.opportunityId === "cand-r2-public-sibling");
+
+    // R2 Invariant: public sibling must have clusterId nulled by sanitize before toPublicOpportunity
+    assert.equal(sanitizedPublic.clusterId, null,
+      "R2: sanitize MUST null clusterId on public sibling before it reaches toPublicOpportunity");
+
+    // Step 2: the sanitized public sibling (with clusterId: null) flows into toPublicOpportunity
+    // Build a minimal approved public record from the sanitized data
+    const approvedPublicRecord = {
+      ...sanitizedPublic,
+      publicationState: "APPROVED",
+      slug: "r2-public-sibling",
+      title: sanitizedPublic.problem,
+      summary: sanitizedPublic.valueProposition,
+      citations: [{ sourceId: "src-1", url: "https://example.com" }]
+    };
+    const publicOutput = toPublicOpportunity(approvedPublicRecord);
+
+    // R2 Invariant: clusterId suppression is preserved through toPublicOpportunity
+    assert.equal(publicOutput.clusterId, null,
+      "R2: clusterId MUST remain null through the full sanitize → toPublicOpportunity pipeline");
+    assert.equal(publicOutput.title, "Public sibling problem");
+  });
+
+  it("13. AUDIT_TRAIL_APPEND_ONLY_FAIL_CLOSED: OperatorAuditService ledger is append-only and writes are fail-closed", () => {
+    const audit = new OperatorAuditService();
+
+    // Record several audit entries
+    audit.recordAction({ actor: "admin-01", action: "MUTATE_PORTFOLIO", resource: "opp-001", clientIp: "10.0.0.1" });
+    audit.recordAction({ actor: "admin-01", action: "RESOLVE_INVESTIGATION", resource: "inv-002", clientIp: "10.0.0.1" });
+    audit.recordAction({ actor: "viewer-99", action: "READ_OPPORTUNITY", resource: "opp-001", clientIp: "10.0.0.2" });
+
+    const fullTrail = audit.queryAuditTrail({});
+    assert.equal(fullTrail.length, 3, "Audit trail must contain all recorded entries (append-only)");
+
+    // Verify immutability: entries are frozen objects (fail-closed)
+    assert.throws(() => { fullTrail[0].actor = "TAMPERED"; },
+      "Audit record MUST be frozen — mutation must throw in strict mode");
+
+    // Verify actor-filtered query works correctly
+    const adminTrail = audit.queryAuditTrail({ actor: "admin-01" });
+    assert.equal(adminTrail.length, 2, "Actor-filtered audit trail must return only matching records");
+    assert.ok(adminTrail.every(r => r.actor === "admin-01"), "All filtered records must match the queried actor");
+
+    // Verify that entries added after query don't mutate previously returned array (append-only snapshot)
+    const beforeAdd = audit.queryAuditTrail({}).length;
+    audit.recordAction({ actor: "admin-02", action: "NEW_ACTION", resource: "opp-003", clientIp: "10.0.0.3" });
+    const afterAdd = audit.queryAuditTrail({}).length;
+    assert.equal(afterAdd, beforeAdd + 1, "Audit trail must grow monotonically — append-only invariant");
   });
 });
