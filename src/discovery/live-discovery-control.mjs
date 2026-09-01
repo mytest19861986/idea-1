@@ -56,12 +56,13 @@ export class LiveDiscoveryController {
     this.fetchFn = fetchFn;
 
     this.timer = null;
+    this.timerAnchorMonoNs = null;
+    this.nextTargetMonoNs = null;
     this.isRunning = false;
     this.lastRunAt = null;
     this.lastRunStartedAt = null;
     this.lastRunCompletedAt = null;
     this.lastSuccessfulRunAt = null;
-    this.nextScheduledRunAt = null;
     this.currentRunId = null;
     this.lastRunId = null;
     this.lastRunTrigger = null;
@@ -135,15 +136,35 @@ export class LiveDiscoveryController {
     return this.getStatus();
   }
 
+  getNextScheduledRunAt() {
+    if (this.mode !== DiscoveryMode.AUTO || !this.nextTargetMonoNs) {
+      return null;
+    }
+    const currentMonoNs = process.hrtime.bigint();
+    const remainingMs = Math.max(0, Number((this.nextTargetMonoNs - currentMonoNs) / 1000000n));
+    return new Date(Date.now() + remainingMs).toISOString();
+  }
+
+  get nextScheduledRunAt() {
+    return this.getNextScheduledRunAt();
+  }
+
+  set nextScheduledRunAt(_val) {
+    // Retained for backward-compatibility if test sets it directly
+  }
+
   startAutoSchedule() {
     this.stopAutoSchedule();
-    this.nextScheduledRunAt = new Date(Date.now() + this.intervalMs).toISOString();
+    const intervalNs = BigInt(this.intervalMs) * 1000000n;
+    this.timerAnchorMonoNs = process.hrtime.bigint();
+    this.nextTargetMonoNs = this.timerAnchorMonoNs + intervalNs;
+
     this.timer = setInterval(() => {
       this.executeDiscoveryRun("AUTO").catch(err => {
         console.error("Auto discovery run failed:", err.message);
       });
       if (this.mode === DiscoveryMode.AUTO) {
-        this.nextScheduledRunAt = new Date(Date.now() + this.intervalMs).toISOString();
+        this.nextTargetMonoNs += intervalNs;
       }
     }, this.intervalMs);
   }
@@ -153,7 +174,8 @@ export class LiveDiscoveryController {
       clearInterval(this.timer);
       this.timer = null;
     }
-    this.nextScheduledRunAt = null;
+    this.timerAnchorMonoNs = null;
+    this.nextTargetMonoNs = null;
   }
 
   async runNow() {
