@@ -22,8 +22,17 @@ function assertProvider(provider) {
 export function createReadApiServer({ provider, discoveryController = null, authService = null, logger = false } = {}) {
   const readProvider = assertProvider(provider);
   const app = Fastify({ logger });
-  app.addHook("onSend", async (_request, reply) => {
-    for (const [name, value] of Object.entries(securityHeaders)) reply.header(name, value);
+  app.addHook("onSend", async (request, reply) => {
+    for (const [name, value] of Object.entries(securityHeaders)) {
+      if (name === "content-security-policy" && (request.url === "/" || request.url.startsWith("/client-i18n.js"))) {
+        reply.header(
+          "content-security-policy",
+          "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'"
+        );
+      } else {
+        reply.header(name, value);
+      }
+    }
   });
   app.get("/health", async () => ({ status: "ok" }));
   app.get("/api/v1/opportunities", async (request, reply) => {

@@ -32,9 +32,13 @@ async function startServer() {
     logger: false
   });
 
-  // Serve the dashboard HTML at root URL
+  // Serve the dashboard HTML and client assets
   app.get("/", async (req, reply) => {
-    reply.type("text/html").send(fs.readFileSync("./src/web/index.html", "utf8"));
+    reply.type("text/html; charset=utf-8").send(fs.readFileSync("./src/web/index.html", "utf8"));
+  });
+
+  app.get("/client-i18n.js", async (req, reply) => {
+    reply.type("application/javascript; charset=utf-8").send(fs.readFileSync("./src/web/client-i18n.js", "utf8"));
   });
 
   try {
