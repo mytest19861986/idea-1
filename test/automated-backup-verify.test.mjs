@@ -26,6 +26,11 @@ describe("PROD-READINESS-001R5: P0-002 Encrypt-Then-MAC Authenticated Backup & S
   });
 
   it("2. Executes automated backup script and generates Encrypt-Then-MAC artifacts", () => {
+    const seedCmd = isLinux
+      ? `export PGPASSWORD='test_password'; psql -U test_user -d discovery_test -h 127.0.0.1 -c "INSERT INTO discovery_candidates (id, canonical_url, canonical_domain, title, source_type, source_record_id, discovered_at, retrieved_at, rule_version, confidence) VALUES ('seed-backup-1', 'https://example.com/backup-seed', 'example.com', 'Backup Seed', 'API', 'rec-b1', NOW(), NOW(), 'v1', 'HIGH') ON CONFLICT (id) DO NOTHING;"`
+      : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='test_password'; psql -U test_user -d discovery_test -h 127.0.0.1 -c \\"INSERT INTO discovery_candidates (id, canonical_url, canonical_domain, title, source_type, source_record_id, discovered_at, retrieved_at, rule_version, confidence) VALUES ('seed-backup-1', 'https://example.com/backup-seed', 'example.com', 'Backup Seed', 'API', 'rec-b1', NOW(), NOW(), 'v1', 'HIGH') ON CONFLICT (id) DO NOTHING;\\""`;
+    execSync(seedCmd, { stdio: "pipe" });
+
     const runScript = isLinux
       ? `export BACKUP_DIR='${backupDir}'; export BACKUP_MASTER_KEY='${masterKey}'; bash /mnt/g/project/IDEA/scripts/automated_backup.sh`
       : `wsl -d Ubuntu-24.04 -u root -- bash -c "export BACKUP_DIR='${backupDir}'; export BACKUP_MASTER_KEY='${masterKey}'; bash /mnt/g/project/IDEA/scripts/automated_backup.sh"`;

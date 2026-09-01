@@ -17,6 +17,11 @@ describe("PROD-READINESS-001: P0-002 Backup & Tested Restore Verification", () =
   const backupFile = "/tmp/discovery_backup_verify.sql";
 
   it("1. Executes automated encrypted/safe PostgreSQL dump", () => {
+    const seedCmd = isLinux
+      ? `export PGPASSWORD='${PG_CONFIG.password}'; psql -U ${PG_CONFIG.user} -d ${PG_CONFIG.sourceDb} -h ${PG_CONFIG.host} -c "INSERT INTO discovery_candidates (id, canonical_url, canonical_domain, title, source_type, source_record_id, discovered_at, retrieved_at, rule_version, confidence) VALUES ('seed-backup-0', 'https://example.com/backup-seed-0', 'example.com', 'Backup Seed 0', 'API', 'rec-b0', NOW(), NOW(), 'v1', 'HIGH') ON CONFLICT (id) DO NOTHING;"`
+      : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; psql -U ${PG_CONFIG.user} -d ${PG_CONFIG.sourceDb} -h ${PG_CONFIG.host} -c \\"INSERT INTO discovery_candidates (id, canonical_url, canonical_domain, title, source_type, source_record_id, discovered_at, retrieved_at, rule_version, confidence) VALUES ('seed-backup-0', 'https://example.com/backup-seed-0', 'example.com', 'Backup Seed 0', 'API', 'rec-b0', NOW(), NOW(), 'v1', 'HIGH') ON CONFLICT (id) DO NOTHING;\\""`;
+    execSync(seedCmd, { stdio: "pipe" });
+
     const dumpCmd = isLinux
       ? `export PGPASSWORD='${PG_CONFIG.password}'; pg_dump -U ${PG_CONFIG.user} -d ${PG_CONFIG.sourceDb} -h ${PG_CONFIG.host} -F c -b -v -f ${backupFile}`
       : `wsl -d Ubuntu-24.04 -u root -- bash -c "export PGPASSWORD='${PG_CONFIG.password}'; pg_dump -U ${PG_CONFIG.user} -d ${PG_CONFIG.sourceDb} -h ${PG_CONFIG.host} -F c -b -v -f ${backupFile}"`;

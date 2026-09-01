@@ -262,7 +262,7 @@ export class LiveDiscoveryController {
                 });
 
                 if (normalized) {
-                  const saveRes = this.candidateStore.save(normalized);
+                  const saveRes = await this.candidateStore.save(normalized);
                   if (saveRes && saveRes.created) {
                     newItemsCount++;
                     sourceNewCandidates++;
@@ -340,7 +340,7 @@ export class LiveDiscoveryController {
                 });
 
                 if (normalized) {
-                  const saveRes = this.candidateStore.save(normalized);
+                  const saveRes = await this.candidateStore.save(normalized);
                   if (saveRes && saveRes.created) {
                     newItemsCount++;
                     sourceNewCandidates++;
