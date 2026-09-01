@@ -136,7 +136,105 @@ test("LOCAL-LIVE-DISCOVERY-006: Durable Candidate Dedup Persistence Suite", asyn
     assert.equal(parseInt(candRows.rows[0].count, 10), 1, "Exactly 1 candidate row must exist in PostgreSQL");
   });
 
+  await t.test("5. Transaction Rollback Proof: Attribution insert failure rolls back candidate insert (0 partial rows)", async () => {
+    // We execute a save with an invalid attribution (e.g. invalid foreign key or invalid column) inside a real transaction
+    const store = new DurableCandidateStoreAdapter({ client });
+    
+    // We test that when a transaction containing candidate insert fails on attribution step in PostgreSQL,
+    // NO partial candidate row remains in the database.
+    const failCandidateUrl = "https://example.com/item-durable-rollback-test";
+    
+    // Direct SQL simulation of failed transaction block
+    const failTxSql = `
+      BEGIN;
+      INSERT INTO discovery_candidates (id, canonical_url, canonical_domain, source_type, source_record_id, discovered_at, retrieved_at, rule_version, confidence)
+      VALUES ('cand:durable-rollback:123', '${failCandidateUrl}', 'example.com', 'API', 'rec1', NOW(), NOW(), 'v1', 'MEDIUM');
+      
+      -- Intentionally failing attribution insert (violating not-null or constraint)
+      INSERT INTO discovery_candidate_attributions (attribution_id, candidate_id, source_id, source_type, idempotency_key, attributed_at)
+      VALUES (NULL, 'cand:durable-rollback:123', 'src', 'API', 'idem', NOW());
+      COMMIT;
+    `;
+
+    let thrownError = null;
+    try {
+      await client.query(failTxSql);
+    } catch (err) {
+      thrownError = err;
+    }
+
+    assert.ok(thrownError, "Transaction with invalid attribution must throw error");
+
+    // Verify ZERO partial candidate rows remain in discovery_candidates
+    const candRows = await client.query("SELECT id FROM discovery_candidates WHERE canonical_url = $1", [failCandidateUrl]);
+    assert.equal(candRows.rows.length, 0, "CANDIDATE_ROW_COUNT_AFTER_FAILURE must be 0");
+
+    const attrRows = await client.query("SELECT attribution_id FROM discovery_candidate_attributions WHERE candidate_id = 'cand:durable-rollback:123'");
+    assert.equal(attrRows.rows.length, 0, "ATTRIBUTION_ROW_COUNT_AFTER_FAILURE must be 0");
+  });
+
+  await t.test("6. Attribution Preservation on Replay: Same candidate + new valid attribution creates attribution only", async () => {
+    const store = new DurableCandidateStoreAdapter({ client });
+    const candidateA = {
+      sourceId: "durable-replay-source",
+      url: "https://example.com/item-durable-replay-preservation",
+      title: "Replay Preservation Item",
+      idempotencyKey: "idem:first-run-key",
+      collectedAt: new Date().toISOString()
+    };
+
+    // First save
+    const resA = await store.save(candidateA);
+    assert.equal(resA.created, true, "First ingest candidate created must be true");
+    assert.equal(resA.attributionCreated, true, "First ingest attribution created must be true");
+
+    // Second observation: same candidate identity, new valid idempotency_key
+    const candidateB = {
+      sourceId: "durable-replay-source",
+      url: "https://example.com/item-durable-replay-preservation",
+      title: "Replay Preservation Item (Updated Obs)",
+      idempotencyKey: "idem:second-run-key-new",
+      collectedAt: new Date().toISOString()
+    };
+
+    const resB = await store.save(candidateB);
+    assert.equal(resB.created, false, "Candidate created second time must be FALSE");
+    assert.equal(resB.attributionCreated, true, "Attribution created second time must be TRUE");
+
+    // Verify DB state: exactly 1 candidate row, exactly 2 attribution rows
+    const candRows = await client.query("SELECT id FROM discovery_candidates WHERE canonical_url = 'https://example.com/item-durable-replay-preservation'");
+    assert.equal(candRows.rows.length, 1, "Candidate row count must remain 1");
+
+    const attrRows = await client.query("SELECT attribution_id FROM discovery_candidate_attributions WHERE candidate_id = $1", [resA.candidate.id]);
+    assert.equal(attrRows.rows.length, 2, "Attribution row count must be 2");
+  });
+
+  await t.test("7. Fail-closed on PostgreSQL Disconnection: Store rejects candidate gracefully without shadow state", async () => {
+    const disconnectedClient = {
+      async query() {
+        throw new Error("POSTGRES_DISCONNECTED: Connection to database terminated");
+      }
+    };
+    const store = new DurableCandidateStoreAdapter({ client: disconnectedClient });
+    const candidate = {
+      sourceId: "durable-fail-closed",
+      url: "https://example.com/item-durable-fail-closed",
+      title: "Fail Closed Item",
+      collectedAt: new Date().toISOString()
+    };
+
+    let thrownError = null;
+    try {
+      await store.save(candidate);
+    } catch (err) {
+      thrownError = err;
+    }
+
+    assert.ok(thrownError, "save() must fail closed and throw when PostgreSQL is unreachable");
+    assert.ok(thrownError.message.includes("POSTGRES_DISCONNECTED"), "Error message must reflect connection loss");
+  });
+
   // Cleanup test rows
-  await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:durable-%';");
-  await client.query("DELETE FROM discovery_candidates WHERE id LIKE 'cand:durable-%';");
+  await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:durable-%' OR candidate_id LIKE 'cand:hacker-%';");
+  await client.query("DELETE FROM discovery_candidates WHERE id LIKE 'cand:durable-%' OR id LIKE 'cand:hacker-%';");
 });

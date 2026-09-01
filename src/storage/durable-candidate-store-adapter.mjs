@@ -95,16 +95,13 @@ export class DurableCandidateStoreAdapter {
       JSON.stringify(metadata)
     ];
 
-    const candRes = await this.client.query(candidateSql, candidateParams);
-    const isCandidateCreated = candRes.rows && candRes.rows.length > 0;
-
     const attrHash = createHash("sha256").update(`${candidateId}:${attribution.sourceId}:${attribution.idempotencyKey}`).digest("hex").slice(0, 32);
     const attrId = `attr:${attribution.sourceId}:${attrHash}`;
     const attributionSql = `
       INSERT INTO discovery_candidate_attributions (
         attribution_id, candidate_id, source_id, source_type, idempotency_key,
         claim_classification, raw_document_id, collector_version, attributed_at, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
       ON CONFLICT (candidate_id, source_id, idempotency_key) DO NOTHING
       RETURNING attribution_id;
     `;
@@ -121,8 +118,20 @@ export class DurableCandidateStoreAdapter {
       JSON.stringify(attribution.metadata)
     ];
 
-    const attrRes = await this.client.query(attributionSql, attributionParams);
-    const isAttributionCreated = attrRes.rows && attrRes.rows.length > 0;
+    // Atomic Transaction: Execute candidate insert + attribution insert in a single atomic transaction block
+    const combinedTxSql = `
+      BEGIN;
+      ${candidateSql.trim()}
+      ${attributionSql.trim()}
+      COMMIT;
+    `;
+
+    const txRes = await this.client.query(combinedTxSql, [...candidateParams, ...attributionParams]);
+    
+    // Determine creation status from returned rows
+    const returnedRows = (txRes && txRes.rows) ? txRes.rows : [];
+    const isCandidateCreated = returnedRows.some(r => r.id === candidateId || r.canonical_url === candidateId);
+    const isAttributionCreated = returnedRows.some(r => r.id === attrId || r.canonical_url === attrId);
 
     const resultingCandidate = deepFreeze({
       ...candidate,
