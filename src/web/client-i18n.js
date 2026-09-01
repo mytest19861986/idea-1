@@ -116,13 +116,23 @@ const FA_TRANSLATIONS = {
   "discovery.healthHealthy": "🟢 سالم",
   "discovery.healthLimited": "🟡 محدود",
   "discovery.healthDegraded": "🟠 کند",
-  "discovery.healthError": "🔴 خطا"
+  "discovery.healthError": "🔴 خطا",
+  "discovery.sending": "⏳ در حال ارسال...",
+  "discovery.starting": "⚡ در حال شروع...",
+  "discovery.runningTimer": "⚡ در حال اجرا",
+  "discovery.completedIn": "✅ اجرا تکمیل شد —",
+  "discovery.alreadyRunning": "⚠ یک اجرا از قبل فعال است —",
+  "discovery.failed": "❌ اجرا ناموفق بود",
+  "discovery.unauthorized": "نشست کاربری معتبر نیست",
+  "discovery.forbidden": "دسترسی اجرای آنی ندارید",
+  "discovery.serverError": "خطای سرور در اجرای آنی",
+  "discovery.rawSignalsShort": "سیگنال خام"
 };
 
 const EN_TRANSLATIONS = {
   // Brand & Header
   "app.title": "OPPORTUNITY INTEL",
-  "app.version": "v1.0.0-rc.7",
+  "app.version": "v1.0.0-rc.8-dev",
   "header.dataSource": "DATA_SOURCE:",
   "header.livePilot": "🟢 LIVE PILOT DATA (POSTGRESQL)",
   "header.referenceFixture": "🔵 REFERENCE FIXTURE MODE",
@@ -237,7 +247,17 @@ const EN_TRANSLATIONS = {
   "discovery.healthHealthy": "🟢 Healthy",
   "discovery.healthLimited": "🟡 Limited",
   "discovery.healthDegraded": "🟠 Degraded",
-  "discovery.healthError": "🔴 Error"
+  "discovery.healthError": "🔴 Error",
+  "discovery.sending": "⏳ Sending...",
+  "discovery.starting": "⚡ Starting...",
+  "discovery.runningTimer": "⚡ Running",
+  "discovery.completedIn": "✅ Completed in",
+  "discovery.alreadyRunning": "⚠ Run already in progress —",
+  "discovery.failed": "❌ Run failed",
+  "discovery.unauthorized": "Unauthorized session",
+  "discovery.forbidden": "Forbidden action",
+  "discovery.serverError": "Server error during Run Now",
+  "discovery.rawSignalsShort": "Raw Signals"
 };
 
 let currentAppLocale = localStorage.getItem("app_user_locale") || "fa-IR";

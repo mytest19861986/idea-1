@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import http, { createServer, request } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,14 +68,18 @@ async function startPlatform() {
 
   const provider = createInMemoryOpportunityReadProvider(mockItems);
   const { LiveDiscoveryController, DiscoveryMode } = await import('./src/discovery/live-discovery-control.mjs');
+  const { ReferenceCandidateStore } = await import('./src/runtime/runtime-composition.mjs');
+  
+  const candidateStore = new ReferenceCandidateStore();
   const discoveryController = new LiveDiscoveryController({
-    mode: DiscoveryMode.AUTO
+    mode: DiscoveryMode.AUTO,
+    candidateStore
   });
 
   const fastifyApp = createReadApiServer({ provider, discoveryController, logger: false });
 
-  const API_PORT = 3000;
-  const WEB_PORT = 8080;
+  const API_PORT = parseInt(process.env.BACKEND_PORT || process.env.API_PORT || '3000', 10);
+  const WEB_PORT = parseInt(process.env.FRONTEND_PORT || process.env.WEB_PORT || '8080', 10);
 
   try {
     await fastifyApp.listen({ port: API_PORT, host: '0.0.0.0' });
@@ -87,7 +91,37 @@ async function startPlatform() {
   const webServer = createServer((req, res) => {
     // Enable CORS for development
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // Proxy /api/ requests directly to Fastify backend on API_PORT (3000)
+    if (req.url.startsWith('/api/')) {
+      const proxyReq = http.request({
+        hostname: '127.0.0.1',
+        port: API_PORT,
+        path: req.url,
+        method: req.method,
+        headers: req.headers
+      }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+      });
+
+      proxyReq.on('error', (err) => {
+        console.error('[PROXY ERROR]', err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { code: 'BAD_GATEWAY', message: 'API Backend unavailable' } }));
+      });
+
+      req.pipe(proxyReq, { end: true });
+      return;
+    }
 
     let filePath = path.join(__dirname, 'src', 'web', req.url === '/' ? 'index.html' : req.url);
     if (!fs.existsSync(filePath)) {

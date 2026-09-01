@@ -199,14 +199,18 @@ test("LOCAL-LIVE-DISCOVERY-001: Non-destructive OFF preservation preserves all e
 });
 
 test("LOCAL-LIVE-DISCOVERY-001: Per-item daily budget cap breaks loop immediately (C1)", async () => {
+  const store = new ReferenceCandidateStore();
   const controller = new LiveDiscoveryController({
     dailyBudget: 2,
+    candidateStore: store,
     fetchFn: async (url) => {
       if (url.includes("showstories.json")) return { ok: true, status: 200, json: async () => [1, 2, 3, 4, 5] };
+      const idMatch = url.match(/item\/(\d+)\.json/);
+      const id = idMatch ? idMatch[1] : "1";
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: 1, by: "dev", title: "Item", url: "https://example.com/app", time: 1700000000 })
+        json: async () => ({ id: parseInt(id, 10), by: "dev", title: `Item ${id}`, url: `https://example.com/app-${id}`, time: 1700000000 })
       };
     }
   });
@@ -348,7 +352,7 @@ test("LOCAL-LIVE-DISCOVERY-003: Telemetry fields, separate lastSuccessfulRunAt, 
 
   // 1. Initial State
   const initialStatus = controller.getStatus();
-  assert.equal(initialStatus.runtimeVersion, "1.0.0-rc.7");
+  assert.equal(initialStatus.runtimeVersion, "1.0.0-rc.8-dev");
   assert.equal(initialStatus.lastRunStartedAt, null);
   assert.equal(initialStatus.lastSuccessfulRunAt, null);
   assert.equal(initialStatus.nextScheduledRunAt, null);

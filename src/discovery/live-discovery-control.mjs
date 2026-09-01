@@ -74,7 +74,7 @@ export class LiveDiscoveryController {
       filtered: 0,
       newOpportunities: 0
     };
-    this.runtimeVersion = "1.0.0-rc.7";
+    this.runtimeVersion = "1.0.0-rc.8-dev";
     this.dailyCountResetDate = new Date().toISOString().slice(0, 10);
 
     // Source registry state for approved active sources
@@ -239,35 +239,35 @@ export class LiveDiscoveryController {
                   break;
                 }
 
-                // Process through candidate store if provided
-                if (this.candidateStore) {
-                  const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
-                  const itemForNorm = {
-                    url: targetUrl,
-                    title: rawDoc.title || "Untitled",
-                    summary: rawDoc.rawText || "",
-                    externalId: rawDoc.canonicalUrl
-                  };
-                  const normalized = normalizeCollectedItem(itemForNorm, {
-                    sourceId: source.id,
-                    collectedAt: new Date().toISOString()
-                  });
+                // Enforce MANDATORY_FIX_2: Fail-closed if candidateStore is absent (LOCAL-LIVE-DISCOVERY-005)
+                if (!this.candidateStore) {
+                  source.health = DiscoveryHealthStatus.DEGRADED;
+                  source.lastError = "MISSING_CANDIDATE_STORE: candidateStore dependency required for dedup integrity";
+                  throw new Error(source.lastError);
+                }
 
-                  if (normalized) {
-                    const saveRes = this.candidateStore.save(normalized);
-                    if (saveRes && saveRes.created) {
-                      newItemsCount++;
-                      sourceNewCandidates++;
-                      this.todayDiscoveredCount++;
-                    } else {
-                      sourceDedupReplays++;
-                      totalDedupReplays++;
-                    }
+                const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
+                const itemForNorm = {
+                  url: targetUrl,
+                  title: rawDoc.title || "Untitled",
+                  summary: rawDoc.rawText || "",
+                  externalId: rawDoc.canonicalUrl
+                };
+                const normalized = normalizeCollectedItem(itemForNorm, {
+                  sourceId: source.id,
+                  collectedAt: new Date().toISOString()
+                });
+
+                if (normalized) {
+                  const saveRes = this.candidateStore.save(normalized);
+                  if (saveRes && saveRes.created) {
+                    newItemsCount++;
+                    sourceNewCandidates++;
+                    this.todayDiscoveredCount++;
+                  } else {
+                    sourceDedupReplays++;
+                    totalDedupReplays++;
                   }
-                } else {
-                  newItemsCount++;
-                  sourceNewCandidates++;
-                  this.todayDiscoveredCount++;
                 }
               }
 
@@ -304,34 +304,35 @@ export class LiveDiscoveryController {
                   break;
                 }
 
-                if (this.candidateStore) {
-                  const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
-                  const itemForNorm = {
-                    url: targetUrl,
-                    title: rawDoc.title || "Untitled",
-                    summary: rawDoc.rawText || "",
-                    externalId: rawDoc.canonicalUrl
-                  };
-                  const normalized = normalizeCollectedItem(itemForNorm, {
-                    sourceId: source.id,
-                    collectedAt: new Date().toISOString()
-                  });
+                // Enforce MANDATORY_FIX_2: Fail-closed if candidateStore is absent (LOCAL-LIVE-DISCOVERY-005)
+                if (!this.candidateStore) {
+                  source.health = DiscoveryHealthStatus.DEGRADED;
+                  source.lastError = "MISSING_CANDIDATE_STORE: candidateStore dependency required for dedup integrity";
+                  throw new Error(source.lastError);
+                }
 
-                  if (normalized) {
-                    const saveRes = this.candidateStore.save(normalized);
-                    if (saveRes && saveRes.created) {
-                      newItemsCount++;
-                      sourceNewCandidates++;
-                      this.todayDiscoveredCount++;
-                    } else {
-                      sourceDedupReplays++;
-                      totalDedupReplays++;
-                    }
+                const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
+                const itemForNorm = {
+                  url: targetUrl,
+                  title: rawDoc.title || "Untitled",
+                  summary: rawDoc.rawText || "",
+                  externalId: rawDoc.canonicalUrl
+                };
+                const normalized = normalizeCollectedItem(itemForNorm, {
+                  sourceId: source.id,
+                  collectedAt: new Date().toISOString()
+                });
+
+                if (normalized) {
+                  const saveRes = this.candidateStore.save(normalized);
+                  if (saveRes && saveRes.created) {
+                    newItemsCount++;
+                    sourceNewCandidates++;
+                    this.todayDiscoveredCount++;
+                  } else {
+                    sourceDedupReplays++;
+                    totalDedupReplays++;
                   }
-                } else {
-                  newItemsCount++;
-                  sourceNewCandidates++;
-                  this.todayDiscoveredCount++;
                 }
               }
 
