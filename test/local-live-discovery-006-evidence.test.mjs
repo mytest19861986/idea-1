@@ -47,20 +47,20 @@ test("LOCAL_LIVE_DISCOVERY_006: Comprehensive Evidence Closure Suite", async (t)
   });
 
   await t.test("Section 5: Cross-Source Provenance Invariant", async () => {
-    await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:hacker-%' OR candidate_id LIKE 'cand:github-%';");
-    await client.query("DELETE FROM discovery_candidates WHERE id LIKE 'cand:hacker-%' OR id LIKE 'cand:github-%';");
+    const commonUrl = "https://example.com/cross-source-evidence-unique-item";
+    await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:hacker-evidence-%' OR candidate_id LIKE 'cand:github-evidence-%';");
+    await client.query("DELETE FROM discovery_candidates WHERE canonical_url = $1;", [commonUrl]);
 
     const store = new DurableCandidateStoreAdapter({ client });
-    const commonUrl = "https://example.com/cross-source-item";
 
     const candA = {
-      sourceId: "hacker-news-official-api",
+      sourceId: "hacker-evidence-src",
       url: commonUrl,
       title: "HN Item",
       collectedAt: new Date().toISOString()
     };
     const candB = {
-      sourceId: "github-official-search-api",
+      sourceId: "github-evidence-src",
       url: commonUrl,
       title: "GitHub Item",
       collectedAt: new Date().toISOString()
