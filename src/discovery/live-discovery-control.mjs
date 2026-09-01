@@ -37,6 +37,7 @@ export class LiveDiscoveryController {
       intervalMs = DEFAULT_DISCOVERY_INTERVAL_MS,
       dailyBudget = DEFAULT_DAILY_BUDGET,
       candidateStore = null,
+      opportunityStore = null,
       fetchFn = null
     } = options;
 
@@ -51,6 +52,7 @@ export class LiveDiscoveryController {
     this.intervalMs = intervalMs;
     this.dailyBudget = dailyBudget;
     this.candidateStore = candidateStore;
+    this.opportunityStore = opportunityStore;
     this.fetchFn = fetchFn;
 
     this.timer = null;
@@ -204,6 +206,7 @@ export class LiveDiscoveryController {
     this.currentRunId = `run:${startTime.replace(/[:.]/g, "-")}`;
     
     let newItemsCount = 0;
+    let newOpportunitiesCount = 0;
     let totalRawSignals = 0;
     let totalDedupReplays = 0;
     const currentRunSourceResults = {};
@@ -264,6 +267,19 @@ export class LiveDiscoveryController {
                     newItemsCount++;
                     sourceNewCandidates++;
                     this.todayDiscoveredCount++;
+
+                    // Process into opportunity store if wired
+                    if (this.opportunityStore && typeof this.opportunityStore.createFromCandidate === "function") {
+                      const oppRes = this.opportunityStore.createFromCandidate(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    } else if (this.opportunityStore && typeof this.opportunityStore.save === "function") {
+                      const oppRes = this.opportunityStore.save(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    }
                   } else {
                     sourceDedupReplays++;
                     totalDedupReplays++;
@@ -329,6 +345,19 @@ export class LiveDiscoveryController {
                     newItemsCount++;
                     sourceNewCandidates++;
                     this.todayDiscoveredCount++;
+
+                    // Process into opportunity store if wired
+                    if (this.opportunityStore && typeof this.opportunityStore.createFromCandidate === "function") {
+                      const oppRes = this.opportunityStore.createFromCandidate(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    } else if (this.opportunityStore && typeof this.opportunityStore.save === "function") {
+                      const oppRes = this.opportunityStore.save(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    }
                   } else {
                     sourceDedupReplays++;
                     totalDedupReplays++;
@@ -377,7 +406,7 @@ export class LiveDiscoveryController {
         this.lastRunStatus = "SUCCESS";
       }
 
-      this.lastRunNewOpportunities = newItemsCount;
+      this.lastRunNewOpportunities = newOpportunitiesCount;
       if (this.lastRunStatus === "SUCCESS") {
         this.lastSuccessfulRunAt = new Date().toISOString();
       }
@@ -396,7 +425,7 @@ export class LiveDiscoveryController {
         newCandidates: newItemsCount,
         dedupReplays: totalDedupReplays,
         filtered: 0,
-        newOpportunities: newItemsCount
+        newOpportunities: newOpportunitiesCount
       };
     }
 
