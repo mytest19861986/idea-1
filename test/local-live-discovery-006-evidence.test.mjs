@@ -75,6 +75,9 @@ test("LOCAL_LIVE_DISCOVERY_006: Comprehensive Evidence Closure Suite", async (t)
 
     const rows = await client.query("SELECT id, canonical_url FROM discovery_candidates WHERE canonical_url = $1", [commonUrl]);
     assert.equal(rows.rows.length, 2, "Both cross-source candidates must exist distinctly in DB");
+
+    await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:hacker-evidence-%' OR candidate_id LIKE 'cand:github-evidence-%';");
+    await client.query("DELETE FROM discovery_candidates WHERE canonical_url = $1;", [commonUrl]);
   });
 
   await t.test("Section 6: Identity Drift Edge Case", async () => {

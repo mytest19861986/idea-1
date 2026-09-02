@@ -12,7 +12,7 @@ test("LOCAL-LIVE-DISCOVERY-006: Durable Candidate Dedup Persistence Suite", asyn
   const client = createPostgresCliClient({ database: "discovery_test" });
 
   // Set up clean test scope in DB for this suite
-  await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:hacker-%' OR candidate_id LIKE 'cand:durable-%';");
+  await client.query("DELETE FROM discovery_candidate_attributions;");
   await client.query("DELETE FROM discovery_candidates WHERE id LIKE 'cand:hacker-%' OR id LIKE 'cand:durable-%';");
 
   await t.test("1. First ingest saves candidate and attribution atomically (created: true)", async () => {
@@ -235,6 +235,6 @@ test("LOCAL-LIVE-DISCOVERY-006: Durable Candidate Dedup Persistence Suite", asyn
   });
 
   // Cleanup test rows
-  await client.query("DELETE FROM discovery_candidate_attributions WHERE candidate_id LIKE 'cand:durable-%' OR candidate_id LIKE 'cand:hacker-%';");
+  await client.query("DELETE FROM discovery_candidate_attributions;");
   await client.query("DELETE FROM discovery_candidates WHERE id LIKE 'cand:durable-%' OR id LIKE 'cand:hacker-%';");
 });
