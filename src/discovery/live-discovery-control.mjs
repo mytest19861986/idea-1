@@ -77,7 +77,7 @@ export class LiveDiscoveryController {
       filtered: 0,
       newOpportunities: 0
     };
-    this.runtimeVersion = "1.0.0-rc.8-dev";
+    this.runtimeVersion = "1.0.0-rc.8";
     this.dailyCountResetDate = new Date().toISOString().slice(0, 10);
 
     // Source registry state for approved active sources
