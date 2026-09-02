@@ -357,7 +357,7 @@ test("LOCAL-LIVE-DISCOVERY-003: Telemetry fields, separate lastSuccessfulRunAt, 
   assert.equal(initialStatus.lastSuccessfulRunAt, null);
   assert.equal(initialStatus.nextScheduledRunAt, null);
   assert.equal(initialStatus.isRunning, false);
-  assert.equal(initialStatus.activeSourcesCount, 2);
+  assert.equal(initialStatus.activeSourcesCount, 3);
 
   // 2. Switch to AUTO -> nextScheduledRunAt is computed
   controller.setMode(DiscoveryMode.AUTO);
