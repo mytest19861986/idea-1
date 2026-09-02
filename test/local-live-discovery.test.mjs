@@ -122,7 +122,7 @@ test("LOCAL-LIVE-DISCOVERY-001: Fastify API endpoints expose status, control, an
   assert.equal(statusRes.statusCode, 200);
   const statusJson = JSON.parse(statusRes.body);
   assert.equal(statusJson.mode, "OFF");
-  assert.equal(statusJson.activeSourcesCount, 2);
+  assert.equal(statusJson.activeSourcesCount, 3);
 
   // 2. POST control (switch to AUTO)
   const controlRes = await app.inject({

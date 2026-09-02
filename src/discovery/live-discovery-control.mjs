@@ -102,6 +102,16 @@ export class LiveDiscoveryController {
         lastError: null,
         errorCount: 0
       }],
+      ["betalist-startup-feed", {
+        id: "betalist-startup-feed",
+        name: "BetaList Startup Feed",
+        status: "ACTIVE",
+        governanceStatus: "APPROVED",
+        health: DiscoveryHealthStatus.HEALTHY,
+        lastSuccessAt: null,
+        lastError: null,
+        errorCount: 0
+      }],
       ["product-hunt-official-api", {
         id: "product-hunt-official-api",
         name: "Product Hunt Official GraphQL API v2",
@@ -399,6 +409,82 @@ export class LiveDiscoveryController {
               };
             } else if (searchResult && !searchResult.ok) {
               throw new Error(searchResult.failure?.message || "GitHub Search API fetch failed");
+            }
+          } else if (source.id === "betalist-startup-feed") {
+            const { createBetaListCollector } = await import("../collection/betalist-collector.mjs");
+            const collectorOptions = {};
+            if (this.fetchFn) {
+              collectorOptions.fetchFn = this.fetchFn;
+            }
+            const collector = createBetaListCollector(collectorOptions);
+            const feedResult = await collector.fetchFeed({ limit: 5 });
+
+            if (feedResult && feedResult.ok && Array.isArray(feedResult.documents)) {
+              sourceItemsFetched = feedResult.documents.length;
+              totalRawSignals += sourceItemsFetched;
+
+              for (const rawDoc of feedResult.documents) {
+                if (!rawDoc || !rawDoc.canonicalUrl) continue;
+
+                if (this.todayDiscoveredCount >= this.dailyBudget) {
+                  break;
+                }
+
+                if (!this.candidateStore) {
+                  source.health = DiscoveryHealthStatus.DEGRADED;
+                  source.lastError = "MISSING_CANDIDATE_STORE: candidateStore dependency required for dedup integrity";
+                  throw new Error(source.lastError);
+                }
+
+                const targetUrl = rawDoc.contentReference || rawDoc.canonicalUrl;
+                const itemForNorm = {
+                  url: targetUrl,
+                  title: rawDoc.title || "Untitled",
+                  summary: rawDoc.rawText || "",
+                  externalId: rawDoc.canonicalUrl
+                };
+                const normalized = normalizeCollectedItem(itemForNorm, {
+                  sourceId: source.id,
+                  collectedAt: new Date().toISOString()
+                });
+
+                if (normalized) {
+                  const saveRes = await this.candidateStore.save(normalized);
+                  if (saveRes && saveRes.created) {
+                    newItemsCount++;
+                    sourceNewCandidates++;
+                    this.todayDiscoveredCount++;
+
+                    if (this.opportunityStore && typeof this.opportunityStore.createFromCandidate === "function") {
+                      const oppRes = this.opportunityStore.createFromCandidate(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    } else if (this.opportunityStore && typeof this.opportunityStore.save === "function") {
+                      const oppRes = this.opportunityStore.save(saveRes.candidate);
+                      if (oppRes && oppRes.created) {
+                        newOpportunitiesCount++;
+                      }
+                    }
+                  } else {
+                    sourceDedupReplays++;
+                    totalDedupReplays++;
+                  }
+                }
+              }
+
+              source.health = DiscoveryHealthStatus.HEALTHY;
+              source.lastSuccessAt = new Date().toISOString();
+              source.errorCount = 0;
+              source.lastError = null;
+              currentRunSourceResults[source.id] = {
+                status: "SUCCESS",
+                itemsFetched: sourceItemsFetched,
+                newCandidates: sourceNewCandidates,
+                dedupReplays: sourceDedupReplays
+              };
+            } else if (feedResult && !feedResult.ok) {
+              throw new Error(feedResult.failure?.message || "BetaList fetch failed");
             }
           }
         } catch (sourceErr) {
